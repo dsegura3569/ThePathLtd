@@ -79,14 +79,21 @@
     color:var(--ink-soft); transition:transform 0.2s ease;
   }
   .region-card[open] .region-title-row::after{ content:'–'; }
+  .region-content{ display:flex; gap:1.25rem; align-items:flex-start; margin-top:1rem; }
   .region-thumb{
-    width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:8px;
-    margin-top:1rem; display:block; max-width:220px;
+    width:130px; height:130px; flex-shrink:0; object-fit:cover; border-radius:8px;
+    display:block;
   }
-  .region-body{ margin-top:1rem; }
+  .region-body{ flex:1; min-width:0; }
+  .region-body:first-child{ margin-top:0; }
+  .region-body h4:first-child{ margin-top:0; }
   .region-body h4{
     font-family:var(--font-mono); font-size:0.75rem; letter-spacing:0.06em;
     text-transform:uppercase; color:var(--ink-soft); margin:1rem 0 0.4rem;
+  }
+  @media (max-width:520px){
+    .region-content{ flex-direction:column; }
+    .region-thumb{ width:100%; height:auto; aspect-ratio:1/1; max-width:220px; }
   }
   .region-body h4:first-child{ margin-top:0; }
   .region-caution{
@@ -136,14 +143,16 @@
     <details class="region-card">
       <summary>
         <div class="region-title-row">Hands, Wrist &amp; Forearm</div>
-        <img class="region-thumb" src="assets/forearm.jpg" alt="Self-massage of the forearm" loading="lazy">
       </summary>
-      <div class="region-body">
-        <h4>How</h4>
-        <p>Work along the forearm from wrist toward elbow, pressing with your thumb or fingers and pausing on any tender spot for 10–30 seconds, or use small kneading circles. For the hand, work between the finger joints and across the palm.</p>
-        <h4>Direction</h4>
-        <p>Stroke toward the elbow, not away from it — this follows the natural direction of venous and lymphatic drainage back toward the heart.</p>
-        <div class="region-caution"><strong>Care:</strong> stay light directly in the inner elbow crease — that's the antecubital fossa, an endangerment site.</div>
+      <div class="region-content">
+        <img class="region-thumb" src="assets/forearm.jpg" alt="Self-massage of the forearm" loading="lazy">
+        <div class="region-body">
+          <h4>How</h4>
+          <p>Work along the forearm from wrist toward elbow, pressing with your thumb or fingers and pausing on any tender spot for 10–30 seconds, or use small kneading circles. For the hand, work between the finger joints and across the palm.</p>
+          <h4>Direction</h4>
+          <p>Stroke toward the elbow, not away from it — this follows the natural direction of venous and lymphatic drainage back toward the heart.</p>
+          <div class="region-caution"><strong>Care:</strong> stay light directly in the inner elbow crease — that's the antecubital fossa, an endangerment site.</div>
+        </div>
       </div>
     </details>
 
@@ -163,70 +172,80 @@
     <details class="region-card">
       <summary>
         <div class="region-title-row">Neck &amp; Upper Back</div>
-        <img class="region-thumb" src="assets/posterior_neck.jpg" alt="Self-massage of the posterior neck" loading="lazy">
       </summary>
-      <div class="region-body">
-        <h4>How</h4>
-        <p>Work the back and sides of the neck and the base of the skull with your fingertips, or lean into a tennis ball against a wall for the muscles alongside your upper spine.</p>
-        <h4>Direction</h4>
-        <p>Small circles or sustained holds on tender spots, moving slowly.</p>
-        <div class="region-caution"><strong>Care:</strong> keep self-massage to the back and sides of the neck only. Never press firmly on the front of the throat — that's where the carotid artery and jugular vein sit.</div>
+      <div class="region-content">
+        <img class="region-thumb" src="assets/posterior_neck.jpg" alt="Self-massage of the posterior neck" loading="lazy">
+        <div class="region-body">
+          <h4>How</h4>
+          <p>Work the back and sides of the neck and the base of the skull with your fingertips, or lean into a tennis ball against a wall for the muscles alongside your upper spine.</p>
+          <h4>Direction</h4>
+          <p>Small circles or sustained holds on tender spots, moving slowly.</p>
+          <div class="region-caution"><strong>Care:</strong> keep self-massage to the back and sides of the neck only. Never press firmly on the front of the throat — that's where the carotid artery and jugular vein sit.</div>
+        </div>
       </div>
     </details>
 
     <details class="region-card">
       <summary>
         <div class="region-title-row">Collarbone &amp; Chest</div>
-        <img class="region-thumb" src="assets/chest.jpg" alt="Self-massage of the chest" loading="lazy">
       </summary>
-      <div class="region-body">
-        <h4>How</h4>
-        <p>Massage the chest muscles (pectorals) working from the breastbone outward toward the shoulder — useful for the tightness that comes with rounded-shoulder posture.</p>
-        <h4>Direction</h4>
-        <p>Outward, from center to shoulder, with flat fingers or knuckles.</p>
-        <div class="region-caution"><strong>Care:</strong> avoid pressing directly on the collarbone itself (it's bone, not muscle) or on the notch at the base of the throat.</div>
+      <div class="region-content">
+        <img class="region-thumb" src="assets/chest.jpg" alt="Self-massage of the chest" loading="lazy">
+        <div class="region-body">
+          <h4>How</h4>
+          <p>Massage the chest muscles (pectorals) working from the breastbone outward toward the shoulder — useful for the tightness that comes with rounded-shoulder posture.</p>
+          <h4>Direction</h4>
+          <p>Outward, from center to shoulder, with flat fingers or knuckles.</p>
+          <div class="region-caution"><strong>Care:</strong> avoid pressing directly on the collarbone itself (it's bone, not muscle) or on the notch at the base of the throat.</div>
+        </div>
       </div>
     </details>
 
     <details class="region-card">
       <summary>
         <div class="region-title-row">Abdomen</div>
-        <img class="region-thumb" src="assets/abdomen.jpg" alt="Self-massage of the abdomen" loading="lazy">
       </summary>
-      <div class="region-body">
-        <h4>How</h4>
-        <p>Gentle circular strokes with a flat hand, generally moving clockwise — this follows the natural path of the large intestine and is commonly used for digestive comfort. Keep pressure light throughout.</p>
-        <h4>Direction</h4>
-        <p>Clockwise, light pressure, slow pace.</p>
-        <div class="region-caution"><strong>Care:</strong> keep pressure light around the navel (the abdominal aorta runs beneath) and skip firm or percussive pressure on the low back over the kidneys entirely.</div>
+      <div class="region-content">
+        <img class="region-thumb" src="assets/abdomen.jpg" alt="Self-massage of the abdomen" loading="lazy">
+        <div class="region-body">
+          <h4>How</h4>
+          <p>Gentle circular strokes with a flat hand, generally moving clockwise — this follows the natural path of the large intestine and is commonly used for digestive comfort. Keep pressure light throughout.</p>
+          <h4>Direction</h4>
+          <p>Clockwise, light pressure, slow pace.</p>
+          <div class="region-caution"><strong>Care:</strong> keep pressure light around the navel (the abdominal aorta runs beneath) and skip firm or percussive pressure on the low back over the kidneys entirely.</div>
+        </div>
       </div>
     </details>
 
     <details class="region-card">
       <summary>
         <div class="region-title-row">Upper Legs</div>
-        <img class="region-thumb" src="assets/upper_legs.jpg" alt="Self-massage of the upper leg" loading="lazy">
       </summary>
-      <div class="region-body">
-        <h4>How</h4>
-        <p>Knead the front of the thigh (quadriceps) and back of the thigh (hamstrings) with your palm or a loose fist, working in sections rather than trying to cover the whole thigh at once.</p>
-        <h4>Direction</h4>
-        <p>Generally upward, toward the hip.</p>
-        <div class="region-caution"><strong>Care:</strong> avoid deep pressure in the inner thigh crease near the groin (the femoral triangle) and avoid digging deep into the center of the glute (the sciatic notch, where the sciatic nerve passes through).</div>
+      <div class="region-content">
+        <img class="region-thumb" src="assets/upper_legs.jpg" alt="Self-massage of the upper leg" loading="lazy">
+        <div class="region-body">
+          <h4>How</h4>
+          <p>Knead the front of the thigh (quadriceps) and back of the thigh (hamstrings) with your palm or a loose fist, working in sections rather than trying to cover the whole thigh at once.</p>
+          <h4>Direction</h4>
+          <p>Generally upward, toward the hip.</p>
+          <div class="region-caution"><strong>Care:</strong> avoid deep pressure in the inner thigh crease near the groin (the femoral triangle) and avoid digging deep into the center of the glute (the sciatic notch, where the sciatic nerve passes through).</div>
+        </div>
       </div>
     </details>
 
     <details class="region-card">
       <summary>
         <div class="region-title-row">Lower Legs, Ankles &amp; Feet</div>
-        <img class="region-thumb" src="assets/lower_legs.jpg" alt="Self-massage of the lower leg" loading="lazy">
       </summary>
-      <div class="region-body">
-        <h4>How</h4>
-        <p>Knead the calf from ankle toward knee. For the feet, roll the sole over a ball or bottle, and use your thumbs to work the arch. Gentle circles at the ankle joint help with mobility.</p>
-        <h4>Direction</h4>
-        <p>Calf: ankle toward knee. Foot: whatever feels good — this area responds well to broad, exploratory pressure.</p>
-        <div class="region-caution"><strong>Care:</strong> avoid deep pressure directly behind the knee — that's the popliteal fossa, where an artery and nerve sit close to the surface.</div>
+      <div class="region-content">
+        <img class="region-thumb" src="assets/lower_legs.jpg" alt="Self-massage of the lower leg" loading="lazy">
+        <div class="region-body">
+          <h4>How</h4>
+          <p>Knead the calf from ankle toward knee. For the feet, roll the sole over a ball or bottle, and use your thumbs to work the arch. Gentle circles at the ankle joint help with mobility.</p>
+          <h4>Direction</h4>
+          <p>Calf: ankle toward knee. Foot: whatever feels good — this area responds well to broad, exploratory pressure.</p>
+          <div class="region-caution"><strong>Care:</strong> avoid deep pressure directly behind the knee — that's the popliteal fossa, where an artery and nerve sit close to the surface.</div>
+        </div>
       </div>
     </details>
 
