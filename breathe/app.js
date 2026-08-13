@@ -81,20 +81,38 @@ function BpmOrSecondsControl({ technique, duration, setDuration }) {
 }
 
 function App() {
-  const [view, setView] = useState('select'); // 'select' | 'configure' | 'session' | 'philosopher' | 'philosopher-session'
+  const [view, setView] = useState('select'); // 'select' | 'configure' | 'session' | 'philosopher' | 'finite-session'
   const [technique, setTechnique] = useState(null);
   const [duration, setDuration] = useState(null);
   const [soundMode, setSoundMode] = useState('tick');
+  const [holdWalkSeconds, setHoldWalkSeconds] = useState(null);
+  const [restSeconds, setRestSeconds] = useState(null);
   const [customPhases, setCustomPhases] = useState(null);
   const [customSoundMode, setCustomSoundMode] = useState('tick');
+  const [customTitle, setCustomTitle] = useState('');
+  const [customCue, setCustomCue] = useState('');
+  const [customStageLabelFor, setCustomStageLabelFor] = useState(null);
 
   function chooseTechnique(t) {
     setTechnique(t);
-    setDuration(t.durationMode === 'selectable' ? t.default : null);
+    if (t.finite) {
+      setHoldWalkSeconds(t.holdWalk.default);
+      setRestSeconds(t.rest.default);
+    } else {
+      setDuration(t.durationMode === 'selectable' ? t.default : null);
+    }
     setView('configure');
   }
 
   function startSession() {
+    if (technique && technique.finite) {
+      const phases = window.resolveRecoveryWalkingPhases(holdWalkSeconds, restSeconds);
+      launchFiniteSession({
+        phases, soundMode, title: technique.name, cue: technique.cue,
+        stageLabelFor: phase => phase.stageIndex != null ? `Rep ${phase.stageIndex + 1} of 5` : null,
+      });
+      return;
+    }
     setView('session');
   }
 
@@ -103,27 +121,39 @@ function App() {
     setTechnique(null);
   }
 
-  function startPhilosopherSession({ phases, soundMode: sm }) {
+  function launchFiniteSession({ phases, soundMode: sm, title, stageLabelFor, cue }) {
     setCustomPhases(phases);
     setCustomSoundMode(sm);
-    setView('philosopher-session');
+    setCustomTitle(title);
+    setCustomCue(cue || '');
+    setCustomStageLabelFor(() => stageLabelFor);
+    setView('finite-session');
   }
 
-  function exitPhilosopherSession() {
+  function startPhilosopherSession({ phases, soundMode: sm }) {
+    launchFiniteSession({
+      phases, soundMode: sm, title: 'Philosopher',
+      stageLabelFor: phase => phase.stageIndex != null ? `Stage ${phase.stageIndex + 1}` : 'Rest',
+    });
+  }
+
+  function exitFiniteSession() {
     setView('select');
     setCustomPhases(null);
+    setTechnique(null);
   }
 
-  if (view === 'philosopher-session' && customPhases) {
+  if (view === 'finite-session' && customPhases) {
     return (
       <window.SessionView
         phases={customPhases}
         loop={false}
         soundMode={customSoundMode}
-        title="Philosopher"
-        stageLabelFor={phase => phase.stageIndex != null ? `Stage ${phase.stageIndex + 1}` : 'Rest'}
-        onExit={exitPhilosopherSession}
-        onComplete={exitPhilosopherSession}
+        title={customTitle}
+        stageLabelFor={customStageLabelFor}
+        cue={customCue}
+        onExit={exitFiniteSession}
+        onComplete={exitFiniteSession}
       />
     );
   }
@@ -150,6 +180,30 @@ function App() {
         <p className="eyebrow" style={{ marginTop: '1.5rem' }}>Breathwork Assistant</p>
         <h1>{technique.name}</h1>
         <p>{technique.description}</p>
+
+        {technique.finite && (
+          <div style={{ margin: '1.5rem 0' }}>
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
+                Hold &amp; walk: {holdWalkSeconds}s (roughly 10&ndash;15 paces)
+              </label>
+              <input type="range" min={technique.holdWalk.min} max={technique.holdWalk.max}
+                value={holdWalkSeconds} onChange={e => setHoldWalkSeconds(Number(e.target.value))}
+                style={{ width: '100%' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
+                Rest between reps: {restSeconds}s
+              </label>
+              <input type="range" min={technique.rest.min} max={technique.rest.max}
+                value={restSeconds} onChange={e => setRestSeconds(Number(e.target.value))}
+                style={{ width: '100%' }} />
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--ink-soft)', marginTop: '0.75rem' }}>
+              Repeats 5 times, then ends.
+            </p>
+          </div>
+        )}
 
         {technique.durationMode === 'selectable' && (
           <div style={{ margin: '1.5rem 0' }}>

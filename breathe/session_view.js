@@ -11,7 +11,7 @@ const PRE_COUNTDOWN_SECONDS = 3;
 // General-purpose breathing session runner. Accepts either:
 //   - technique + chosenDuration (presets: resolves an infinite looping cycle)
 //   - a pre-resolved `phases` array directly + loop:false (Philosopher: finite, ends naturally)
-window.SessionView = function SessionView({ technique, chosenDuration, phases: suppliedPhases, loop, soundMode, title, onExit, onComplete, stageLabelFor }) {
+window.SessionView = function SessionView({ technique, chosenDuration, phases: suppliedPhases, loop, soundMode, title, onExit, onComplete, stageLabelFor, cue }) {
   const phases = suppliedPhases || window.resolvePhases(technique, chosenDuration);
   const shouldLoop = loop !== false; // default true for presets
   const circleRef = useRef(null);
@@ -199,8 +199,8 @@ window.SessionView = function SessionView({ technique, chosenDuration, phases: s
 
       <h2 style={{ color: 'var(--breathe-color)', marginBottom: '2rem' }}>{label}</h2>
 
-      {technique && technique.cue && (
-        <p style={{ maxWidth: '32ch', marginBottom: '2rem' }}>{technique.cue}</p>
+      {(cue || (technique && technique.cue)) && (
+        <p style={{ maxWidth: '32ch', marginBottom: '2rem' }}>{cue || technique.cue}</p>
       )}
 
       <div style={{ display: 'flex', gap: '1rem' }}>
