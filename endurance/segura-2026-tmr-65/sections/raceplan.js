@@ -2,19 +2,26 @@ function RaceDayPlanView() {
   const [active, setActive] = React.useState(1);
   const seg = segments.find(s => s.id === active);
 
-  const CONTAINERS = { vest: { label: 'Vest', ml: 500 }, belt: { label: 'Belt', ml: 650 }, bladder: { label: 'Bladder', ml: 1500 } };
+  const CONTAINERS = { vest: { label: 'Vest', ml: 1000, note: '2\u00d7500ml' }, belt: { label: 'Belt', ml: 650 }, bladder: { label: 'Bladder', ml: 1500 } };
+  const EXTRA_OPTIONS = { none: { label: 'None', ml: 0 }, e500: { label: '500ml', ml: 500 }, e350: { label: '350ml', ml: 350 } };
   const [containerChoice, setContainerChoice] = React.useState({});
+  const [extraChoice, setExtraChoice] = React.useState({}); // { [segId]: { extra1: 'none'|'e500'|'e350', extra2: ... } }
   function defaultContainerFor(waterMl) {
-    if (waterMl <= 500) return 'vest';
     if (waterMl <= 650) return 'belt';
+    if (waterMl <= 1000) return 'vest';
     return 'bladder';
   }
   const selectedContainer = containerChoice[active] || defaultContainerFor(seg.waterMl);
-  const containerMl = CONTAINERS[selectedContainer].ml;
-  const fills = seg.waterMl / containerMl;
+  const segExtras = extraChoice[active] || { extra1: 'none', extra2: 'none' };
+  const extraMl = EXTRA_OPTIONS[segExtras.extra1].ml + EXTRA_OPTIONS[segExtras.extra2].ml;
+  const totalCapacityMl = CONTAINERS[selectedContainer].ml + extraMl;
+  const fills = seg.waterMl / totalCapacityMl;
   const fillsRounded = Math.ceil(fills * 10) / 10;
   const powderPerFill = seg.tailwind / fills;
   const concentrationPerLiter = Math.round((seg.tailwind / (seg.waterMl / 1000)) * 10) / 10;
+  function setExtra(slot, value) {
+    setExtraChoice(prev => ({ ...prev, [active]: { ...(prev[active] || { extra1: 'none', extra2: 'none' }), [slot]: value } }));
+  }
 
   const InfoRow = ({label, value}) => (
     <div style={{display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--line)'}}>
@@ -73,16 +80,41 @@ function RaceDayPlanView() {
 
           <div style={{marginBottom:14}}>
             <SmallLabel color="var(--climb)">Carrying tailwind in</SmallLabel>
-            <div style={{display:'flex', gap:6, marginTop:8}}>
+            <div style={{display:'flex', gap:6, marginTop:8, flexWrap:'wrap'}}>
               {Object.entries(CONTAINERS).map(([key, c]) => (
                 <button key={key} onClick={() => setContainerChoice(prev => ({...prev, [active]: key}))} style={{
                   padding:'8px 14px', borderRadius:8, cursor:'pointer', fontFamily:'var(--body)', fontSize:12.5,
                   border:`1.5px solid ${selectedContainer===key ? 'var(--climb)' : 'var(--line)'}`,
                   background: selectedContainer===key ? 'var(--climb)1a' : 'var(--bg-raised)',
                   color: selectedContainer===key ? 'var(--climb)' : 'var(--ink-dim)', fontWeight: selectedContainer===key ? 600 : 400,
-                }}>{c.label} ({c.ml}ml)</button>
+                }}>{c.label} ({c.ml}ml{c.note ? `, ${c.note}` : ''})</button>
               ))}
             </div>
+
+            <div style={{marginTop:10, display:'flex', gap:14, flexWrap:'wrap'}}>
+              {['extra1', 'extra2'].map((slot, i) => (
+                <div key={slot}>
+                  <div style={{fontSize:10.5, color:'var(--ink-faint)', fontFamily:'var(--mono)', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em'}}>
+                    Extra flask {i+1}
+                  </div>
+                  <div style={{display:'flex', gap:6}}>
+                    {Object.entries(EXTRA_OPTIONS).map(([key, o]) => (
+                      <button key={key} onClick={() => setExtra(slot, key)} style={{
+                        padding:'6px 11px', borderRadius:7, cursor:'pointer', fontFamily:'var(--body)', fontSize:11.5,
+                        border:`1.5px solid ${segExtras[slot]===key ? 'var(--climb)' : 'var(--line)'}`,
+                        background: segExtras[slot]===key ? 'var(--climb)1a' : 'var(--bg-raised)',
+                        color: segExtras[slot]===key ? 'var(--climb)' : 'var(--ink-dim)', fontWeight: segExtras[slot]===key ? 600 : 400,
+                      }}>{o.label}</button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {extraMl > 0 && (
+              <div style={{fontSize:11, color:'var(--ink-faint)', marginTop:8}}>
+                Total capacity: {CONTAINERS[selectedContainer].ml}ml base + {extraMl}ml extra = {totalCapacityMl}ml
+              </div>
+            )}
           </div>
 
           <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))', gap:10, marginBottom:16}}>
@@ -93,7 +125,7 @@ function RaceDayPlanView() {
                 <div>sip every ~{Math.round(seg.hours*60/(seg.waterMl/40))}min (~40ml/sip)</div>
                 <div style={{marginTop:2}}>
                   {fillsRounded <= 1
-                    ? `all ${seg.tailwind}g in ${CONTAINERS[selectedContainer].label.toLowerCase()} \u00b7 ${concentrationPerLiter}g/L`
+                    ? `all ${seg.tailwind}g in ${totalCapacityMl}ml \u00b7 ${concentrationPerLiter}g/L`
                     : `${Math.round(powderPerFill)}g/fill \u00d7 ${fillsRounded} fills \u00b7 ${concentrationPerLiter}g/L`}
                 </div>
               </React.Fragment>
