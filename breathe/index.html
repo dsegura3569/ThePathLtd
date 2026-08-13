@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Breathwork Assistant — The Philosopher's Path</title>
+<meta name="description" content="Guided breathing patterns with visual pacing and audio cues" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Work+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.8/babel.min.js"></script>
+<style>
+  :root{
+    --rust: #A9542C;
+    --rust-deep: #7A3B1D;
+    --clay: #8F5D36;
+    --sand: #F8F1E4;
+    --sand-pale: #FBF7EF;
+    --ink: #2B1B10;
+    --ink-soft: #4A3627;
+    --line: rgba(43,27,16,0.14);
+    --breathe-color: #4A7C8C;
+    --font-display: 'Fraunces', serif;
+    --font-body: 'Work Sans', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--sand); color:var(--ink);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+  }
+  #root{ min-height:100vh; }
+  h1,h2,h3{ font-family:var(--font-display); font-weight:500; margin:0 0 0.5rem; }
+  p{ margin:0 0 1rem; line-height:1.6; color:var(--ink-soft); }
+  button{ font-family:var(--font-body); cursor:pointer; }
+  .eyebrow{
+    font-family:var(--font-mono); font-size:0.75rem; letter-spacing:0.08em;
+    text-transform:uppercase; color:var(--breathe-color); margin-bottom:0.5rem;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="shared.js"></script>
+<script type="text/babel" src="techniques.js"></script>
+<script type="text/babel" src="audio.js"></script>
+<script type="text/babel" src="session_view.js"></script>
+<script type="text/babel" src="app.js"></script>
+</body>
+</html>
