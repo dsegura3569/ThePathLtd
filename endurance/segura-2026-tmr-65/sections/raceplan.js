@@ -1,0 +1,137 @@
+function RaceDayPlanView() {
+  const [active, setActive] = React.useState(1);
+  const seg = segments.find(s => s.id === active);
+
+  const InfoRow = ({label, value}) => (
+    <div style={{display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--line)'}}>
+      <span style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)'}}>{label}</span>
+      <span style={{fontFamily:'var(--body)', fontSize:12.5, color:'var(--ink)', fontWeight:500, textAlign:'right', maxWidth:'65%'}}>{value}</span>
+    </div>
+  );
+
+  return (
+    <div style={{paddingBottom:60}}>
+      <SectionHeader eyebrow="01" title="Race Day Plan" sub="24hr pace target &middot; Sat 6:00am start &middot; 9 aid stations, 3 drop bags (Mi 17, 35, 56)" />
+
+      <div style={{display:'flex', gap:6, overflowX:'auto', paddingBottom:10, marginBottom:20}}>
+        {segments.map(s => (
+          <button key={s.id} onClick={()=>setActive(s.id)} style={{
+            padding:'9px 12px', borderRadius:10, flexShrink:0, minWidth:118, textAlign:'left', cursor:'pointer',
+            border:`1.5px solid ${active===s.id ? s.color : 'var(--line)'}`,
+            background: active===s.id ? s.color+'1a' : 'var(--bg-card)',
+          }}>
+            <div style={{display:'flex', justifyContent:'space-between', fontSize:10, fontWeight:700, color: active===s.id ? s.color : 'var(--ink-faint)', fontFamily:'var(--mono)'}}>
+              <span>Mi {s.miS}&ndash;{s.miE}</span>
+              <span>{s.netDir==='climb' ? '\u25B2' : '\u25BC'}</span>
+            </div>
+            <div style={{fontSize:11, color:'var(--ink-dim)', marginTop:4, lineHeight:1.3}}>{s.from} &rarr; {s.to.split(' (')[0]}</div>
+            <div style={{fontSize:10, color:'var(--ink-faint)', marginTop:3, fontFamily:'var(--mono)'}}>{s.time}</div>
+          </button>
+        ))}
+      </div>
+
+      <div style={{border:`1.5px solid ${seg.color}55`, borderRadius:16, overflow:'hidden', background:'var(--bg-card)'}}>
+        <div style={{background:seg.color+'14', padding:'20px 22px', borderBottom:`1px solid ${seg.color}30`}}>
+          <div style={{display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:10}}>
+            <div>
+              <div style={{fontFamily:'var(--display)', fontSize:21, fontWeight:600, color:'var(--ink)'}}>{seg.from} &rarr; {seg.to}</div>
+              <div style={{fontSize:13, color:'var(--ink-dim)', marginTop:4}}>{seg.clockS} &ndash; {seg.clockE} &middot; {seg.time} &middot; {seg.dist} mi &middot; {seg.elevS.toLocaleString()}&rarr;{seg.elevE.toLocaleString()}ft</div>
+            </div>
+            <div style={{display:'flex', gap:8, alignItems:'flex-start'}}>
+              <span style={{fontSize:11, padding:'5px 12px', borderRadius:20, fontWeight:700, fontFamily:'var(--mono)',
+                background: seg.netDir==='climb' ? '#E8943A25' : '#4A9FE825', color: seg.netDir==='climb' ? '#E8943A' : '#4A9FE8'}}>
+                {seg.netDir==='climb' ? '\u25B2 CLIMB' : '\u25BC DESCENT'} {seg.netFt}ft
+              </span>
+              {seg.pacer && <span style={{fontSize:11, padding:'5px 12px', borderRadius:20, background:'#A78BFA20', color:'#A78BFA', fontWeight:600}}>Pacer joins</span>}
+            </div>
+          </div>
+        </div>
+
+        <div style={{padding:'20px 22px'}}>
+          <div style={{fontSize:13, color:'var(--ink-dim)', background:'var(--bg-raised)', borderRadius:10, padding:'12px 16px', marginBottom:14, lineHeight:1.6}}>
+            &#127777; {seg.conditions}
+          </div>
+          {seg.gradeShift && (
+            <div style={{fontSize:13, color:'#FBBF24', background:'#FBBF2414', border:'1px solid #FBBF2440', borderRadius:10, padding:'12px 16px', marginBottom:14, lineHeight:1.6}}>
+              &#9889; Significant grade shift &mdash; {seg.gradeShift}
+            </div>
+          )}
+
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))', gap:10, marginBottom:16}}>
+            <StatBox label="Elevation" value={`\u2191${seg.segGain.toLocaleString()} / \u2193${seg.segLoss.toLocaleString()}ft`} sub={`avg grade ${seg.avgGrade}% \u00b7 max ${seg.maxClimb}%/${seg.maxDescent}%`} />
+            <StatBox label="Avg pace" value={`${seg.avgPace}/mi`} sub={`${seg.avgMph} mph`} />
+            <StatBox label="Tailwind" value={`${seg.tailwind}g`} sub={`1 mix in ${seg.waterMl}ml${seg.waterMl>500?' (bladder)':''}`} color="var(--climb)" />
+            <StatBox label="SIS gels" value={seg.gels} />
+            {seg.electrolyte === 'LMNT'
+              ? <StatBox label="LMNT" value={`${seg.lmntPackets} pkt${seg.lmntPackets!==1?'s':''}`} sub="primary (warmer segment)" color="var(--ok)" />
+              : <StatBox label="Salt tabs" value={seg.saltTabs} sub={`~${(seg.saltTabs/seg.hours).toFixed(1)}/hr`} />
+            }
+          </div>
+
+          {(seg.pickup.length>0 || seg.dropoff.length>0) && (
+            <div style={{marginBottom:16}}>
+              <SmallLabel color="var(--db)">&#128230; At this aid station</SmallLabel>
+              <div style={{background:'var(--bg-raised)', borderRadius:10, padding:'4px 16px', marginTop:8}}>
+                {seg.pickup.map((item,i)=><InfoRow key={'p'+i} label="Pick up" value={item} />)}
+                {seg.dropoff.map((item,i)=><InfoRow key={'d'+i} label="Drop off" value={item} />)}
+              </div>
+            </div>
+          )}
+
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:16}}>
+            <div style={{background:'var(--bg-raised)', borderRadius:10, padding:'12px 14px'}}>
+              <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:4}}>&#129440; Socks</div>
+              <div style={{fontSize:13, color:'var(--ink)'}}>{seg.socks}</div>
+            </div>
+            <div style={{background:'var(--bg-raised)', borderRadius:10, padding:'12px 14px'}}>
+              <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:4}}>&#128167; Bladder/water</div>
+              <div style={{fontSize:13, color:'var(--ink)'}}>{seg.bladder}</div>
+            </div>
+          </div>
+
+          <div style={{fontSize:13, color:'var(--ink-dim)', lineHeight:1.65, background:seg.color+'0d', borderLeft:`3px solid ${seg.color}`, borderRadius:'0 10px 10px 0', padding:'12px 16px'}}>
+            {seg.note}
+          </div>
+        </div>
+      </div>
+
+      <div style={{marginTop:32}}>
+        <SmallLabel>All segments</SmallLabel>
+        <div style={{border:'1px solid var(--line)', borderRadius:12, overflow:'hidden', overflowX:'auto', marginTop:10}}>
+          <table style={{width:'100%', minWidth:820, borderCollapse:'collapse', fontFamily:'var(--body)'}}>
+            <thead>
+              <tr style={{background:'var(--bg-raised)', textAlign:'left'}}>
+                {['Clock','Segment','Dist','Pace','Mph','','Tailwind','Gels','Salt/LMNT','Bag'].map(h=>(
+                  <th key={h} style={{padding:'9px 12px', fontFamily:'var(--mono)', fontSize:10, color:'var(--ink-faint)', fontWeight:500, textTransform:'uppercase', borderBottom:'1px solid var(--line)'}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {segments.map(s=>(
+                <tr key={s.id} onClick={()=>setActive(s.id)} style={{cursor:'pointer', background: active===s.id ? s.color+'14' : 'transparent'}}>
+                  <td style={cellStyle('var(--ink-faint)')}>{s.clockS.split(' ')[1]}</td>
+                  <td style={cellStyle('var(--ink)')}>{s.from} &rarr; {s.to.split(' (')[0]}</td>
+                  <td style={cellStyle('var(--ink-dim)')}>{s.dist}mi</td>
+                  <td style={cellStyle('var(--ink-dim)')}>{s.avgPace}</td>
+                  <td style={cellStyle('var(--ink-dim)')}>{s.avgMph}</td>
+                  <td style={cellStyle(s.netDir==='climb'?'var(--climb)':'var(--descent)', 700)}>{s.netDir==='climb'?'\u25B2':'\u25BC'}</td>
+                  <td style={cellStyle('var(--climb)')}>{s.tailwind}g/{s.waterMl}ml</td>
+                  <td style={cellStyle('var(--ink-dim)')}>{s.gels}</td>
+                  <td style={cellStyle(s.electrolyte==='LMNT'?'var(--ok)':'var(--ink-dim)')}>{s.electrolyte==='LMNT'?s.lmntPackets+' LMNT':s.saltTabs+' salt'}</td>
+                  <td style={cellStyle(s.dropoff.length?'var(--db)':'var(--ink-faint)', s.dropoff.length?600:400)}>{s.dropoff.length?'DB':'\u2014'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p style={{marginTop:16, fontSize:11.5, color:'var(--ink-faint)', lineHeight:1.6}}>
+        Elevation: ultraPacer GPX (3,295 trackpoints) &mdash; total &uarr;23,320ft/&darr;23,320ft, the most reliable figure vs runtelluride.com&rsquo;s rounded &ldquo;~22,500ft&rdquo; and bibstation.com&rsquo;s ~23,822ft.
+        Pace model: Jemez-calibrated + 18% altitude penalty, scaled to 24hr finish. Temps from August Telluride averages. Treat as planning reference, not guarantee.
+      </p>
+    </div>
+  );
+}
+function cellStyle(color, weight=400){ return {padding:'8px 12px', fontSize:12, color, fontWeight:weight, borderBottom:'1px solid var(--line)'}; }
+window.RaceDayPlanView = RaceDayPlanView;

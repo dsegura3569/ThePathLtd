@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>TMR Command Center — Dustin Segura</title>
+<meta name="description" content="Telluride Mountain Run 65-mile race preparation dashboard" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.8/babel.min.js"></script>
+<style>
+  :root{
+    --bg: #12151A;
+    --bg-raised: #1A1E25;
+    --bg-card: #1E232B;
+    --line: #2A2F38;
+    --ink: #F3F5F7;
+    --ink-dim: #9AA3AF;
+    --ink-faint: #5B6472;
+    --climb: #E8943A;
+    --climb-steep: #C0472F;
+    --descent: #4A9FE8;
+    --descent-steep: #2C5FA8;
+    --db: #A78BFA;
+    --ok: #3CB897;
+    --display: 'Space Grotesk', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+    --body: 'Inter', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;}
+  #root{min-height:100vh;}
+  a{color:inherit;}
+  ::selection{background:var(--climb);color:#12151A;}
+  ::-webkit-scrollbar{height:6px;width:6px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react" src="./sections/shared.js"></script>
+<script type="text/babel" data-presets="react" src="./sections/overview.js"></script>
+<script type="text/babel" data-presets="react" src="./sections/raceplan_data.js"></script>
+<script type="text/babel" data-presets="react" src="./sections/raceplan.js"></script>
+<script type="text/babel" data-presets="react" src="./sections/grade_data_raw.js"></script>
+<script type="text/babel" data-presets="react" src="./sections/grade_view.js"></script>
+<script type="text/babel" data-presets="react" src="./sections/histogram_data.js"></script>
+<script type="text/babel" data-presets="react" src="./sections/histogram_view.js"></script>
+<script type="text/babel" data-presets="react" src="./sections/climb_data.js"></script>
+<script type="text/babel" data-presets="react" src="./sections/climb_view.js"></script>
+<script type="text/babel" data-presets="react" src="./sections/treadmill_data.js"></script>
+<script type="text/babel" data-presets="react" src="./sections/treadmill_view.js"></script>
+<script type="text/babel" data-presets="react" src="./sections/vertcalc_section.js"></script>
+<script type="text/babel" data-presets="react" src="./sections/history_section.js"></script>
+<script type="text/babel" data-presets="react" src="./sections/comparison_section.js"></script>
+<script type="text/babel" data-presets="react" src="./sections/hillreps_section.js"></script>
+<script type="text/babel" data-presets="react" src="./app.js"></script>
+</body>
+</html>
