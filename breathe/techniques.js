@@ -55,6 +55,28 @@ window.TECHNIQUES = [
     rest: { min: 30, max: 60, default: 45 },
     cue: "Take a normal breath in and out through your nose. Hold your breath and walk 10-15 paces. Stop, release, and breathe gently until the rest ends.",
   },
+  {
+    id: 'connected',
+    name: 'Conscious Connected',
+    description: 'A continuous circular loop, no pause between inhale and exhale — active in, passive out.',
+    phaseTypes: ['in', 'out'],
+    durationMode: 'selectable',
+    min: 2,
+    max: 8,
+    default: 4,
+    cue: "No gap between the in-breath and the out-breath — keep it one continuous loop. Draw the inhale in actively, into the belly and up into the chest. Let the exhale go soft and unforced. Breathe through the same pathway the whole time — all nose, or all mouth.",
+  },
+  {
+    id: 'holotropic',
+    name: 'Holotropic',
+    description: 'Fast, deep, continuous breathing — traditionally done with a trained facilitator, not alone.',
+    phaseTypes: ['in', 'out'],
+    durationMode: 'selectable',
+    min: 1,
+    max: 3,
+    default: 1.5,
+    cue: "This is an intense practice — traditionally guided by a trained facilitator, often in a group, not done solo. Sit or lie down somewhere safe before starting. Not recommended if you're pregnant, or have a cardiovascular condition, seizure disorder, glaucoma, recent surgery, or a history of psychosis — check with a doctor first if any of that applies. Stop immediately if you feel unwell.",
+  },
 ];
 
 // Resolves a Breathing Recovery Walking session into 5 repetitions of
