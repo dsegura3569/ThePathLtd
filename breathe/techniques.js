@@ -40,13 +40,34 @@ window.TECHNIQUES = [
   {
     id: 'cadence',
     name: 'Cadence Breathing',
-    description: 'Light, slow, and deep. Six breaths a minute, felt through the ribs.',
+    description: 'Light, slow, and deep. Six breaths a minute, felt through the ribs. Works well paced to a walk.',
     phaseTypes: ['in', 'out'],
     durationMode: 'fixed',
     durations: [4, 6],
     cue: "Hands on your lower ribs. Breathe in and feel the ribs move outward. Breathe out and feel them move inward.",
   },
+  {
+    id: 'recovery-walk',
+    name: 'Breathing Recovery Walking',
+    description: 'Exhale, hold your breath and walk 10-15 paces, then recover and repeat five times.',
+    finite: true, // configured and resolved specially, not via resolvePhases/resolvePhilosopherPhases
+    holdWalk: { min: 8, max: 30, default: 15 },
+    rest: { min: 30, max: 60, default: 45 },
+    cue: "Take a normal breath in and out through your nose. Hold your breath and walk 10-15 paces. Stop, release, and breathe gently until the rest ends.",
+  },
 ];
+
+// Resolves a Breathing Recovery Walking session into 5 repetitions of
+// exhale-cue -> hold & walk -> rest, ending naturally (not looping).
+window.resolveRecoveryWalkingPhases = function resolveRecoveryWalkingPhases(holdWalkSeconds, restSeconds) {
+  const phases = [];
+  for (let i = 0; i < 5; i++) {
+    phases.push({ type: 'out', seconds: 2, stageIndex: i });
+    phases.push({ type: 'hold_out', seconds: holdWalkSeconds, stageIndex: i });
+    phases.push({ type: 'rest', seconds: restSeconds, stageIndex: i });
+  }
+  return phases;
+};
 
 // Resolve a technique + chosen duration into a concrete list of {type, seconds}
 window.resolvePhases = function resolvePhases(technique, chosenDuration) {
