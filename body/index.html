@@ -41,6 +41,18 @@
   }
   .caution-card h2{ color:var(--caution); }
   .caution-card > p{ color:var(--ink); }
+  .caution-card summary{
+    cursor:pointer; list-style:none; display:flex;
+    justify-content:space-between; align-items:center;
+  }
+  .caution-card summary::-webkit-details-marker{ display:none; }
+  .caution-card summary h2{ margin-bottom:0; }
+  .caution-card summary::after{
+    content:'+'; font-family:var(--font-mono); font-size:1.6rem;
+    color:var(--caution); flex-shrink:0; margin-left:1rem;
+  }
+  .caution-card[open] summary::after{ content:'–'; }
+  .caution-card > p{ margin-top:1rem; }
   .caution-list{ list-style:none; padding:0; margin:1rem 0 0; display:grid; gap:0.9rem; }
   .caution-list li{ padding-left:1.4rem; position:relative; }
   .caution-list li::before{
@@ -93,8 +105,10 @@
     <p>A region-by-region guide to working on your own tension between sessions. Start with the areas to approach carefully below — they're worth knowing before anything else, since they cover the whole body rather than one region at a time.</p>
   </div>
 
-  <section class="caution-card" id="endangerment-sites">
-    <h2>Areas to Approach With Care</h2>
+  <details class="caution-card" id="endangerment-sites" open>
+    <summary>
+      <h2>Areas to Approach With Care</h2>
+    </summary>
     <p>These are spots where a nerve, artery, or vein sits close to the surface with little muscle to cushion it — what massage therapists call endangerment sites. They're not off-limits, but they call for light pressure only, never sustained deep pressure. The regions below reference the ones relevant to each area.</p>
     <ul class="caution-list">
       <li><strong>Front and sides of the neck</strong><span>Carotid artery and jugular vein sit right under the skin. Never press firmly here.</span></li>
@@ -106,7 +120,7 @@
       <li><strong>Center of the glute, deep</strong><span>The sciatic nerve passes through here (the sciatic notch).</span></li>
       <li><strong>Back of the knee</strong><span>Popliteal artery and nerve. Avoid deep pressure.</span></li>
     </ul>
-  </section>
+  </details>
 
   <h2>By Region</h2>
   <div class="region-grid">
