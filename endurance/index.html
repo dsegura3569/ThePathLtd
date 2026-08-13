@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Endurance — The Philosopher's Path</title>
+<meta name="description" content="Race prep dashboards, built for the specific demands of each course." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Work+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --rust: #A9542C; --clay: #8F5D36;
+    --sand: #F8F1E4; --sand-pale: #FBF7EF;
+    --ink: #2B1B10; --ink-soft: #4A3627;
+    --line: rgba(43,27,16,0.14);
+    --endurance-color: #B85C38;
+    --font-display: 'Fraunces', serif;
+    --font-body: 'Work Sans', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--sand); color:var(--ink);
+    font-family:var(--font-body); line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .container{ max-width:900px; margin:0 auto; padding:3rem 1.5rem 5rem; }
+  h1,h2{ font-family:var(--font-display); font-weight:500; margin:0 0 0.6rem; }
+  p{ margin:0 0 1rem; color:var(--ink-soft); }
+  .eyebrow{
+    font-family:var(--font-mono); font-size:0.75rem; letter-spacing:0.08em;
+    text-transform:uppercase; color:var(--endurance-color); margin-bottom:0.5rem;
+  }
+  .intro p{ max-width:60ch; }
+
+  .race-list{ display:grid; gap:1.25rem; margin-top:2rem; }
+  .race-card{
+    display:block; text-decoration:none; color:inherit;
+    background:var(--sand-pale); border:1px solid var(--line);
+    border-radius:12px; padding:1.75rem;
+    transition:border-color 0.2s ease, transform 0.2s ease;
+  }
+  .race-card:hover{ border-color:var(--endurance-color); transform:translateY(-2px); }
+  .race-card-top{
+    display:flex; justify-content:space-between; align-items:baseline;
+    flex-wrap:wrap; gap:0.5rem;
+  }
+  .race-card h2{
+    color:var(--endurance-color); margin-bottom:0.2rem; font-size:1.5rem;
+  }
+  .race-date{
+    font-family:var(--font-mono); font-size:0.85rem; color:var(--ink-soft);
+    white-space:nowrap;
+  }
+  .race-location{ font-size:0.95rem; margin-bottom:1rem; }
+  .race-stats{
+    display:flex; gap:1.75rem; flex-wrap:wrap;
+    font-family:var(--font-mono); font-size:0.85rem; color:var(--ink-soft);
+  }
+  .race-stats strong{
+    display:block; font-size:1.1rem; color:var(--ink); font-family:var(--font-body); font-weight:700;
+  }
+
+  .empty-note{
+    margin-top:1.5rem; padding:1.25rem 1.5rem; border:1px dashed var(--line);
+    border-radius:10px; font-size:0.9rem; color:var(--ink-soft);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <p class="eyebrow">Endurance</p>
+  <h1>Race Prep Dashboards</h1>
+  <div class="intro">
+    <p>Pick a race for the full breakdown — course profile, aid stations, pacing plan, and the tools built for that specific day.</p>
+  </div>
+
+  <div class="race-list">
+    <a class="race-card" href="/endurance/segura-2026-tmr-65/">
+      <div class="race-card-top">
+        <h2>Telluride Mountain Run — 65 Mile</h2>
+        <span class="race-date">Sat, Aug 22, 2026</span>
+      </div>
+      <p class="race-location">Telluride, Colorado</p>
+      <div class="race-stats">
+        <div><strong>63.5 mi</strong>Distance</div>
+        <div><strong>23,320 ft</strong>Vert Gain</div>
+        <div><strong>Mountain</strong>Terrain</div>
+        <div><strong>32h</strong>Cutoff</div>
+      </div>
+    </a>
+  </div>
+
+  <p class="empty-note">More races get added here as they come up — each one gets its own dashboard, built around what that specific course actually demands.</p>
+</div>
+</body>
+</html>
