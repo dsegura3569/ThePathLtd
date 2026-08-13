@@ -60,11 +60,11 @@ function RaceDayPlanView() {
           <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))', gap:10, marginBottom:16}}>
             <StatBox label="Elevation" value={`\u2191${seg.segGain.toLocaleString()} / \u2193${seg.segLoss.toLocaleString()}ft`} sub={`avg grade ${seg.avgGrade}% \u00b7 max ${seg.maxClimb}%/${seg.maxDescent}%`} />
             <StatBox label="Avg pace" value={`${seg.avgPace}/mi`} sub={`${seg.avgMph} mph`} />
-            <StatBox label="Tailwind" value={`${seg.tailwind}g`} sub={`1 mix in ${seg.waterMl}ml${seg.waterMl>500?' (bladder)':''}`} color="var(--climb)" />
-            <StatBox label="SIS gels" value={seg.gels} />
+            <StatBox label="Tailwind" value={`${seg.tailwind}g`} sub={`sip every ~${Math.round(seg.hours*60/(seg.waterMl/40))}min (${seg.waterMl}ml total, ~40ml/sip)`} color="var(--climb)" />
+            <StatBox label="SIS gels" value={seg.gels} sub={seg.gels>0 ? `every ~${Math.round(seg.hours*60/seg.gels)}min` : ''} />
             {seg.electrolyte === 'LMNT'
               ? <StatBox label="LMNT" value={`${seg.lmntPackets} pkt${seg.lmntPackets!==1?'s':''}`} sub="primary (warmer segment)" color="var(--ok)" />
-              : <StatBox label="Salt tabs" value={seg.saltTabs} sub={`~${(seg.saltTabs/seg.hours).toFixed(1)}/hr`} />
+              : <StatBox label="Salt tabs" value={seg.saltTabs} sub={seg.saltTabs>0 ? `every ~${Math.round(seg.hours*60/seg.saltTabs)}min` : ''} />
             }
           </div>
 
@@ -124,6 +124,55 @@ function RaceDayPlanView() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div style={{marginTop:32}}>
+        <SmallLabel>Nutrition ledger &mdash; running total</SmallLabel>
+        <p style={{fontSize:12, color:'var(--ink-faint)', margin:'6px 0 12px', lineHeight:1.5}}>
+          Cumulative from the gun &mdash; what you'll have consumed by the time you reach each checkpoint, not per-segment amounts.
+        </p>
+        {(() => {
+          const checkpoints = [];
+          const cum = { gels: 0, saltTabs: 0, tailwind: 0, waterMl: 0, lmntPackets: 0 };
+          checkpoints.push({ label: 'Start', ...cum });
+          segments.forEach(s => {
+            cum.gels += s.gels;
+            cum.saltTabs += s.saltTabs;
+            cum.tailwind += s.tailwind;
+            cum.waterMl += s.waterMl;
+            cum.lmntPackets = Math.round((cum.lmntPackets + s.lmntPackets) * 10) / 10;
+            const isDropBag = /drop bag/i.test(s.to);
+            const isFinish = s.id === segments.length;
+            if (isDropBag || isFinish) {
+              checkpoints.push({ label: isFinish ? 'Finish' : s.to.match(/\(([^)]+)\)/)[1], ...cum });
+            }
+          });
+          return (
+            <div style={{border:'1px solid var(--line)', borderRadius:12, overflow:'hidden', overflowX:'auto'}}>
+              <table style={{width:'100%', minWidth:600, borderCollapse:'collapse', fontFamily:'var(--body)'}}>
+                <thead>
+                  <tr style={{background:'var(--bg-raised)', textAlign:'left'}}>
+                    {['Checkpoint','Gels','Salt tabs','LMNT','Tailwind','Water'].map(h=>(
+                      <th key={h} style={{padding:'9px 12px', fontFamily:'var(--mono)', fontSize:10, color:'var(--ink-faint)', fontWeight:500, textTransform:'uppercase', borderBottom:'1px solid var(--line)'}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {checkpoints.map((c,i) => (
+                    <tr key={i}>
+                      <td style={cellStyle('var(--ink)', 600)}>{c.label}</td>
+                      <td style={cellStyle('var(--ink-dim)')}>{c.gels}</td>
+                      <td style={cellStyle('var(--ink-dim)')}>{c.saltTabs}</td>
+                      <td style={cellStyle('var(--ok)')}>{c.lmntPackets} pkt</td>
+                      <td style={cellStyle('var(--climb)')}>{c.tailwind}g</td>
+                      <td style={cellStyle('var(--ink-dim)')}>{(c.waterMl/1000).toFixed(1)}L</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })()}
       </div>
 
       <p style={{marginTop:16, fontSize:11.5, color:'var(--ink-faint)', lineHeight:1.6}}>
