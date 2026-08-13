@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Self-Massage Guide — The Philosopher's Path</title>
+<meta name="description" content="A region-by-region guide to safe self-massage, starting with the areas to approach with extra care." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Work+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --rust: #A9542C; --clay: #8F5D36;
+    --sand: #F8F1E4; --sand-pale: #FBF7EF;
+    --ink: #2B1B10; --ink-soft: #4A3627;
+    --line: rgba(43,27,16,0.14);
+    --body-color: #8C8F6E;
+    --caution: #B23B2E;
+    --caution-bg: #FBEAE7;
+    --font-display: 'Fraunces', serif;
+    --font-body: 'Work Sans', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--sand); color:var(--ink);
+    font-family:var(--font-body); line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .container{ max-width:900px; margin:0 auto; padding:3rem 1.5rem 5rem; }
+  h1,h2,h3{ font-family:var(--font-display); font-weight:500; margin:0 0 0.6rem; }
+  p{ margin:0 0 1rem; color:var(--ink-soft); }
+  .eyebrow{
+    font-family:var(--font-mono); font-size:0.75rem; letter-spacing:0.08em;
+    text-transform:uppercase; color:var(--body-color); margin-bottom:0.5rem;
+  }
+  .intro p{ max-width:62ch; }
+
+  .caution-card{
+    background:var(--caution-bg); border:1px solid rgba(178,59,46,0.3);
+    border-radius:12px; padding:1.75rem; margin:2rem 0 3rem;
+  }
+  .caution-card h2{ color:var(--caution); }
+  .caution-card > p{ color:var(--ink); }
+  .caution-list{ list-style:none; padding:0; margin:1rem 0 0; display:grid; gap:0.9rem; }
+  .caution-list li{ padding-left:1.4rem; position:relative; }
+  .caution-list li::before{
+    content:'!'; position:absolute; left:0; top:0;
+    font-family:var(--font-mono); font-weight:700; color:var(--caution);
+  }
+  .caution-list strong{ color:var(--ink); }
+  .caution-list span{ display:block; font-size:0.92rem; color:var(--ink-soft); }
+
+  .region-grid{ display:grid; gap:1.5rem; margin-top:1.5rem; }
+  .region-card{
+    background:var(--sand-pale); border:1px solid var(--line);
+    border-radius:12px; padding:1.75rem;
+  }
+  .region-card summary{
+    cursor:pointer; font-family:var(--font-display); font-size:1.3rem;
+    color:var(--body-color); list-style:none; display:flex;
+    justify-content:space-between; align-items:center;
+  }
+  .region-card summary::-webkit-details-marker{ display:none; }
+  .region-card summary::after{
+    content:'+'; font-family:var(--font-mono); font-size:1.4rem;
+    color:var(--ink-soft); transition:transform 0.2s ease;
+  }
+  .region-card[open] summary::after{ content:'–'; }
+  .region-body{ margin-top:1rem; }
+  .region-body h4{
+    font-family:var(--font-mono); font-size:0.75rem; letter-spacing:0.06em;
+    text-transform:uppercase; color:var(--ink-soft); margin:1rem 0 0.4rem;
+  }
+  .region-body h4:first-child{ margin-top:0; }
+  .region-caution{
+    background:var(--caution-bg); border-left:3px solid var(--caution);
+    padding:0.7rem 1rem; border-radius:0 8px 8px 0; margin-top:1rem;
+    font-size:0.92rem; color:var(--ink);
+  }
+  .region-caution strong{ color:var(--caution); }
+
+  .disclaimer{
+    margin-top:3rem; padding-top:1.5rem; border-top:1px solid var(--line);
+    font-size:0.85rem; color:var(--ink-soft);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <p class="eyebrow">Bodywork</p>
+  <h1>Self-Massage Guide</h1>
+  <div class="intro">
+    <p>A region-by-region guide to working on your own tension between sessions. Start with the areas to approach carefully below — they're worth knowing before anything else, since they cover the whole body rather than one region at a time.</p>
+  </div>
+
+  <section class="caution-card" id="endangerment-sites">
+    <h2>Areas to Approach With Care</h2>
+    <p>These are spots where a nerve, artery, or vein sits close to the surface with little muscle to cushion it — what massage therapists call endangerment sites. They're not off-limits, but they call for light pressure only, never sustained deep pressure. The regions below reference the ones relevant to each area.</p>
+    <ul class="caution-list">
+      <li><strong>Front and sides of the neck</strong><span>Carotid artery and jugular vein sit right under the skin. Never press firmly here.</span></li>
+      <li><strong>Inner elbow crease</strong><span>Brachial artery and median nerve. Light pressure only.</span></li>
+      <li><strong>Base of the throat / collarbone notch</strong><span>Sits over the trachea and major vessels beneath.</span></li>
+      <li><strong>Navel area</strong><span>The abdominal aorta runs beneath. Keep abdominal work light.</span></li>
+      <li><strong>Low back over the kidneys</strong><span>No firm or percussive pressure here.</span></li>
+      <li><strong>Inner thigh / groin crease</strong><span>Femoral artery, vein, and nerve (the femoral triangle).</span></li>
+      <li><strong>Center of the glute, deep</strong><span>The sciatic nerve passes through here (the sciatic notch).</span></li>
+      <li><strong>Back of the knee</strong><span>Popliteal artery and nerve. Avoid deep pressure.</span></li>
+    </ul>
+  </section>
+
+  <h2>By Region</h2>
+  <div class="region-grid">
+
+    <details class="region-card">
+      <summary>Hands, Wrist &amp; Forearm</summary>
+      <div class="region-body">
+        <h4>How</h4>
+        <p>Work along the forearm from wrist toward elbow, pressing with your thumb or fingers and pausing on any tender spot for 10–30 seconds, or use small kneading circles. For the hand, work between the finger joints and across the palm.</p>
+        <h4>Direction</h4>
+        <p>Stroke toward the elbow, not away from it — this follows the natural direction of venous and lymphatic drainage back toward the heart.</p>
+        <div class="region-caution"><strong>Care:</strong> stay light directly in the inner elbow crease — that's the antecubital fossa, an endangerment site.</div>
+      </div>
+    </details>
+
+    <details class="region-card">
+      <summary>Shoulder</summary>
+      <div class="region-body">
+        <h4>How</h4>
+        <p>Reach across with the opposite hand and knead the meaty muscle between your neck and shoulder (upper trapezius). Work the front of the shoulder joint and whatever you can comfortably reach around the shoulder blade.</p>
+        <h4>Direction</h4>
+        <p>Small kneading circles work better here than long strokes — this muscle responds well to sustained, gentle pressure on tender spots.</p>
+        <div class="region-caution"><strong>Care:</strong> avoid deep, sustained pressure directly into the armpit — nerves and blood vessels sit close to the surface there.</div>
+      </div>
+    </details>
+
+    <details class="region-card">
+      <summary>Neck &amp; Upper Back</summary>
+      <div class="region-body">
+        <h4>How</h4>
+        <p>Work the back and sides of the neck and the base of the skull with your fingertips, or lean into a tennis ball against a wall for the muscles alongside your upper spine.</p>
+        <h4>Direction</h4>
+        <p>Small circles or sustained holds on tender spots, moving slowly.</p>
+        <div class="region-caution"><strong>Care:</strong> keep self-massage to the back and sides of the neck only. Never press firmly on the front of the throat — that's where the carotid artery and jugular vein sit.</div>
+      </div>
+    </details>
+
+    <details class="region-card">
+      <summary>Collarbone &amp; Chest</summary>
+      <div class="region-body">
+        <h4>How</h4>
+        <p>Massage the chest muscles (pectorals) working from the breastbone outward toward the shoulder — useful for the tightness that comes with rounded-shoulder posture.</p>
+        <h4>Direction</h4>
+        <p>Outward, from center to shoulder, with flat fingers or knuckles.</p>
+        <div class="region-caution"><strong>Care:</strong> avoid pressing directly on the collarbone itself (it's bone, not muscle) or on the notch at the base of the throat.</div>
+      </div>
+    </details>
+
+    <details class="region-card">
+      <summary>Abdomen</summary>
+      <div class="region-body">
+        <h4>How</h4>
+        <p>Gentle circular strokes with a flat hand, generally moving clockwise — this follows the natural path of the large intestine and is commonly used for digestive comfort. Keep pressure light throughout.</p>
+        <h4>Direction</h4>
+        <p>Clockwise, light pressure, slow pace.</p>
+        <div class="region-caution"><strong>Care:</strong> keep pressure light around the navel (the abdominal aorta runs beneath) and skip firm or percussive pressure on the low back over the kidneys entirely.</div>
+      </div>
+    </details>
+
+    <details class="region-card">
+      <summary>Upper Legs</summary>
+      <div class="region-body">
+        <h4>How</h4>
+        <p>Knead the front of the thigh (quadriceps) and back of the thigh (hamstrings) with your palm or a loose fist, working in sections rather than trying to cover the whole thigh at once.</p>
+        <h4>Direction</h4>
+        <p>Generally upward, toward the hip.</p>
+        <div class="region-caution"><strong>Care:</strong> avoid deep pressure in the inner thigh crease near the groin (the femoral triangle) and avoid digging deep into the center of the glute (the sciatic notch, where the sciatic nerve passes through).</div>
+      </div>
+    </details>
+
+    <details class="region-card">
+      <summary>Lower Legs, Ankles &amp; Feet</summary>
+      <div class="region-body">
+        <h4>How</h4>
+        <p>Knead the calf from ankle toward knee. For the feet, roll the sole over a ball or bottle, and use your thumbs to work the arch. Gentle circles at the ankle joint help with mobility.</p>
+        <h4>Direction</h4>
+        <p>Calf: ankle toward knee. Foot: whatever feels good — this area responds well to broad, exploratory pressure.</p>
+        <div class="region-caution"><strong>Care:</strong> avoid deep pressure directly behind the knee — that's the popliteal fossa, where an artery and nerve sit close to the surface.</div>
+      </div>
+    </details>
+
+  </div>
+
+  <p class="disclaimer">This guide is for general wellness self-care and isn't a substitute for professional bodywork or medical advice. If you're pregnant, recovering from an injury or surgery, or have a condition like a blood clot, osteoporosis, or a vascular issue, check with a doctor before self-massage — and always stop if something feels sharp, numb, or wrong rather than just tender.</p>
+</div>
+</body>
+</html>
