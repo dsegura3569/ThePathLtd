@@ -31,8 +31,11 @@ function SecondsControl({ technique, duration, setDuration }) {
 function BpmOrSecondsControl({ technique, duration, setDuration }) {
   const [mode, setMode] = useState('seconds'); // 'seconds' | 'bpm'
   const bpm = Math.round(window.secondsToBpm(duration) * 10) / 10;
-  const minBpm = Math.round(window.secondsToBpm(technique.max) * 10) / 10;
-  const maxBpm = Math.round(window.secondsToBpm(technique.min) * 10) / 10;
+  // Clean, round bounds (not derived from a rounded seconds conversion, which
+  // previously produced an odd starting point like 0.9 and made every
+  // subsequent 0.5 step land on .4/.9 endings instead of whole/half numbers).
+  const minBpm = 1;
+  const maxBpm = 15; // exactly secondsToBpm(technique.min=2), already clean
 
   return (
     <div>
