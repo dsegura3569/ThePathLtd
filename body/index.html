@@ -42,16 +42,15 @@
   .caution-card h2{ color:var(--caution); }
   .caution-card > p{ color:var(--ink); }
   .caution-card summary{
-    cursor:pointer; list-style:none; display:flex;
-    justify-content:space-between; align-items:center;
+    cursor:pointer; list-style:none;
   }
   .caution-card summary::-webkit-details-marker{ display:none; }
   .caution-card summary h2{ margin-bottom:0; }
-  .caution-card summary::after{
+  .caution-card .region-title-row::after{
     content:'+'; font-family:var(--font-mono); font-size:1.6rem;
     color:var(--caution); flex-shrink:0; margin-left:1rem;
   }
-  .caution-card[open] summary::after{ content:'–'; }
+  .caution-card[open] .region-title-row::after{ content:'–'; }
   .caution-card > p{ margin-top:1rem; }
   .caution-list{ list-style:none; padding:0; margin:1rem 0 0; display:grid; gap:0.9rem; }
   .caution-list li{ padding-left:1.4rem; position:relative; }
@@ -69,15 +68,21 @@
   }
   .region-card summary{
     cursor:pointer; font-family:var(--font-display); font-size:1.3rem;
-    color:var(--body-color); list-style:none; display:flex;
-    justify-content:space-between; align-items:center;
+    color:var(--body-color); list-style:none;
   }
   .region-card summary::-webkit-details-marker{ display:none; }
-  .region-card summary::after{
+  .region-title-row{
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .region-title-row::after{
     content:'+'; font-family:var(--font-mono); font-size:1.4rem;
     color:var(--ink-soft); transition:transform 0.2s ease;
   }
-  .region-card[open] summary::after{ content:'–'; }
+  .region-card[open] .region-title-row::after{ content:'–'; }
+  .region-thumb{
+    width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:8px;
+    margin-top:1rem; display:block; max-width:220px;
+  }
   .region-body{ margin-top:1rem; }
   .region-body h4{
     font-family:var(--font-mono); font-size:0.75rem; letter-spacing:0.06em;
@@ -107,7 +112,10 @@
 
   <details class="caution-card" id="endangerment-sites" open>
     <summary>
-      <h2>Areas to Approach With Care</h2>
+      <div class="region-title-row">
+        <h2>Areas to Approach With Care</h2>
+      </div>
+      <img class="region-thumb" src="assets/endangerment.jpg" alt="Illustration of areas on the body to approach with care" loading="lazy">
     </summary>
     <p>These are spots where a nerve, artery, or vein sits close to the surface with little muscle to cushion it — what massage therapists call endangerment sites. They're not off-limits, but they call for light pressure only, never sustained deep pressure. The regions below reference the ones relevant to each area.</p>
     <ul class="caution-list">
@@ -126,7 +134,10 @@
   <div class="region-grid">
 
     <details class="region-card">
-      <summary>Hands, Wrist &amp; Forearm</summary>
+      <summary>
+        <div class="region-title-row">Hands, Wrist &amp; Forearm</div>
+        <img class="region-thumb" src="assets/forearm.jpg" alt="Self-massage of the forearm" loading="lazy">
+      </summary>
       <div class="region-body">
         <h4>How</h4>
         <p>Work along the forearm from wrist toward elbow, pressing with your thumb or fingers and pausing on any tender spot for 10–30 seconds, or use small kneading circles. For the hand, work between the finger joints and across the palm.</p>
@@ -137,7 +148,9 @@
     </details>
 
     <details class="region-card">
-      <summary>Shoulder</summary>
+      <summary>
+        <div class="region-title-row">Shoulder</div>
+      </summary>
       <div class="region-body">
         <h4>How</h4>
         <p>Reach across with the opposite hand and knead the meaty muscle between your neck and shoulder (upper trapezius). Work the front of the shoulder joint and whatever you can comfortably reach around the shoulder blade.</p>
@@ -148,7 +161,10 @@
     </details>
 
     <details class="region-card">
-      <summary>Neck &amp; Upper Back</summary>
+      <summary>
+        <div class="region-title-row">Neck &amp; Upper Back</div>
+        <img class="region-thumb" src="assets/posterior_neck.jpg" alt="Self-massage of the posterior neck" loading="lazy">
+      </summary>
       <div class="region-body">
         <h4>How</h4>
         <p>Work the back and sides of the neck and the base of the skull with your fingertips, or lean into a tennis ball against a wall for the muscles alongside your upper spine.</p>
@@ -159,7 +175,10 @@
     </details>
 
     <details class="region-card">
-      <summary>Collarbone &amp; Chest</summary>
+      <summary>
+        <div class="region-title-row">Collarbone &amp; Chest</div>
+        <img class="region-thumb" src="assets/chest.jpg" alt="Self-massage of the chest" loading="lazy">
+      </summary>
       <div class="region-body">
         <h4>How</h4>
         <p>Massage the chest muscles (pectorals) working from the breastbone outward toward the shoulder — useful for the tightness that comes with rounded-shoulder posture.</p>
@@ -170,7 +189,10 @@
     </details>
 
     <details class="region-card">
-      <summary>Abdomen</summary>
+      <summary>
+        <div class="region-title-row">Abdomen</div>
+        <img class="region-thumb" src="assets/abdomen.jpg" alt="Self-massage of the abdomen" loading="lazy">
+      </summary>
       <div class="region-body">
         <h4>How</h4>
         <p>Gentle circular strokes with a flat hand, generally moving clockwise — this follows the natural path of the large intestine and is commonly used for digestive comfort. Keep pressure light throughout.</p>
@@ -181,7 +203,9 @@
     </details>
 
     <details class="region-card">
-      <summary>Upper Legs</summary>
+      <summary>
+        <div class="region-title-row">Upper Legs</div>
+      </summary>
       <div class="region-body">
         <h4>How</h4>
         <p>Knead the front of the thigh (quadriceps) and back of the thigh (hamstrings) with your palm or a loose fist, working in sections rather than trying to cover the whole thigh at once.</p>
@@ -192,7 +216,9 @@
     </details>
 
     <details class="region-card">
-      <summary>Lower Legs, Ankles &amp; Feet</summary>
+      <summary>
+        <div class="region-title-row">Lower Legs, Ankles &amp; Feet</div>
+      </summary>
       <div class="region-body">
         <h4>How</h4>
         <p>Knead the calf from ankle toward knee. For the feet, roll the sole over a ball or bottle, and use your thumbs to work the arch. Gentle circles at the ankle joint help with mobility.</p>
