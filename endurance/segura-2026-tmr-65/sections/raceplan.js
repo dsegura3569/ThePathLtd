@@ -2,6 +2,20 @@ function RaceDayPlanView() {
   const [active, setActive] = React.useState(1);
   const seg = segments.find(s => s.id === active);
 
+  const CONTAINERS = { vest: { label: 'Vest', ml: 500 }, belt: { label: 'Belt', ml: 650 }, bladder: { label: 'Bladder', ml: 1500 } };
+  const [containerChoice, setContainerChoice] = React.useState({});
+  function defaultContainerFor(waterMl) {
+    if (waterMl <= 500) return 'vest';
+    if (waterMl <= 650) return 'belt';
+    return 'bladder';
+  }
+  const selectedContainer = containerChoice[active] || defaultContainerFor(seg.waterMl);
+  const containerMl = CONTAINERS[selectedContainer].ml;
+  const fills = seg.waterMl / containerMl;
+  const fillsRounded = Math.ceil(fills * 10) / 10;
+  const powderPerFill = seg.tailwind / fills;
+  const concentrationPerLiter = Math.round((seg.tailwind / (seg.waterMl / 1000)) * 10) / 10;
+
   const InfoRow = ({label, value}) => (
     <div style={{display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--line)'}}>
       <span style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)'}}>{label}</span>
@@ -57,10 +71,33 @@ function RaceDayPlanView() {
             </div>
           )}
 
+          <div style={{marginBottom:14}}>
+            <SmallLabel color="var(--climb)">Carrying tailwind in</SmallLabel>
+            <div style={{display:'flex', gap:6, marginTop:8}}>
+              {Object.entries(CONTAINERS).map(([key, c]) => (
+                <button key={key} onClick={() => setContainerChoice(prev => ({...prev, [active]: key}))} style={{
+                  padding:'8px 14px', borderRadius:8, cursor:'pointer', fontFamily:'var(--body)', fontSize:12.5,
+                  border:`1.5px solid ${selectedContainer===key ? 'var(--climb)' : 'var(--line)'}`,
+                  background: selectedContainer===key ? 'var(--climb)1a' : 'var(--bg-raised)',
+                  color: selectedContainer===key ? 'var(--climb)' : 'var(--ink-dim)', fontWeight: selectedContainer===key ? 600 : 400,
+                }}>{c.label} ({c.ml}ml)</button>
+              ))}
+            </div>
+          </div>
+
           <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))', gap:10, marginBottom:16}}>
             <StatBox label="Elevation" value={`\u2191${seg.segGain.toLocaleString()} / \u2193${seg.segLoss.toLocaleString()}ft`} sub={`avg grade ${seg.avgGrade}% \u00b7 max ${seg.maxClimb}%/${seg.maxDescent}%`} />
             <StatBox label="Avg pace" value={`${seg.avgPace}/mi`} sub={`${seg.avgMph} mph`} />
-            <StatBox label="Tailwind" value={`${seg.tailwind}g`} sub={`sip every ~${Math.round(seg.hours*60/(seg.waterMl/40))}min (${seg.waterMl}ml total, ~40ml/sip)`} color="var(--climb)" />
+            <StatBox label="Tailwind" value={`${seg.tailwind}g`} sub={
+              <React.Fragment>
+                <div>sip every ~{Math.round(seg.hours*60/(seg.waterMl/40))}min (~40ml/sip)</div>
+                <div style={{marginTop:2}}>
+                  {fillsRounded <= 1
+                    ? `all ${seg.tailwind}g in ${CONTAINERS[selectedContainer].label.toLowerCase()} \u00b7 ${concentrationPerLiter}g/L`
+                    : `${Math.round(powderPerFill)}g/fill \u00d7 ${fillsRounded} fills \u00b7 ${concentrationPerLiter}g/L`}
+                </div>
+              </React.Fragment>
+            } color="var(--climb)" />
             <StatBox label="SIS gels" value={seg.gels} sub={seg.gels>0 ? `every ~${Math.round(seg.hours*60/seg.gels)}min` : ''} />
             {seg.electrolyte === 'LMNT'
               ? <StatBox label="LMNT" value={`${seg.lmntPackets} pkt${seg.lmntPackets!==1?'s':''}`} sub="primary (warmer segment)" color="var(--ok)" />
