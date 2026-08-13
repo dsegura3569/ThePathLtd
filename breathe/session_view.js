@@ -6,16 +6,19 @@ function easeInOutCubic(t) {
 
 const SCALE_SMALL = 0.55;
 const SCALE_LARGE = 1.0;
+const PRE_COUNTDOWN_SECONDS = 3;
 
 window.SessionView = function SessionView({ technique, chosenDuration, soundMode, onExit }) {
   const phases = window.resolvePhases(technique, chosenDuration);
   const circleRef = useRef(null);
   const rafRef = useRef(null);
 
-  // Mutable timing state, read/written inside the rAF loop to avoid stale closures.
+  const [stage, setStage] = useState('countdown'); // 'countdown' | 'running'
+  const [preCount, setPreCount] = useState(PRE_COUNTDOWN_SECONDS);
+
   const runRef = useRef({
     phaseIndex: 0,
-    phaseStartTime: performance.now(),
+    phaseStartTime: null,
     pausedAccum: 0,
     pauseStartedAt: null,
     lastTickedSecond: -1,
@@ -24,16 +27,40 @@ window.SessionView = function SessionView({ technique, chosenDuration, soundMode
 
   const [display, setDisplay] = useState({
     phaseType: phases[0].type,
-    secondsRemaining: Math.ceil(phases[0].seconds),
+    count: 0,
     cycleCount: 0,
   });
   const [isPaused, setIsPaused] = useState(false);
 
+  // --- Pre-session 3-2-1 countdown ---
   useEffect(() => {
     window.AudioEngine.resume();
-    window.AudioEngine.onPhaseChange(soundMode, phases[0].type, phases[0].seconds);
+    if (stage !== 'countdown') return;
+    if (preCount <= 0) {
+      setStage('running');
+      return;
+    }
+    const t = setTimeout(() => setPreCount(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [stage, preCount]);
+
+  // --- Main breathing session loop ---
+  useEffect(() => {
+    if (stage !== 'running') return;
+
+    runRef.current.phaseStartTime = performance.now();
+    const firstPhase = phases[0];
+    window.AudioEngine.onPhaseChange(soundMode, firstPhase.type, firstPhase.seconds);
     window.AudioEngine.onSecondTick(soundMode);
     runRef.current.lastTickedSecond = 0;
+
+    function countFor(phase, elapsed) {
+      // Inhale counts up (1, 2, 3...). Exhale and holds count down (time remaining).
+      if (phase.type === 'in') {
+        return Math.min(phase.seconds, Math.floor(elapsed) + 1);
+      }
+      return Math.max(0, Math.ceil(phase.seconds - elapsed));
+    }
 
     function frame(now) {
       const run = runRef.current;
@@ -58,10 +85,10 @@ window.SessionView = function SessionView({ technique, chosenDuration, soundMode
           window.AudioEngine.onSecondTick(soundMode);
         }
 
-        const secondsRemaining = Math.max(0, Math.ceil(phase.seconds - elapsed));
-        setDisplay(d => (d.secondsRemaining === secondsRemaining && d.phaseType === phase.type && d.cycleCount === run.cycleCount)
+        const count = countFor(phase, elapsed);
+        setDisplay(d => (d.count === count && d.phaseType === phase.type && d.cycleCount === run.cycleCount)
           ? d
-          : { phaseType: phase.type, secondsRemaining, cycleCount: run.cycleCount });
+          : { phaseType: phase.type, count, cycleCount: run.cycleCount });
 
         if (elapsed >= phase.seconds) {
           run.phaseIndex = (run.phaseIndex + 1) % phases.length;
@@ -81,7 +108,7 @@ window.SessionView = function SessionView({ technique, chosenDuration, soundMode
       cancelAnimationFrame(rafRef.current);
       window.AudioEngine.stopAll();
     };
-  }, []);
+  }, [stage]);
 
   function togglePause() {
     const run = runRef.current;
@@ -94,6 +121,23 @@ window.SessionView = function SessionView({ technique, chosenDuration, soundMode
       window.AudioEngine.stopAll();
       setIsPaused(true);
     }
+  }
+
+  if (stage === 'countdown') {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', background: 'var(--sand)',
+      }}>
+        <p className="eyebrow">{technique.name}</p>
+        <div style={{
+          fontFamily: 'var(--font-display)', fontSize: '5rem', color: 'var(--breathe-color)',
+        }}>
+          {preCount > 0 ? preCount : 'Begin'}
+        </div>
+        <p style={{ marginTop: '1rem' }}>Get ready...</p>
+      </div>
+    );
   }
 
   const label = window.PHASE_LABELS[display.phaseType];
@@ -119,8 +163,8 @@ window.SessionView = function SessionView({ technique, chosenDuration, soundMode
             transition: 'none',
           }}
         />
-        <div style={{ position: 'absolute', color: '#fff' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '2.4rem' }}>{display.secondsRemaining}</div>
+        <div style={{ position: 'absolute', color: 'rgba(255,255,255,0.75)' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem' }}>{display.count}</div>
         </div>
       </div>
 

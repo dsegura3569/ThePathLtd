@@ -6,6 +6,77 @@ const SOUND_OPTIONS = [
   { id: 'breath', label: 'Real breath in / out' },
 ];
 
+function SecondsControl({ technique, duration, setDuration }) {
+  return (
+    <div>
+      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
+        Duration per phase: {duration}s
+      </label>
+      <input
+        type="range"
+        min={technique.min}
+        max={technique.max}
+        value={duration}
+        onChange={e => setDuration(Number(e.target.value))}
+        style={{ width: '100%' }}
+      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--ink-soft)' }}>
+        <span>{technique.min}s</span>
+        <span>{technique.max}s</span>
+      </div>
+    </div>
+  );
+}
+
+function BpmOrSecondsControl({ technique, duration, setDuration }) {
+  const [mode, setMode] = useState('seconds'); // 'seconds' | 'bpm'
+  const bpm = Math.round(window.secondsToBpm(duration) * 10) / 10;
+  const minBpm = Math.round(window.secondsToBpm(technique.max) * 10) / 10;
+  const maxBpm = Math.round(window.secondsToBpm(technique.min) * 10) / 10;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+        <button onClick={() => setMode('seconds')} style={{
+          padding: '0.3rem 0.8rem', borderRadius: 6, fontSize: '0.8rem',
+          border: `1px solid ${mode === 'seconds' ? 'var(--breathe-color)' : 'var(--line)'}`,
+          background: mode === 'seconds' ? 'var(--breathe-color)' : 'transparent',
+          color: mode === 'seconds' ? '#fff' : 'var(--ink)',
+        }}>Seconds per phase</button>
+        <button onClick={() => setMode('bpm')} style={{
+          padding: '0.3rem 0.8rem', borderRadius: 6, fontSize: '0.8rem',
+          border: `1px solid ${mode === 'bpm' ? 'var(--breathe-color)' : 'var(--line)'}`,
+          background: mode === 'bpm' ? 'var(--breathe-color)' : 'transparent',
+          color: mode === 'bpm' ? '#fff' : 'var(--ink)',
+        }}>Breaths per minute</button>
+      </div>
+
+      {mode === 'seconds' ? (
+        <SecondsControl technique={technique} duration={duration} setDuration={setDuration} />
+      ) : (
+        <div>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
+            {bpm} breaths / min
+          </label>
+          <input
+            type="range"
+            min={minBpm}
+            max={maxBpm}
+            step={0.5}
+            value={bpm}
+            onChange={e => setDuration(window.bpmToSeconds(Number(e.target.value)))}
+            style={{ width: '100%' }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--ink-soft)' }}>
+            <span>{minBpm}/min</span>
+            <span>{maxBpm}/min</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function App() {
   const [view, setView] = useState('select'); // 'select' | 'configure' | 'session'
   const [technique, setTechnique] = useState(null);
@@ -48,21 +119,11 @@ function App() {
 
         {technique.durationMode === 'selectable' && (
           <div style={{ margin: '1.5rem 0' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
-              Duration per phase: {duration}s
-            </label>
-            <input
-              type="range"
-              min={technique.min}
-              max={technique.max}
-              value={duration}
-              onChange={e => setDuration(Number(e.target.value))}
-              style={{ width: '100%' }}
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--ink-soft)' }}>
-              <span>{technique.min}s</span>
-              <span>{technique.max}s</span>
-            </div>
+            {technique.supportsBpm ? (
+              <BpmOrSecondsControl technique={technique} duration={duration} setDuration={setDuration} />
+            ) : (
+              <SecondsControl technique={technique} duration={duration} setDuration={setDuration} />
+            )}
           </div>
         )}
 

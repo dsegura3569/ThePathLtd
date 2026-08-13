@@ -35,6 +35,7 @@ window.TECHNIQUES = [
     min: 2,
     max: 32,
     default: 5,
+    supportsBpm: true, // 2-phase pattern: BPM = 60 / (2 * secondsPerPhase)
   },
   {
     id: 'cadence',
@@ -60,4 +61,12 @@ window.PHASE_LABELS = {
   hold_in: 'Hold',
   out: 'Breathe out',
   hold_out: 'Hold',
+};
+
+// For 2-phase (in/out only) patterns like Coherent: one full breath = 2 phases.
+window.secondsToBpm = function secondsToBpm(secondsPerPhase) {
+  return 60 / (2 * secondsPerPhase);
+};
+window.bpmToSeconds = function bpmToSeconds(bpm) {
+  return 30 / bpm;
 };
