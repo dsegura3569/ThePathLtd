@@ -71,8 +71,14 @@ window.AudioEngine = (function () {
     const now = c.currentTime;
     toneGain.gain.cancelScheduledValues(now);
     toneGain.gain.setValueAtTime(Math.max(toneGain.gain.value, 0.0001), now);
-    toneGain.gain.linearRampToValueAtTime(0.07, now + 0.15);
 
+    if (phaseType === 'rest') {
+      // Rest between Philosopher stages: silence, not a hold tone.
+      toneGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+      return;
+    }
+
+    toneGain.gain.linearRampToValueAtTime(0.07, now + 0.15);
     toneOsc.frequency.cancelScheduledValues(now);
     toneOsc.frequency.setValueAtTime(Math.max(toneOsc.frequency.value, 1), now);
     if (phaseType === 'in') {
@@ -141,8 +147,8 @@ window.AudioEngine = (function () {
   }
 
   // Called once per second while a session is running, for tick mode only.
-  function onSecondTick(mode) {
-    if (mode === 'tick') playTick();
+  function onSecondTick(mode, phaseType) {
+    if (mode === 'tick' && phaseType !== 'rest') playTick();
   }
 
   // Called whenever the session enters a new phase.
@@ -152,7 +158,7 @@ window.AudioEngine = (function () {
     } else if (mode === 'breath') {
       if (phaseType === 'in') startBreathSound('in', phaseSeconds);
       else if (phaseType === 'out') startBreathSound('out', phaseSeconds);
-      else stopBreathSound(); // holds are silent in breath mode
+      else stopBreathSound(); // holds and rest are silent in breath mode
     }
   }
 

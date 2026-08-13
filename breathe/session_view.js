@@ -8,12 +8,16 @@ const SCALE_SMALL = 0.55;
 const SCALE_LARGE = 1.0;
 const PRE_COUNTDOWN_SECONDS = 3;
 
-window.SessionView = function SessionView({ technique, chosenDuration, soundMode, onExit }) {
-  const phases = window.resolvePhases(technique, chosenDuration);
+// General-purpose breathing session runner. Accepts either:
+//   - technique + chosenDuration (presets: resolves an infinite looping cycle)
+//   - a pre-resolved `phases` array directly + loop:false (Philosopher: finite, ends naturally)
+window.SessionView = function SessionView({ technique, chosenDuration, phases: suppliedPhases, loop, soundMode, title, onExit, onComplete, stageLabelFor }) {
+  const phases = suppliedPhases || window.resolvePhases(technique, chosenDuration);
+  const shouldLoop = loop !== false; // default true for presets
   const circleRef = useRef(null);
   const rafRef = useRef(null);
 
-  const [stage, setStage] = useState('countdown'); // 'countdown' | 'running'
+  const [stage, setStage] = useState('countdown'); // 'countdown' | 'running' | 'complete'
   const [preCount, setPreCount] = useState(PRE_COUNTDOWN_SECONDS);
 
   const runRef = useRef({
@@ -51,11 +55,11 @@ window.SessionView = function SessionView({ technique, chosenDuration, soundMode
     runRef.current.phaseStartTime = performance.now();
     const firstPhase = phases[0];
     window.AudioEngine.onPhaseChange(soundMode, firstPhase.type, firstPhase.seconds);
-    window.AudioEngine.onSecondTick(soundMode);
+    window.AudioEngine.onSecondTick(soundMode, firstPhase.type);
     runRef.current.lastTickedSecond = 0;
 
     function countFor(phase, elapsed) {
-      // Inhale counts up (1, 2, 3...). Exhale and holds count down (time remaining).
+      // Inhale counts up (1, 2, 3...). Exhale, holds, and rest count down (time remaining).
       if (phase.type === 'in') {
         return Math.min(phase.seconds, Math.floor(elapsed) + 1);
       }
@@ -75,6 +79,7 @@ window.SessionView = function SessionView({ technique, chosenDuration, soundMode
           if (phase.type === 'in') scale = SCALE_SMALL + (SCALE_LARGE - SCALE_SMALL) * easeInOutCubic(progress);
           else if (phase.type === 'out') scale = SCALE_LARGE - (SCALE_LARGE - SCALE_SMALL) * easeInOutCubic(progress);
           else if (phase.type === 'hold_in') scale = SCALE_LARGE;
+          else if (phase.type === 'rest') scale = (SCALE_SMALL + SCALE_LARGE) / 2;
           else scale = SCALE_SMALL;
           circleRef.current.style.transform = `scale(${scale})`;
         }
@@ -82,7 +87,7 @@ window.SessionView = function SessionView({ technique, chosenDuration, soundMode
         const currentSecond = Math.floor(elapsed);
         if (currentSecond > run.lastTickedSecond && currentSecond < phase.seconds) {
           run.lastTickedSecond = currentSecond;
-          window.AudioEngine.onSecondTick(soundMode);
+          window.AudioEngine.onSecondTick(soundMode, phase.type);
         }
 
         const count = countFor(phase, elapsed);
@@ -91,7 +96,13 @@ window.SessionView = function SessionView({ technique, chosenDuration, soundMode
           : { phaseType: phase.type, count, cycleCount: run.cycleCount });
 
         if (elapsed >= phase.seconds) {
-          run.phaseIndex = (run.phaseIndex + 1) % phases.length;
+          const atEnd = run.phaseIndex + 1 >= phases.length;
+          if (atEnd && !shouldLoop) {
+            window.AudioEngine.stopAll();
+            setStage('complete');
+            return; // stop the rAF loop; don't schedule another frame
+          }
+          run.phaseIndex = atEnd ? 0 : run.phaseIndex + 1;
           if (run.phaseIndex === 0) run.cycleCount += 1;
           run.phaseStartTime = now;
           run.pausedAccum = 0;
@@ -123,13 +134,15 @@ window.SessionView = function SessionView({ technique, chosenDuration, soundMode
     }
   }
 
+  const displayTitle = title || (technique && technique.name) || 'Breathing Session';
+
   if (stage === 'countdown') {
     return (
       <div style={{
         minHeight: '100vh', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', background: 'var(--sand)',
       }}>
-        <p className="eyebrow">{technique.name}</p>
+        <p className="eyebrow">{displayTitle}</p>
         <div style={{
           fontFamily: 'var(--font-display)', fontSize: '5rem', color: 'var(--breathe-color)',
         }}>
@@ -140,7 +153,21 @@ window.SessionView = function SessionView({ technique, chosenDuration, soundMode
     );
   }
 
+  if (stage === 'complete') {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', background: 'var(--sand)', textAlign: 'center',
+      }}>
+        <p className="eyebrow">{displayTitle}</p>
+        <h1 style={{ marginBottom: '1.5rem' }}>Session complete</h1>
+        <window.PrimaryButton onClick={onComplete || onExit}>Done</window.PrimaryButton>
+      </div>
+    );
+  }
+
   const label = window.PHASE_LABELS[display.phaseType];
+  const stageNote = stageLabelFor ? stageLabelFor(phases[runRef.current.phaseIndex]) : null;
 
   return (
     <div style={{
@@ -148,7 +175,7 @@ window.SessionView = function SessionView({ technique, chosenDuration, soundMode
       alignItems: 'center', justifyContent: 'center', padding: '2rem',
       background: 'var(--sand)', textAlign: 'center',
     }}>
-      <p className="eyebrow">{technique.name} · Cycle {display.cycleCount + 1}</p>
+      <p className="eyebrow">{displayTitle}{shouldLoop ? ` · Cycle ${display.cycleCount + 1}` : (stageNote ? ` · ${stageNote}` : '')}</p>
 
       <div style={{
         width: 260, height: 260, display: 'flex', alignItems: 'center',
@@ -158,7 +185,9 @@ window.SessionView = function SessionView({ technique, chosenDuration, soundMode
           ref={circleRef}
           style={{
             width: 220, height: 220, borderRadius: '50%',
-            background: 'radial-gradient(circle at 35% 30%, #6C9CAA, var(--breathe-color))',
+            background: display.phaseType === 'rest'
+              ? 'radial-gradient(circle at 35% 30%, #C9C2B4, #A79E8C)'
+              : 'radial-gradient(circle at 35% 30%, #6C9CAA, var(--breathe-color))',
             boxShadow: '0 8px 40px rgba(74,124,140,0.35)',
             transition: 'none',
           }}
@@ -170,7 +199,7 @@ window.SessionView = function SessionView({ technique, chosenDuration, soundMode
 
       <h2 style={{ color: 'var(--breathe-color)', marginBottom: '2rem' }}>{label}</h2>
 
-      {technique.cue && (
+      {technique && technique.cue && (
         <p style={{ maxWidth: '32ch', marginBottom: '2rem' }}>{technique.cue}</p>
       )}
 

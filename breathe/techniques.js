@@ -61,6 +61,7 @@ window.PHASE_LABELS = {
   hold_in: 'Hold',
   out: 'Breathe out',
   hold_out: 'Hold',
+  rest: 'Rest',
 };
 
 // For 2-phase (in/out only) patterns like Coherent: one full breath = 2 phases.

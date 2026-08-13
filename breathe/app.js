@@ -1,6 +1,6 @@
 const { useState } = React;
 
-const SOUND_OPTIONS = [
+window.SOUND_OPTIONS = [
   { id: 'tick', label: 'Soft tick / tock' },
   { id: 'chime', label: 'Gentle tone / chime' },
   { id: 'breath', label: 'Real breath in / out' },
@@ -81,10 +81,12 @@ function BpmOrSecondsControl({ technique, duration, setDuration }) {
 }
 
 function App() {
-  const [view, setView] = useState('select'); // 'select' | 'configure' | 'session'
+  const [view, setView] = useState('select'); // 'select' | 'configure' | 'session' | 'philosopher' | 'philosopher-session'
   const [technique, setTechnique] = useState(null);
   const [duration, setDuration] = useState(null);
   const [soundMode, setSoundMode] = useState('tick');
+  const [customPhases, setCustomPhases] = useState(null);
+  const [customSoundMode, setCustomSoundMode] = useState('tick');
 
   function chooseTechnique(t) {
     setTechnique(t);
@@ -99,6 +101,35 @@ function App() {
   function exitSession() {
     setView('select');
     setTechnique(null);
+  }
+
+  function startPhilosopherSession({ phases, soundMode: sm }) {
+    setCustomPhases(phases);
+    setCustomSoundMode(sm);
+    setView('philosopher-session');
+  }
+
+  function exitPhilosopherSession() {
+    setView('select');
+    setCustomPhases(null);
+  }
+
+  if (view === 'philosopher-session' && customPhases) {
+    return (
+      <window.SessionView
+        phases={customPhases}
+        loop={false}
+        soundMode={customSoundMode}
+        title="Philosopher"
+        stageLabelFor={phase => phase.stageIndex != null ? `Stage ${phase.stageIndex + 1}` : 'Rest'}
+        onExit={exitPhilosopherSession}
+        onComplete={exitPhilosopherSession}
+      />
+    );
+  }
+
+  if (view === 'philosopher') {
+    return <window.PhilosopherBuilder onStart={startPhilosopherSession} onBack={() => setView('select')} />;
   }
 
   if (view === 'session') {
@@ -139,7 +170,7 @@ function App() {
         <div style={{ margin: '1.5rem 0' }}>
           <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 600 }}>Sound</label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-            {SOUND_OPTIONS.map(opt => (
+            {window.SOUND_OPTIONS.map(opt => (
               <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
                 <input
                   type="radio"
@@ -173,6 +204,10 @@ function App() {
             <p style={{ marginBottom: 0 }}>{t.description}</p>
           </window.Card>
         ))}
+        <window.Card onClick={() => setView('philosopher')}>
+          <h3 style={{ color: 'var(--clay)' }}>Philosopher</h3>
+          <p style={{ marginBottom: 0 }}>Build your own: any number of stages, each with its own breathing rhythm.</p>
+        </window.Card>
       </div>
     </div>
   );
