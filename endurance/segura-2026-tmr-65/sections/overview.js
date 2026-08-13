@@ -1,10 +1,31 @@
+function useCountdown(targetIso) {
+  const [remaining, setRemaining] = React.useState(() => new Date(targetIso).getTime() - Date.now());
+  React.useEffect(() => {
+    const id = setInterval(() => {
+      setRemaining(new Date(targetIso).getTime() - Date.now());
+    }, 1000);
+    return () => clearInterval(id);
+  }, [targetIso]);
+  if (remaining <= 0) return null;
+  const totalSeconds = Math.floor(remaining / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return { days, hours, minutes, seconds };
+}
+
 function Overview({ goTo }) {
+  // Race starts 6:00am Saturday Aug 22, 2026, Mountain Time (MDT, UTC-6 in August)
+  const countdown = useCountdown('2026-08-22T06:00:00-06:00');
+
   const stats = [
     { label: 'Distance', value: '63.5', unit: 'mi' },
     { label: 'Vert gain', value: '23,320', unit: 'ft' },
     { label: 'Aid stations', value: '9', unit: '' },
     { label: 'Drop bags', value: '3', unit: '' },
     { label: 'Elevation range', value: '8,750–13,500', unit: 'ft' },
+    { label: 'Avg altitude', value: '11,255', unit: 'ft' },
     { label: 'Cutoff', value: '32', unit: 'hr' },
   ];
 
@@ -24,7 +45,7 @@ function Overview({ goTo }) {
     <div>
       <section style={{padding:'40px 0 56px', borderBottom:'1px solid var(--line)'}}>
         <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--climb)', letterSpacing:'0.08em', marginBottom:14}}>
-          TELLURIDE MOUNTAIN RUN &middot; AUG 22, 2026
+          TELLURIDE MOUNTAIN RUN &middot; SAT, AUG 22, 2026 &middot; 6:00 AM START
         </div>
         <h1 style={{
           fontFamily:'var(--display)', fontWeight:700, fontSize:'clamp(38px, 8vw, 68px)',
@@ -46,6 +67,41 @@ function Overview({ goTo }) {
           Open race day plan &rarr;
         </button>
       </section>
+
+      {countdown && (
+        <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
+          <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:16, letterSpacing:'0.08em', textTransform:'uppercase'}}>
+            Countdown to Start
+          </div>
+          <div style={{display:'flex', gap:28, flexWrap:'wrap', marginBottom:28}}>
+            {[['days','Days'],['hours','Hours'],['minutes','Min'],['seconds','Sec']].map(([key,label]) => (
+              <div key={key}>
+                <div style={{fontFamily:'var(--display)', fontSize:32, fontWeight:700, color:'var(--climb)'}}>
+                  {String(countdown[key]).padStart(2,'0')}
+                </div>
+                <div style={{fontFamily:'var(--mono)', fontSize:10, color:'var(--ink-faint)', textTransform:'uppercase', letterSpacing:'0.05em'}}>{label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))', gap:20}}>
+            <div>
+              <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:8, textTransform:'uppercase', letterSpacing:'0.05em'}}>
+                Historical Weather &mdash; Telluride, August
+              </div>
+              <p style={{fontFamily:'var(--body)', fontSize:14, color:'var(--ink-dim)', lineHeight:1.6, margin:0}}>
+                Town-level (8,647ft) NOAA climate normals: avg high <strong style={{color:'var(--ink)'}}>74&deg;F</strong>,
+                avg low <strong style={{color:'var(--ink)'}}>40&deg;F</strong>, ~42% chance of rain on a given day.
+              </p>
+              <p style={{fontFamily:'var(--body)', fontSize:13, color:'var(--ink-faint)', lineHeight:1.6, marginTop:8}}>
+                The course runs 2,600&ndash;4,850ft above that station &mdash; expect meaningfully colder,
+                especially at the 6am start and on exposed ridgeline above treeline. Afternoon storms are
+                also more likely at altitude than these town-level numbers suggest.
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section style={{padding:'40px 0', borderBottom:'1px solid var(--line)'}}>
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:1, background:'var(--line)'}}>
