@@ -84,6 +84,7 @@
 
 <script src="gpx_parser.js"></script>
 <script src="pace_model.js"></script>
+<script src="segment_strategy.js"></script>
 <script>
   const dropzone = document.getElementById('dropzone');
   const fileInput = document.getElementById('fileInput');
@@ -204,6 +205,14 @@
       </div>
 
       <div class="manual-entry" style="margin-top:1rem;">
+        <label style="display:block; font-weight:600; margin-bottom:0.4rem;">Water intake</label>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="number" id="qWater" value="600" min="300" max="1200" step="50" style="width:80px;">
+          <span>ml/hr <span style="font-size:0.8rem; color:var(--ink-soft);">(varies a lot with heat and effort \u2014 adjust for your conditions)</span></span>
+        </div>
+      </div>
+
+      <div class="manual-entry" style="margin-top:1rem;">
         <label style="display:block; font-weight:600; margin-bottom:0.6rem;">Carrying setup</label>
         <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:0.9rem;">
           <div><strong>Vest</strong><br>1000ml (2\u00d7500ml)</div>
@@ -214,10 +223,10 @@
             </label>
           </div>
         </div>
-        <p style="font-size:0.8rem; margin-top:0.6rem;">Same setup as your TMR plan \u2014 vest and bladder both refill with water at every aid station.</p>
+        <p style="font-size:0.8rem; margin-top:0.6rem;">Vest and bladder both refill with water at every aid station \u2014 this is where the plan tells you how much goes in each.</p>
       </div>
 
-      <button class="primary" id="submitQuestionnaire">See pacing preview \u2192</button>
+      <button class="primary" id="submitQuestionnaire">Build my plan \u2192</button>
     `;
     q.style.display = 'block';
 
@@ -225,45 +234,75 @@
       const targetHours = parseFloat(document.getElementById('qHours').value);
       const carbsPerHour = parseFloat(document.getElementById('qCarbs').value);
       const sodiumPerHour = parseFloat(document.getElementById('qSodium').value);
+      const waterPerHour = parseFloat(document.getElementById('qWater').value);
       const beltOn = document.getElementById('qBelt').checked;
       if (!targetHours || targetHours <= 0) { showError('Enter a valid target time.'); return; }
       q.style.display = 'none';
-      renderPacingPreview(stats, { targetHours, carbsPerHour, sodiumPerHour, beltOn });
+      renderSegmentPlan(stats, { targetHours, carbsPerHour, sodiumPerHour, waterPerHour, beltOn }, lastWaypoints || []);
     });
   }
 
-  function renderPacingPreview(stats, answers) {
+  let activeSegIdx = 0;
+  let currentSegments = [];
+
+  function renderSegmentPlan(stats, answers, waypoints) {
     const box = document.getElementById('pacingPreview');
-    const result = window.PaceModel.computePacing(stats.profile, answers.targetHours);
-    const avgPace = answers.targetHours * 60 / stats.totalMiles;
+    const pacing = window.PaceModel.computePacing(stats.profile, answers.targetHours);
+    currentSegments = window.SegmentStrategy.buildSegments(waypoints, stats.profile, pacing.segments, stats.totalMiles, answers);
+    activeSegIdx = 0;
+    box.style.display = 'block';
+    drawSegment();
+  }
 
-    // Find the segment with the steepest sustained climb, as a concrete example.
-    const steepest = result.segments.reduce((a, b) => (b.gradePercent > a.gradePercent ? b : a), result.segments[0]);
-    const flattest = result.segments.reduce((a, b) => (Math.abs(b.gradePercent) < Math.abs(a.gradePercent) ? b : a), result.segments[0]);
+  function drawSegment() {
+    const box = document.getElementById('pacingPreview');
+    const seg = currentSegments[activeSegIdx];
+    const total = currentSegments.length;
+    const paceStr = window.PaceModel.formatPace(seg.avgPaceMinPerMi);
+    const hrs = Math.floor(seg.minutesForSeg / 60), mins = seg.minutesForSeg % 60;
 
-    const totalCarbs = Math.round(answers.carbsPerHour * answers.targetHours);
-    const totalSodium = Math.round(answers.sodiumPerHour * answers.targetHours);
+    let waterHtml = `<div class="stat-box"><div class="label">Vest</div><div class="value">${seg.water.vestMl}ml</div></div>`;
+    waterHtml += `<div class="stat-box"><div class="label">Bladder</div><div class="value">${seg.water.bladderMl > 0 ? seg.water.bladderMl + 'ml' : 'not needed'}</div></div>`;
+    if (seg.water.beltMl > 0) waterHtml += `<div class="stat-box"><div class="label">Belt</div><div class="value">${seg.water.beltMl}ml</div></div>`;
+
+    let shortfallHtml = '';
+    if (seg.water.shortfallMl > 0) {
+      shortfallHtml = `<div class="error-box" style="margin-top:1rem;">
+        This segment needs ${seg.waterMl}ml but your carrying setup only holds
+        ${window.SegmentStrategy.VEST_ML + window.SegmentStrategy.BLADDER_ML + (seg.water.beltMl > 0 ? window.SegmentStrategy.BELT_ML : 0)}ml \u2014
+        short by ${seg.water.shortfallMl}ml. ${seg.water.beltMl === 0 ? 'Consider adding the belt, or plan' : 'Plan'} a mid-segment refill if the course allows it.
+      </div>`;
+    }
 
     box.innerHTML = `
-      <h2>Pacing preview</h2>
-      <p style="font-size:0.85rem;">
-        Grade-adjusted estimate based on published exercise-science research (Minetti et al.) on how metabolic
-        cost changes with grade \u2014 not a personalized model calibrated to your own data (unlike the TMR
-        dashboard, which used your actual Strava history). Treat this as a planning starting point.
-      </p>
-      <div class="preview-stats">
-        <div class="stat-box"><div class="label">Avg pace</div><div class="value">${window.PaceModel.formatPace(avgPace)}</div></div>
-        <div class="stat-box"><div class="label">Steepest mi (${steepest.gradePercent.toFixed(1)}%)</div><div class="value">${window.PaceModel.formatPace(steepest.paceMinPerMi)}</div></div>
-        <div class="stat-box"><div class="label">Flattest mi (${flattest.gradePercent.toFixed(1)}%)</div><div class="value">${window.PaceModel.formatPace(flattest.paceMinPerMi)}</div></div>
-        <div class="stat-box"><div class="label">Total carbs</div><div class="value">${totalCarbs}g</div></div>
-        <div class="stat-box"><div class="label">Total sodium</div><div class="value">${(totalSodium/1000).toFixed(1)}g</div></div>
+      <h2>Segment plan</h2>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin:1.25rem 0;">
+        <button class="ghost" id="prevSeg" ${activeSegIdx === 0 ? 'disabled' : ''}>&larr;</button>
+        <div style="text-align:center;">
+          <div style="font-family:var(--font-mono); font-size:0.75rem; color:var(--ink-soft);">SEGMENT ${activeSegIdx + 1} OF ${total}</div>
+          <div style="font-family:var(--font-display); font-size:1.2rem; font-weight:600;">${seg.from} \u2192 ${seg.to}</div>
+        </div>
+        <button class="ghost" id="nextSeg" ${activeSegIdx === total - 1 ? 'disabled' : ''}>&rarr;</button>
       </div>
-      <p style="font-size:0.85rem; color:var(--ink-soft);">
-        Full segment-by-segment breakdown with per-segment pacing, nutrition, and hydration strategy is the next
-        stage \u2014 not built yet. This preview confirms the numbers behind it are computing correctly.
-      </p>
+
+      <div class="preview-stats">
+        <div class="stat-box"><div class="label">Distance</div><div class="value">${seg.distMi}mi</div></div>
+        <div class="stat-box"><div class="label">Time</div><div class="value">${hrs}h${String(mins).padStart(2,'0')}m</div></div>
+        <div class="stat-box"><div class="label">Pace</div><div class="value">${paceStr}</div></div>
+        <div class="stat-box"><div class="label">Elevation</div><div class="value">+${seg.gainFt}/-${seg.lossFt}ft</div></div>
+      </div>
+
+      <h2 style="font-size:1.05rem; margin-top:1.5rem;">Nutrition &amp; hydration for this segment</h2>
+      <div class="preview-stats">
+        <div class="stat-box"><div class="label">Carbs</div><div class="value">${seg.carbsG}g</div></div>
+        <div class="stat-box"><div class="label">Sodium</div><div class="value">${seg.sodiumMg}mg</div></div>
+        ${waterHtml}
+      </div>
+      ${shortfallHtml}
     `;
-    box.style.display = 'block';
+
+    document.getElementById('prevSeg').addEventListener('click', () => { if (activeSegIdx > 0) { activeSegIdx--; drawSegment(); } });
+    document.getElementById('nextSeg').addEventListener('click', () => { if (activeSegIdx < total - 1) { activeSegIdx++; drawSegment(); } });
   }
 
   window.manualWaypoints = [];
