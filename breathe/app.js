@@ -246,9 +246,11 @@ function App() {
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '3rem 1.5rem' }}>
-      <p className="eyebrow">Breathwork Assistant</p>
-      <h1>Choose a breathing pattern</h1>
-      <p>Each pattern paces itself visually and with sound — pick one, set it up, and follow along.</p>
+      <div className="tool-hero">
+        <p className="eyebrow">Breathwork Assistant</p>
+        <h1>Choose a breathing pattern</h1>
+        <p style={{ marginBottom: 0 }}>Each pattern paces itself visually and with sound — pick one, set it up, and follow along.</p>
+      </div>
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
         gap: '1.25rem', marginTop: '2rem',

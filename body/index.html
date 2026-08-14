@@ -27,6 +27,25 @@
     -webkit-font-smoothing:antialiased;
   }
   .container{ max-width:900px; margin:0 auto; padding:3rem 1.5rem 5rem; }
+  .tool-hero{
+    position:relative;
+    margin:0 0 2rem;
+    padding:2.5rem 1.5rem 2rem;
+    border-radius:16px;
+    background-image:
+      linear-gradient(180deg, rgba(248,241,228,0.72) 0%, rgba(236,219,185,0.78) 100%),
+      url('assets/hero-bg-body.jpg');
+    background-size:cover;
+    background-position:center;
+  }
+  .tool-hero .eyebrow, .tool-hero h1{ position:relative; }
+  @media (max-width:720px){
+    .tool-hero{
+      background-image:
+        linear-gradient(180deg, rgba(248,241,228,0.72) 0%, rgba(236,219,185,0.78) 100%),
+        url('assets/hero-bg-body-mobile.jpg');
+    }
+  }
   h1,h2,h3{ font-family:var(--font-display); font-weight:500; margin:0 0 0.6rem; }
   p{ margin:0 0 1rem; color:var(--ink-soft); }
   .eyebrow{
@@ -111,10 +130,12 @@
 </head>
 <body>
 <div class="container">
-  <p class="eyebrow">Bodywork</p>
-  <h1>Self-Massage Guide</h1>
-  <div class="intro">
-    <p>A region-by-region guide to working on your own tension between sessions. Start with the areas to approach carefully below — they're worth knowing before anything else, since they cover the whole body rather than one region at a time.</p>
+  <div class="tool-hero">
+    <p class="eyebrow">Bodywork</p>
+    <h1>Self-Massage Guide</h1>
+    <div class="intro">
+      <p>A region-by-region guide to working on your own tension between sessions. Start with the areas to approach carefully below — they're worth knowing before anything else, since they cover the whole body rather than one region at a time.</p>
+    </div>
   </div>
 
   <details class="caution-card" id="endangerment-sites">

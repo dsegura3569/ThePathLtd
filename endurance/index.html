@@ -32,6 +32,24 @@
     text-transform:uppercase; color:var(--endurance-color); margin-bottom:0.5rem;
   }
   .intro p{ max-width:60ch; }
+  .tool-hero{
+    position:relative;
+    margin:0 0 1rem;
+    padding:2.5rem 1.5rem 2rem;
+    border-radius:16px;
+    background-image:
+      linear-gradient(180deg, rgba(248,241,228,0.72) 0%, rgba(236,219,185,0.78) 100%),
+      url('assets/hero-bg-endurance.jpg');
+    background-size:cover;
+    background-position:center;
+  }
+  @media (max-width:720px){
+    .tool-hero{
+      background-image:
+        linear-gradient(180deg, rgba(248,241,228,0.72) 0%, rgba(236,219,185,0.78) 100%),
+        url('assets/hero-bg-endurance-mobile.jpg');
+    }
+  }
 
   .race-list{ display:grid; gap:1.25rem; margin-top:2rem; }
   .race-card{
@@ -69,10 +87,12 @@
 </head>
 <body>
 <div class="container">
-  <p class="eyebrow">Endurance</p>
-  <h1>Race Prep Dashboards</h1>
-  <div class="intro">
-    <p>Pick a race for the full breakdown — course profile, aid stations, pacing plan, and the tools built for that specific day.</p>
+  <div class="tool-hero">
+    <p class="eyebrow">Endurance</p>
+    <h1>Race Prep Dashboards</h1>
+    <div class="intro">
+      <p>Pick a race for the full breakdown — course profile, aid stations, pacing plan, and the tools built for that specific day.</p>
+    </div>
   </div>
 
   <div class="race-list">
