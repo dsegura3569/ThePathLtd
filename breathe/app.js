@@ -16,6 +16,7 @@ function SecondsControl({ technique, duration, setDuration }) {
         type="range"
         min={technique.min}
         max={technique.max}
+        step={technique.step || 1}
         value={duration}
         onChange={e => setDuration(Number(e.target.value))}
         style={{ width: '100%' }}

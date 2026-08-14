@@ -74,6 +74,7 @@ window.TECHNIQUES = [
     durationMode: 'selectable',
     min: 1,
     max: 3,
+    step: 0.5,
     default: 1.5,
     cue: "This is an intense practice — traditionally guided by a trained facilitator, often in a group, not done solo. Sit or lie down somewhere safe before starting. Not recommended if you're pregnant, or have a cardiovascular condition, seizure disorder, glaucoma, recent surgery, or a history of psychosis — check with a doctor first if any of that applies. Stop immediately if you feel unwell.",
   },
