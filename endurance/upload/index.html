@@ -78,9 +78,12 @@
 
   <div id="errorBox" style="display:none;"></div>
   <div id="preview" class="preview" style="display:none;"></div>
+  <div id="questionnaire" class="preview" style="display:none;"></div>
+  <div id="pacingPreview" class="preview" style="display:none;"></div>
 </div>
 
 <script src="gpx_parser.js"></script>
+<script src="pace_model.js"></script>
 <script>
   const dropzone = document.getElementById('dropzone');
   const fileInput = document.getElementById('fileInput');
@@ -163,6 +166,104 @@
 
     preview.innerHTML = html;
     preview.style.display = 'block';
+
+    document.getElementById('continueBtn').addEventListener('click', () => {
+      preview.style.display = 'none';
+      renderQuestionnaire(stats);
+    });
+  }
+
+  function renderQuestionnaire(stats) {
+    const q = document.getElementById('questionnaire');
+    q.innerHTML = `
+      <h2>A few questions before we build your plan</h2>
+      <p style="font-size:0.9rem;">These drive the pacing and nutrition numbers on the next page \u2014 they're your call, not something the GPX can tell us.</p>
+
+      <div class="manual-entry">
+        <label style="display:block; font-weight:600; margin-bottom:0.4rem;">Target finish time</label>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="number" id="qHours" value="${Math.round(stats.totalMiles / 3)}" min="1" max="60" style="width:80px;">
+          <span>hours</span>
+        </div>
+      </div>
+
+      <div class="manual-entry" style="margin-top:1rem;">
+        <label style="display:block; font-weight:600; margin-bottom:0.4rem;">Carbs per hour</label>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="number" id="qCarbs" value="60" min="20" max="120" style="width:80px;">
+          <span>g/hr <span style="font-size:0.8rem; color:var(--ink-soft);">(60-90g/hr is a common range for ultra racing)</span></span>
+        </div>
+      </div>
+
+      <div class="manual-entry" style="margin-top:1rem;">
+        <label style="display:block; font-weight:600; margin-bottom:0.4rem;">Sodium per hour</label>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="number" id="qSodium" value="500" min="200" max="1500" step="50" style="width:80px;">
+          <span>mg/hr</span>
+        </div>
+      </div>
+
+      <div class="manual-entry" style="margin-top:1rem;">
+        <label style="display:block; font-weight:600; margin-bottom:0.6rem;">Carrying setup</label>
+        <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:0.9rem;">
+          <div><strong>Vest</strong><br>1000ml (2\u00d7500ml)</div>
+          <div><strong>Bladder</strong><br>1500ml</div>
+          <div>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+              <input type="checkbox" id="qBelt"> <strong>Belt</strong> (650ml, optional)
+            </label>
+          </div>
+        </div>
+        <p style="font-size:0.8rem; margin-top:0.6rem;">Same setup as your TMR plan \u2014 vest and bladder both refill with water at every aid station.</p>
+      </div>
+
+      <button class="primary" id="submitQuestionnaire">See pacing preview \u2192</button>
+    `;
+    q.style.display = 'block';
+
+    document.getElementById('submitQuestionnaire').addEventListener('click', () => {
+      const targetHours = parseFloat(document.getElementById('qHours').value);
+      const carbsPerHour = parseFloat(document.getElementById('qCarbs').value);
+      const sodiumPerHour = parseFloat(document.getElementById('qSodium').value);
+      const beltOn = document.getElementById('qBelt').checked;
+      if (!targetHours || targetHours <= 0) { showError('Enter a valid target time.'); return; }
+      q.style.display = 'none';
+      renderPacingPreview(stats, { targetHours, carbsPerHour, sodiumPerHour, beltOn });
+    });
+  }
+
+  function renderPacingPreview(stats, answers) {
+    const box = document.getElementById('pacingPreview');
+    const result = window.PaceModel.computePacing(stats.profile, answers.targetHours);
+    const avgPace = answers.targetHours * 60 / stats.totalMiles;
+
+    // Find the segment with the steepest sustained climb, as a concrete example.
+    const steepest = result.segments.reduce((a, b) => (b.gradePercent > a.gradePercent ? b : a), result.segments[0]);
+    const flattest = result.segments.reduce((a, b) => (Math.abs(b.gradePercent) < Math.abs(a.gradePercent) ? b : a), result.segments[0]);
+
+    const totalCarbs = Math.round(answers.carbsPerHour * answers.targetHours);
+    const totalSodium = Math.round(answers.sodiumPerHour * answers.targetHours);
+
+    box.innerHTML = `
+      <h2>Pacing preview</h2>
+      <p style="font-size:0.85rem;">
+        Grade-adjusted estimate based on published exercise-science research (Minetti et al.) on how metabolic
+        cost changes with grade \u2014 not a personalized model calibrated to your own data (unlike the TMR
+        dashboard, which used your actual Strava history). Treat this as a planning starting point.
+      </p>
+      <div class="preview-stats">
+        <div class="stat-box"><div class="label">Avg pace</div><div class="value">${window.PaceModel.formatPace(avgPace)}</div></div>
+        <div class="stat-box"><div class="label">Steepest mi (${steepest.gradePercent.toFixed(1)}%)</div><div class="value">${window.PaceModel.formatPace(steepest.paceMinPerMi)}</div></div>
+        <div class="stat-box"><div class="label">Flattest mi (${flattest.gradePercent.toFixed(1)}%)</div><div class="value">${window.PaceModel.formatPace(flattest.paceMinPerMi)}</div></div>
+        <div class="stat-box"><div class="label">Total carbs</div><div class="value">${totalCarbs}g</div></div>
+        <div class="stat-box"><div class="label">Total sodium</div><div class="value">${(totalSodium/1000).toFixed(1)}g</div></div>
+      </div>
+      <p style="font-size:0.85rem; color:var(--ink-soft);">
+        Full segment-by-segment breakdown with per-segment pacing, nutrition, and hydration strategy is the next
+        stage \u2014 not built yet. This preview confirms the numbers behind it are computing correctly.
+      </p>
+    `;
+    box.style.display = 'block';
   }
 
   window.manualWaypoints = [];
