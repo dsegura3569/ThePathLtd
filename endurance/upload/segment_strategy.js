@@ -1,33 +1,42 @@
 // Turns (profile + waypoints + pacing + questionnaire answers) into the
 // merged per-segment view: telemetry AND strategy together, not separate.
-// Generic -- works for any uploaded course, not specific to any one race.
+// Generic -- works for any uploaded course, not specific to any one race,
+// and doesn't assume any particular gear -- every container's capacity is
+// a real input, not a hardcoded default.
 
 window.SegmentStrategy = (function () {
-  const VEST_ML = 1000;   // 2x500ml
-  const BLADDER_ML = 1500;
-  const BELT_ML = 650;
+  // capacities: { vestMl, bladderMl, beltOn, beltMl, extraFlasks: [{name, ml}, ...] }
+  // Fills containers in order (vest, bladder, belt if on, then each extra
+  // flask in the order added). Anything still unaccounted for is a real
+  // shortfall -- surfaced explicitly, never silently dropped, since a
+  // segment's water need can genuinely exceed whatever's being carried on
+  // courses with longer or hotter stretches than any one reference race.
+  function splitWater(totalMl, capacities) {
+    const containers = [
+      { key: 'vest', label: 'Vest', ml: capacities.vestMl || 0 },
+      { key: 'bladder', label: 'Bladder', ml: capacities.bladderMl || 0 },
+    ];
+    if (capacities.beltOn) containers.push({ key: 'belt', label: 'Belt', ml: capacities.beltMl || 0 });
+    (capacities.extraFlasks || []).forEach((f, i) => {
+      containers.push({ key: 'extra' + i, label: f.name || ('Extra flask ' + (i + 1)), ml: f.ml || 0 });
+    });
 
-  // Same split logic verified for TMR: fill vest first, remainder to
-  // bladder, only spill into belt if it's on AND still needed beyond
-  // vest+bladder combined (2500ml). Anything still left over (shortfall)
-  // means this segment's water need exceeds total carrying capacity --
-  // surfaced explicitly rather than silently dropped, since that's a real
-  // possibility on courses with longer or hotter stretches than TMR's,
-  // where this case never actually came up.
-  function splitWater(totalMl, beltOn) {
-    const vestMl = Math.min(totalMl, VEST_ML);
-    const afterVest = Math.max(0, totalMl - VEST_ML);
-    const bladderMl = Math.min(afterVest, BLADDER_ML);
-    const afterBladder = Math.max(0, afterVest - BLADDER_ML);
-    const beltMl = beltOn ? Math.min(afterBladder, BELT_ML) : 0;
-    const shortfallMl = Math.max(0, afterBladder - beltMl);
-    return { vestMl, bladderMl, beltMl, shortfallMl };
+    let remaining = totalMl;
+    const fillList = [];
+    for (const c of containers) {
+      const amt = Math.min(remaining, c.ml);
+      fillList.push({ key: c.key, label: c.label, ml: amt, capacity: c.ml });
+      remaining -= amt;
+    }
+    const totalCapacityMl = containers.reduce((s, c) => s + c.ml, 0);
+    const shortfallMl = Math.max(0, remaining);
+    return { fillList, totalCapacityMl, shortfallMl };
   }
 
   // waypoints: [{name, mile}, ...] already sorted ascending.
   // profile: [{mile, elevFt}, ...] from GPXParser.computeStats.
   // pacedSegments: result.segments from PaceModel.computePacing (fine-grained, per-mile-chunk).
-  // answers: { targetHours, carbsPerHour, sodiumPerHour, waterPerHour, beltOn }
+  // answers: { targetHours, carbsPerHour, sodiumPerHour, waterPerHour, capacities }
   function buildSegments(waypoints, profile, pacedSegments, totalMiles, answers) {
     // Waypoint mile values are rounded for display (e.g. 0.7), but the real
     // chunk boundaries built from the raw GPX track rarely land on a round
@@ -59,7 +68,6 @@ window.SegmentStrategy = (function () {
       const distMi = toB.mile - fromB.mile;
       if (distMi <= 0) continue;
 
-      // Elevation gain/loss within this mile range, from the raw profile.
       const inRange = profile.filter(p => p.mile >= fromB.snapMile - 1e-9 && p.mile <= toB.snapMile + 1e-9);
       let gainFt = 0, lossFt = 0;
       for (let j = 1; j < inRange.length; j++) {
@@ -67,8 +75,6 @@ window.SegmentStrategy = (function () {
         if (d > 0) gainFt += d; else lossFt += Math.abs(d);
       }
 
-      // Sum time from the fine-grained paced chunks that fall in this range,
-      // using the snapped (exact profile) boundaries so no chunk is missed.
       const chunksInRange = pacedSegments.filter(s => s.fromMile >= fromB.snapMile - 1e-9 && s.toMile <= toB.snapMile + 1e-9);
       const minutesForSeg = chunksInRange.reduce((s, c) => s + c.minutesForSeg, 0);
       const hoursForSeg = minutesForSeg / 60;
@@ -76,8 +82,7 @@ window.SegmentStrategy = (function () {
       const carbsG = Math.round(answers.carbsPerHour * hoursForSeg);
       const sodiumMg = Math.round(answers.sodiumPerHour * hoursForSeg);
       const waterMl = Math.round(answers.waterPerHour * hoursForSeg);
-      const water = splitWater(waterMl, answers.beltOn);
-      const concPerMl = waterMl > 0 ? carbsG / waterMl : 0; // approximating carb source concentration for context, not a specific product
+      const water = splitWater(waterMl, answers.capacities);
 
       segments.push({
         id: i + 1,
@@ -95,5 +100,5 @@ window.SegmentStrategy = (function () {
     return segments;
   }
 
-  return { buildSegments, splitWater, VEST_ML, BLADDER_ML, BELT_ML };
+  return { buildSegments, splitWater };
 })();

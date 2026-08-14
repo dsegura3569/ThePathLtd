@@ -214,43 +214,118 @@
 
       <div class="manual-entry" style="margin-top:1rem;">
         <label style="display:block; font-weight:600; margin-bottom:0.6rem;">Carrying setup</label>
-        <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:0.9rem;">
-          <div><strong>Vest</strong><br>1000ml (2\u00d7500ml)</div>
-          <div><strong>Bladder</strong><br>1500ml</div>
+        <p style="font-size:0.8rem; margin-bottom:0.75rem;">Enter what you actually carry \u2014 no assumptions made about your gear.</p>
+        <div style="display:flex; gap:16px; flex-wrap:wrap;">
           <div>
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-              <input type="checkbox" id="qBelt"> <strong>Belt</strong> (650ml, optional)
+            <label style="display:block; font-size:0.85rem; margin-bottom:0.3rem;">Vest</label>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <input type="number" id="qVestMl" value="500" min="0" step="50" style="width:80px;"> <span style="font-size:0.85rem;">ml</span>
+            </div>
+          </div>
+          <div>
+            <label style="display:block; font-size:0.85rem; margin-bottom:0.3rem;">Bladder</label>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <input type="number" id="qBladderMl" value="1000" min="0" step="50" style="width:80px;"> <span style="font-size:0.85rem;">ml</span>
+            </div>
+          </div>
+          <div>
+            <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; margin-bottom:0.3rem; cursor:pointer;">
+              <input type="checkbox" id="qBeltOn"> Belt
             </label>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <input type="number" id="qBeltMl" value="500" min="0" step="50" style="width:80px;" disabled> <span style="font-size:0.85rem;">ml</span>
+            </div>
           </div>
         </div>
-        <p style="font-size:0.8rem; margin-top:0.6rem;">Vest and bladder both refill with water at every aid station \u2014 this is where the plan tells you how much goes in each.</p>
+        <div id="extraFlaskList" style="margin-top:0.75rem;"></div>
+        <button type="button" class="ghost" id="addFlaskQ" style="margin-top:0.5rem;">+ Add another flask</button>
+        <p style="font-size:0.8rem; margin-top:0.75rem;">Vest and bladder both refill with water at every aid station \u2014 this is where the plan tells you how much goes in each.</p>
       </div>
 
       <button class="primary" id="submitQuestionnaire">Build my plan \u2192</button>
     `;
     q.style.display = 'block';
 
+    document.getElementById('qBeltOn').addEventListener('change', e => {
+      document.getElementById('qBeltMl').disabled = !e.target.checked;
+    });
+
+    window.questionnaireExtraFlasks = [];
+    document.getElementById('addFlaskQ').addEventListener('click', () => {
+      window.questionnaireExtraFlasks.push({ name: 'Flask ' + (window.questionnaireExtraFlasks.length + 1), ml: 500 });
+      renderExtraFlaskList('extraFlaskList', window.questionnaireExtraFlasks);
+    });
+
     document.getElementById('submitQuestionnaire').addEventListener('click', () => {
       const targetHours = parseFloat(document.getElementById('qHours').value);
       const carbsPerHour = parseFloat(document.getElementById('qCarbs').value);
       const sodiumPerHour = parseFloat(document.getElementById('qSodium').value);
       const waterPerHour = parseFloat(document.getElementById('qWater').value);
-      const beltOn = document.getElementById('qBelt').checked;
+      const capacities = {
+        vestMl: parseFloat(document.getElementById('qVestMl').value) || 0,
+        bladderMl: parseFloat(document.getElementById('qBladderMl').value) || 0,
+        beltOn: document.getElementById('qBeltOn').checked,
+        beltMl: parseFloat(document.getElementById('qBeltMl').value) || 0,
+        extraFlasks: window.questionnaireExtraFlasks.slice(),
+      };
       if (!targetHours || targetHours <= 0) { showError('Enter a valid target time.'); return; }
       q.style.display = 'none';
-      renderSegmentPlan(stats, { targetHours, carbsPerHour, sodiumPerHour, waterPerHour, beltOn }, lastWaypoints || []);
+      renderSegmentPlan(stats, { targetHours, carbsPerHour, sodiumPerHour, waterPerHour, capacities }, lastWaypoints || []);
+    });
+  }
+
+  function renderExtraFlaskList(containerId, flasks) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = flasks.map((f, i) => `
+      <div style="margin-top:0.6rem; padding:0.6rem; background:var(--sand); border-radius:8px;">
+        <input type="text" value="${f.name}" data-flask-idx="${i}" data-flask-field="name" style="width:100%; margin-bottom:0.4rem;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <input type="number" value="${f.ml}" min="0" step="50" data-flask-idx="${i}" data-flask-field="ml" style="width:70px;">
+          <span style="font-size:0.85rem;">ml</span>
+          <button type="button" class="ghost" data-flask-remove="${i}" style="margin-left:auto;">Remove</button>
+        </div>
+      </div>
+    `).join('');
+    el.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const idx = parseInt(inp.dataset.flaskIdx, 10);
+        const field = inp.dataset.flaskField;
+        flasks[idx][field] = field === 'ml' ? (parseFloat(inp.value) || 0) : inp.value;
+      });
+    });
+    el.querySelectorAll('[data-flask-remove]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        flasks.splice(parseInt(btn.dataset.flaskRemove, 10), 1);
+        renderExtraFlaskList(containerId, flasks);
+      });
     });
   }
 
   let activeSegIdx = 0;
   let currentSegments = [];
+  let currentAnswers = null;
+  let currentStats = null;
+  let currentWaypoints = null;
 
   function renderSegmentPlan(stats, answers, waypoints) {
-    const box = document.getElementById('pacingPreview');
-    const pacing = window.PaceModel.computePacing(stats.profile, answers.targetHours);
-    currentSegments = window.SegmentStrategy.buildSegments(waypoints, stats.profile, pacing.segments, stats.totalMiles, answers);
+    currentStats = stats;
+    currentAnswers = answers;
+    currentWaypoints = waypoints;
     activeSegIdx = 0;
+    rebuildSegments();
+    const box = document.getElementById('pacingPreview');
     box.style.display = 'block';
+    drawSegment();
+  }
+
+  function rebuildSegments() {
+    const pacing = window.PaceModel.computePacing(currentStats.profile, currentAnswers.targetHours);
+    currentSegments = window.SegmentStrategy.buildSegments(currentWaypoints, currentStats.profile, pacing.segments, currentStats.totalMiles, currentAnswers);
+  }
+
+  function addFlaskFromWarning() {
+    currentAnswers.capacities.extraFlasks.push({ name: 'Flask ' + (currentAnswers.capacities.extraFlasks.length + 1), ml: 500 });
+    rebuildSegments(); // gear applies for the whole race, so every segment's split updates, not just this one
     drawSegment();
   }
 
@@ -261,16 +336,18 @@
     const paceStr = window.PaceModel.formatPace(seg.avgPaceMinPerMi);
     const hrs = Math.floor(seg.minutesForSeg / 60), mins = seg.minutesForSeg % 60;
 
-    let waterHtml = `<div class="stat-box"><div class="label">Vest</div><div class="value">${seg.water.vestMl}ml</div></div>`;
-    waterHtml += `<div class="stat-box"><div class="label">Bladder</div><div class="value">${seg.water.bladderMl > 0 ? seg.water.bladderMl + 'ml' : 'not needed'}</div></div>`;
-    if (seg.water.beltMl > 0) waterHtml += `<div class="stat-box"><div class="label">Belt</div><div class="value">${seg.water.beltMl}ml</div></div>`;
+    let waterHtml = seg.water.fillList.map(f => `
+      <div class="stat-box"><div class="label">${f.label}</div><div class="value">${f.ml > 0 ? f.ml + 'ml' : 'not needed'}</div></div>
+    `).join('');
 
     let shortfallHtml = '';
     if (seg.water.shortfallMl > 0) {
       shortfallHtml = `<div class="error-box" style="margin-top:1rem;">
-        This segment needs ${seg.waterMl}ml but your carrying setup only holds
-        ${window.SegmentStrategy.VEST_ML + window.SegmentStrategy.BLADDER_ML + (seg.water.beltMl > 0 ? window.SegmentStrategy.BELT_ML : 0)}ml \u2014
-        short by ${seg.water.shortfallMl}ml. ${seg.water.beltMl === 0 ? 'Consider adding the belt, or plan' : 'Plan'} a mid-segment refill if the course allows it.
+        <p style="margin:0 0 0.75rem; color:inherit;">
+          This segment needs ${seg.waterMl}ml but your carrying setup only holds
+          ${seg.water.totalCapacityMl}ml \u2014 short by ${seg.water.shortfallMl}ml.
+        </p>
+        <button type="button" class="ghost" id="addFlaskWarning" style="border-color:currentColor;">+ Add a flask</button>
       </div>`;
     }
 
@@ -303,6 +380,8 @@
 
     document.getElementById('prevSeg').addEventListener('click', () => { if (activeSegIdx > 0) { activeSegIdx--; drawSegment(); } });
     document.getElementById('nextSeg').addEventListener('click', () => { if (activeSegIdx < total - 1) { activeSegIdx++; drawSegment(); } });
+    const addBtn = document.getElementById('addFlaskWarning');
+    if (addBtn) addBtn.addEventListener('click', addFlaskFromWarning);
   }
 
   window.manualWaypoints = [];
