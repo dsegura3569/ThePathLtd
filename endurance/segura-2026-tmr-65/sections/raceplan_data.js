@@ -54,7 +54,7 @@ const segments = [
     pickup: [
       "DROP BAG #2: full headlamp + battery swap", "Warm layer / gloves / hat",
       "2nd fresh socks", "Pole re-grip check", "Fresh base layer", "Anti-chafe reapply",
-      "8-10 SIS gels resupply", "Tailwind resupply", "Pickles, caffeine gels x3-4",
+      "8-10 SIS gels resupply", "Tailwind resupply", "Pickles",
       "Salt tabs resupply (primary from here)", "LMNT (backup, just in case)",
     ],
     dropoff: ["DROP BAG #2 left here (picked up post-race)"],
@@ -87,7 +87,7 @@ const segments = [
     tailwind: 158, waterMl: 880, gels: 3, electrolyte: "Salt tabs", saltTabs: 14, lmntPackets: 0,
     pickup: [
       "DROP BAG #3: fresh headlamp batteries (last chance)", "Dry socks (optional morale)",
-      "Light gloves if not already carrying", "3-4 SIS gels resupply", "Tailwind resupply", "Caffeine gel x1-2",
+      "Light gloves if not already carrying", "3-4 SIS gels resupply", "Tailwind resupply",
       "Salt tabs resupply", "LMNT (backup, just in case)",
     ],
     dropoff: ["DROP BAG #3 left here (picked up post-race)"],
