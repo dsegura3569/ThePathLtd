@@ -1,4 +1,6 @@
 function RaceDayPlanView() {
+  const { targetHours, setTargetHours } = React.useContext(window.TargetHoursContext);
+  const segments = React.useMemo(() => computeDerivedSegments(targetHours), [targetHours]);
   const [active, setActive] = React.useState(1);
   const seg = segments.find(s => s.id === active);
 
@@ -17,7 +19,35 @@ function RaceDayPlanView() {
 
   return (
     <div style={{paddingBottom:60}}>
-      <SectionHeader eyebrow="01" title="Race Day Plan" sub="24hr pace target &middot; Sat 6:00am start &middot; 9 aid stations, 3 drop bags (Mi 17, 35, 56)" />
+      <SectionHeader eyebrow="01" title="Race Day Plan" sub="Sat 6:00am start &middot; 9 aid stations, 3 drop bags (Mi 17, 35, 56)" />
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, marginTop: -12, flexWrap: 'wrap' }}>
+        <SmallLabel>Target finish time</SmallLabel>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={() => setTargetHours(h => Math.max(12, Math.round((h - 0.5) * 2) / 2))} style={{
+            width: 28, height: 28, borderRadius: 8, border: '1px solid var(--line)', background: 'var(--bg-raised)',
+            color: 'var(--ink)', cursor: 'pointer', fontSize: 14,
+          }}>&minus;</button>
+          <input
+            type="number" step="0.5" min="12" max="32" value={targetHours}
+            onChange={e => {
+              const v = parseFloat(e.target.value);
+              if (!isNaN(v)) setTargetHours(Math.min(32, Math.max(12, v)));
+            }}
+            style={{
+              width: 60, textAlign: 'center', fontFamily: 'var(--display)', fontSize: 15, fontWeight: 600,
+              background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--climb)',
+              padding: '4px 6px',
+            }}
+          />
+          <span style={{ fontSize: 13, color: 'var(--ink-faint)' }}>hr</span>
+          <button onClick={() => setTargetHours(h => Math.min(32, Math.round((h + 0.5) * 2) / 2))} style={{
+            width: 28, height: 28, borderRadius: 8, border: '1px solid var(--line)', background: 'var(--bg-raised)',
+            color: 'var(--ink)', cursor: 'pointer', fontSize: 14,
+          }}>+</button>
+        </div>
+        <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>32hr official cutoff</span>
+      </div>
 
       <div style={{display:'flex', gap:6, overflowX:'auto', paddingBottom:10, marginBottom:20}}>
         {segments.map(s => (
@@ -203,8 +233,8 @@ function RaceDayPlanView() {
       </div>
 
       <p style={{marginTop:16, fontSize:11.5, color:'var(--ink-faint)', lineHeight:1.6}}>
-        Elevation: ultraPacer GPX (3,295 trackpoints) &mdash; total &uarr;23,320ft/&darr;23,320ft, the most reliable figure vs runtelluride.com&rsquo;s rounded &ldquo;~22,500ft&rdquo; and bibstation.com&rsquo;s ~23,822ft.
-        Pace model: Jemez-calibrated + 18% altitude penalty, scaled to 24hr finish. Temps from August Telluride averages. Treat as planning reference, not guarantee.
+        Elevation: ultraPacer GPX, recomputed at official aid-station mile boundaries &mdash; total &uarr;25,385ft/&darr;25,772ft. Differs from the earlier &uarr;23,320ft figure because segment boundaries were corrected to match runtelluride.com&rsquo;s official aid station miles (previously off by up to 2mi in places).
+        Pace model: grade+altitude adjusted, scaled to {targetHours}hr finish. Temps from August Telluride averages. Treat as planning reference, not guarantee.
       </p>
     </div>
   );

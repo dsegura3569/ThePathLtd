@@ -45,6 +45,8 @@ function AmenityBadge({ label, active }) {
 }
 
 function SegmentsView() {
+  const { targetHours } = React.useContext(window.TargetHoursContext);
+  const segments = React.useMemo(() => computeDerivedSegments(targetHours), [targetHours]);
   const [active, setActive] = React.useState(1);
   const gSeg = gradeSegments.find(s => s.id === active);
   const pSeg = segments.find(s => s.id === active);
@@ -73,7 +75,7 @@ function SegmentsView() {
 
   return (
     <div style={{ paddingBottom: 60 }}>
-      <SectionHeader eyebrow="02b" title="Segments" sub="Course broken into legs &middot; step through start to finish &middot; official aid station miles + ultraPacer elevation" />
+      <SectionHeader eyebrow="02b" title="Segments" sub={`Course broken into legs &middot; step through start to finish &middot; official aid station miles + ultraPacer elevation &middot; ${targetHours}hr target (adjust on Race Day Plan)`} />
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <button onClick={() => go(-1)} disabled={active === 1} style={{
@@ -138,7 +140,7 @@ function SegmentsView() {
         </div>
       </div>
       <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginBottom: 20, lineHeight: 1.5 }}>
-        Based on a grade+altitude-adjusted pace model calibrated to your 24hr goal — not a guarantee, just a planning estimate.
+        Based on a grade+altitude-adjusted pace model calibrated to your {targetHours}hr goal — not a guarantee, just a planning estimate.
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>

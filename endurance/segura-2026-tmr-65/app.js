@@ -1,5 +1,12 @@
 const { useState, useEffect } = React;
 
+// Shared target-finish-time state. Segment data everywhere except raw
+// terrain (distance/elevation/grade) is derived from this at render time,
+// so changing it updates pace, clock times, cutoff margins, and the whole
+// nutrition plan consistently across every tab that reads it.
+const TargetHoursContext = React.createContext({ targetHours: 24, setTargetHours: () => {} });
+window.TargetHoursContext = TargetHoursContext;
+
 // ---------- Nav elevation spine data (simplified TMR profile for the header signature) ----------
 const SPINE = [8750,9563,10801,12278,13500,11824,11339,12374,9128,9407,11003,11833,11077,12437,12718,12049,11990,13056,11412,10415,10957,12139,12621,12566,11223,11275,11934,11253,10138,10082,10430,11195,11771,10603,11909,13104,12235,10891,9443,8858];
 
@@ -52,7 +59,7 @@ function Nav({ active, setActive, open, setOpen }) {
                 TMR<span style={{color:'var(--climb)'}}>/</span>Command
               </span>
             </div>
-            <span style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)'}}>63.5mi · 23,320ft</span>
+            <span style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)'}}>63.5mi · 25,385ft</span>
           </div>
           <div style={{height:36, opacity:0.5}}>
             <Sparkline data={SPINE} color="var(--climb)" height={36} />
@@ -100,6 +107,7 @@ function Footer() {
 function App() {
   const [active, setActive] = useState('overview');
   const [open, setOpen] = useState(false);
+  const [targetHours, setTargetHours] = useState(24);
 
   useEffect(() => { window.scrollTo(0,0); }, [active]);
 
@@ -118,13 +126,15 @@ function App() {
   }[active];
 
   return (
-    <div>
-      <Nav active={active} setActive={setActive} open={open} setOpen={setOpen} />
-      <main style={{maxWidth:1180, margin:'0 auto', padding:'32px 20px 0'}}>
-        {ActiveComponent ? <ActiveComponent goTo={setActive} /> : <div style={{padding:'80px 0', textAlign:'center', color:'var(--ink-faint)'}}>Section not found.</div>}
-      </main>
-      <Footer />
-    </div>
+    <TargetHoursContext.Provider value={{ targetHours, setTargetHours }}>
+      <div>
+        <Nav active={active} setActive={setActive} open={open} setOpen={setOpen} />
+        <main style={{maxWidth:1180, margin:'0 auto', padding:'32px 20px 0'}}>
+          {ActiveComponent ? <ActiveComponent goTo={setActive} /> : <div style={{padding:'80px 0', textAlign:'center', color:'var(--ink-faint)'}}>Section not found.</div>}
+        </main>
+        <Footer />
+      </div>
+    </TargetHoursContext.Provider>
   );
 }
 
