@@ -2,32 +2,11 @@ function RaceDayPlanView() {
   const [active, setActive] = React.useState(1);
   const seg = segments.find(s => s.id === active);
 
-  const VEST_ML = 1000;   // 2x500ml
-  const BLADDER_ML = 1500;
-  const BELT_ML = 650;
-  const [beltOn, setBeltOn] = React.useState({}); // { [segId]: true|false }
-  const segBeltOn = !!beltOn[active];
-
-  // Vest and bladder are always both carried and refilled with water at every
-  // aid station -- the real question is how much tailwind powder (if any)
-  // goes in each, not which single container to use. Fill vest first (it's
-  // smaller and easier to pre-mix before the race), route the remainder to
-  // the bladder, and only spill into the belt if it's toggled on AND the
-  // segment's need actually exceeds vest+bladder combined (in practice this
-  // never happens on this course -- max segment need is 1295ml vs 2500ml
-  // vest+bladder capacity -- so the belt is genuinely optional backup, not
-  // a capacity requirement).
-  const vestMl = Math.min(seg.waterMl, VEST_ML);
-  const afterVestMl = Math.max(0, seg.waterMl - VEST_ML);
-  const bladderMl = Math.min(afterVestMl, BLADDER_ML);
-  const afterBladderMl = Math.max(0, afterVestMl - BLADDER_ML);
-  const beltMl = segBeltOn ? Math.min(afterBladderMl, BELT_ML) : 0;
-
-  const concPerMl = seg.tailwind / seg.waterMl;
-  const vestPowder = Math.round(vestMl * concPerMl);
-  const bladderPowder = Math.round(bladderMl * concPerMl);
-  const beltPowder = Math.round(beltMl * concPerMl);
-  const concentrationPerLiter = Math.round(concPerMl * 1000 * 10) / 10;
+  // Vessel breakdown now comes from the same shared vesselPlan() used by the
+  // Segments tab, so both views describe the same physical flasks/bladder
+  // identically instead of drifting apart.
+  const vessels = vesselPlan(seg);
+  const bags = popsicleBagsForVessels(vessels);
 
   const InfoRow = ({label, value}) => (
     <div style={{display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--line)'}}>
@@ -85,38 +64,23 @@ function RaceDayPlanView() {
           )}
 
           <div style={{marginBottom:14}}>
-            <SmallLabel color="var(--climb)">Tailwind split &mdash; vest &amp; bladder refill with water at every aid</SmallLabel>
+            <SmallLabel color="var(--climb)">Vessel plan &mdash; refill at every aid station</SmallLabel>
             <div style={{display:'flex', gap:10, marginTop:10, flexWrap:'wrap'}}>
-              <div style={{background:'var(--bg-raised)', borderRadius:10, padding:'10px 14px', minWidth:150}}>
-                <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)'}}>VEST (1000ml)</div>
-                <div style={{fontSize:15, fontWeight:600, color:'var(--climb)', marginTop:3}}>
-                  {vestPowder > 0 ? `+${vestPowder}g tailwind` : 'water only'}
-                </div>
-                <div style={{fontSize:11, color:'var(--ink-faint)', marginTop:2}}>{vestMl}ml</div>
-              </div>
-              <div style={{background:'var(--bg-raised)', borderRadius:10, padding:'10px 14px', minWidth:150}}>
-                <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)'}}>BLADDER (1500ml)</div>
-                <div style={{fontSize:15, fontWeight:600, color: bladderPowder > 0 ? 'var(--climb)' : 'var(--ink-faint)', marginTop:3}}>
-                  {bladderPowder > 0 ? `+${bladderPowder}g tailwind` : (bladderMl > 0 ? 'water only' : 'not needed')}
-                </div>
-                <div style={{fontSize:11, color:'var(--ink-faint)', marginTop:2}}>{bladderMl}ml</div>
-              </div>
-              <div style={{
-                background: segBeltOn ? 'var(--bg-raised)' : 'transparent', borderRadius:10, padding:'10px 14px', minWidth:150,
-                border: segBeltOn ? 'none' : '1px dashed var(--line)', opacity: segBeltOn ? 1 : 0.7,
-              }}>
-                <button onClick={() => setBeltOn(prev => ({...prev, [active]: !segBeltOn}))} style={{
-                  background:'none', border:'none', cursor:'pointer', padding:0, textAlign:'left', width:'100%',
-                }}>
-                  <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)'}}>
-                    BELT (650ml) &middot; {segBeltOn ? 'ON' : 'optional \u2014 tap to add'}
+              {vessels.map((v, i) => (
+                <div key={i} style={{background:'var(--bg-raised)', borderRadius:10, padding:'10px 14px', minWidth:150}}>
+                  <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)'}}>{v.name.toUpperCase()} ({v.capacity}ml)</div>
+                  <div style={{fontSize:15, fontWeight:600, color: v.tailwindMl > 0 ? 'var(--climb)' : 'var(--ink-faint)', marginTop:3}}>
+                    {v.tailwindMl > 0 ? `+${v.tailwindG.toFixed(0)}g tailwind` : 'water only'}
                   </div>
-                  <div style={{fontSize:15, fontWeight:600, color: beltPowder > 0 ? 'var(--climb)' : 'var(--ink-faint)', marginTop:3}}>
-                    {segBeltOn ? (beltPowder > 0 ? `+${beltPowder}g tailwind` : 'not needed this segment') : '\u2014'}
-                  </div>
-                </button>
-              </div>
+                  <div style={{fontSize:11, color:'var(--ink-faint)', marginTop:2}}>{Math.round(v.water)}ml</div>
+                </div>
+              ))}
             </div>
+            {bags.length > 0 && (
+              <div style={{fontSize:12, color:'var(--ink-faint)', marginTop:10}}>
+                Popsicle bags: {bags.map(b => `${b.grams}g (${b.vessel})`).join(', ')}
+              </div>
+            )}
           </div>
 
           <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))', gap:10, marginBottom:16}}>
@@ -125,14 +89,12 @@ function RaceDayPlanView() {
             <StatBox label="Tailwind" value={`${seg.tailwind}g`} sub={
               <React.Fragment>
                 <div>sip every ~{Math.round(seg.hours*60/(seg.waterMl/40))}min (~40ml/sip)</div>
-                <div style={{marginTop:2}}>{concentrationPerLiter}g/L overall</div>
+                <div style={{marginTop:2}}>{(seg.tailwindConc*100).toFixed(1)}% mix</div>
               </React.Fragment>
             } color="var(--climb)" />
             <StatBox label="SIS gels" value={seg.gels} sub={seg.gels>0 ? `every ~${Math.round(seg.hours*60/seg.gels)}min` : ''} />
-            {seg.electrolyte === 'LMNT'
-              ? <StatBox label="LMNT" value={`${seg.lmntPackets} pkt${seg.lmntPackets!==1?'s':''}`} sub="primary (warmer segment)" color="var(--ok)" />
-              : <StatBox label="Salt tabs" value={seg.saltTabs} sub={seg.saltTabs>0 ? `every ~${Math.round(seg.hours*60/seg.saltTabs)}min` : ''} />
-            }
+            <StatBox label={seg.saltCapType==='caffeine' ? 'SaltStick +caf' : 'SaltStick'} value={seg.saltCaps} sub={seg.saltCaps>0 ? `every ~${Math.round(seg.hours*60/seg.saltCaps)}min` : ''} color={seg.saltCapType==='caffeine' ? 'var(--ok)' : undefined} />
+            <StatBox label="Sodium" value={`${seg.sodiumHr}mg/hr`} />
           </div>
 
           {(seg.pickup.length>0 || seg.dropoff.length>0) && (
@@ -168,7 +130,7 @@ function RaceDayPlanView() {
           <table style={{width:'100%', minWidth:820, borderCollapse:'collapse', fontFamily:'var(--body)'}}>
             <thead>
               <tr style={{background:'var(--bg-raised)', textAlign:'left'}}>
-                {['Clock','Segment','Dist','Pace','Mph','','Tailwind','Gels','Salt/LMNT','Bag'].map(h=>(
+                {['Clock','Segment','Dist','Pace','Mph','','Tailwind','Gels','Salt caps','Bag'].map(h=>(
                   <th key={h} style={{padding:'9px 12px', fontFamily:'var(--mono)', fontSize:10, color:'var(--ink-faint)', fontWeight:500, textTransform:'uppercase', borderBottom:'1px solid var(--line)'}}>{h}</th>
                 ))}
               </tr>
@@ -184,7 +146,7 @@ function RaceDayPlanView() {
                   <td style={cellStyle(s.netDir==='climb'?'var(--climb)':'var(--descent)', 700)}>{s.netDir==='climb'?'\u25B2':'\u25BC'}</td>
                   <td style={cellStyle('var(--climb)')}>{s.tailwind}g/{s.waterMl}ml</td>
                   <td style={cellStyle('var(--ink-dim)')}>{s.gels}</td>
-                  <td style={cellStyle(s.electrolyte==='LMNT'?'var(--ok)':'var(--ink-dim)')}>{s.electrolyte==='LMNT'?s.lmntPackets+' LMNT':s.saltTabs+' salt'}</td>
+                  <td style={cellStyle(s.saltCapType==='caffeine'?'var(--ok)':'var(--ink-dim)')}>{s.saltCaps} {s.saltCapType==='caffeine'?'+caf':''}</td>
                   <td style={cellStyle(s.dropoff.length?'var(--db)':'var(--ink-faint)', s.dropoff.length?600:400)}>{s.dropoff.length?'DB':'\u2014'}</td>
                 </tr>
               ))}
@@ -200,14 +162,13 @@ function RaceDayPlanView() {
         </p>
         {(() => {
           const checkpoints = [];
-          const cum = { gels: 0, saltTabs: 0, tailwind: 0, waterMl: 0, lmntPackets: 0 };
+          const cum = { gels: 0, saltCaps: 0, tailwind: 0, waterMl: 0 };
           checkpoints.push({ label: 'Start', ...cum });
           segments.forEach(s => {
             cum.gels += s.gels;
-            cum.saltTabs += s.saltTabs;
+            cum.saltCaps += s.saltCaps;
             cum.tailwind += s.tailwind;
             cum.waterMl += s.waterMl;
-            cum.lmntPackets = Math.round((cum.lmntPackets + s.lmntPackets) * 10) / 10;
             const isDropBag = /drop bag/i.test(s.to);
             const isFinish = s.id === segments.length;
             if (isDropBag || isFinish) {
@@ -219,7 +180,7 @@ function RaceDayPlanView() {
               <table style={{width:'100%', minWidth:600, borderCollapse:'collapse', fontFamily:'var(--body)'}}>
                 <thead>
                   <tr style={{background:'var(--bg-raised)', textAlign:'left'}}>
-                    {['Checkpoint','Gels','Salt tabs','LMNT','Tailwind','Water'].map(h=>(
+                    {['Checkpoint','Gels','Salt caps','Tailwind','Water'].map(h=>(
                       <th key={h} style={{padding:'9px 12px', fontFamily:'var(--mono)', fontSize:10, color:'var(--ink-faint)', fontWeight:500, textTransform:'uppercase', borderBottom:'1px solid var(--line)'}}>{h}</th>
                     ))}
                   </tr>
@@ -229,8 +190,7 @@ function RaceDayPlanView() {
                     <tr key={i}>
                       <td style={cellStyle('var(--ink)', 600)}>{c.label}</td>
                       <td style={cellStyle('var(--ink-dim)')}>{c.gels}</td>
-                      <td style={cellStyle('var(--ink-dim)')}>{c.saltTabs}</td>
-                      <td style={cellStyle('var(--ok)')}>{c.lmntPackets} pkt</td>
+                      <td style={cellStyle('var(--ink-dim)')}>{c.saltCaps}</td>
                       <td style={cellStyle('var(--climb)')}>{c.tailwind}g</td>
                       <td style={cellStyle('var(--ink-dim)')}>{(c.waterMl/1000).toFixed(1)}L</td>
                     </tr>

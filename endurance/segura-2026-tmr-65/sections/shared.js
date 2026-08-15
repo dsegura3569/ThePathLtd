@@ -26,6 +26,66 @@ function SmallLabel({ children, color }) {
   );
 }
 
+function vesselPlan(seg) {
+  // Vessel capacities: two 500ml vest flasks, one 2000ml bladder, one 650ml belt flask.
+  // Tailwind-diluted mix goes in whichever vessel(s) fit the diluted volume most simply;
+  // remaining plain water fills whatever's left. Shared by Race Day Plan and Segments
+  // tabs so both describe the same physical gear identically.
+  const VEST = 500, BLADDER = 2000, BELT = 650;
+  const diluted = seg.dilutedMl;
+  const plain = seg.plainMl;
+  const vessels = [];
+
+  if (diluted === 0) {
+    let remaining = plain;
+    const bladderFill = Math.min(remaining, BLADDER);
+    if (bladderFill > 0) { vessels.push({ name: 'Bladder', capacity: BLADDER, water: bladderFill, tailwindMl: 0 }); remaining -= bladderFill; }
+    const vestFill = Math.min(remaining, VEST);
+    if (vestFill > 0) { vessels.push({ name: 'Vest flask A', capacity: VEST, water: vestFill, tailwindMl: 0 }); remaining -= vestFill; }
+    return vessels;
+  }
+
+  if (diluted <= VEST) {
+    vessels.push({ name: 'Vest flask A', capacity: VEST, water: diluted, tailwindMl: diluted, tailwindG: seg.tailwind });
+    if (plain > 0) vessels.push({ name: 'Bladder', capacity: BLADDER, water: Math.min(plain, BLADDER), tailwindMl: 0 });
+  } else if (diluted <= VEST * 2) {
+    const half = diluted / 2;
+    vessels.push({ name: 'Vest flask A', capacity: VEST, water: half, tailwindMl: half, tailwindG: seg.tailwind / 2 });
+    vessels.push({ name: 'Vest flask B', capacity: VEST, water: half, tailwindMl: half, tailwindG: seg.tailwind / 2 });
+    if (plain > 0) vessels.push({ name: 'Bladder', capacity: BLADDER, water: Math.min(plain, BLADDER), tailwindMl: 0 });
+  } else if (diluted <= BLADDER) {
+    vessels.push({ name: 'Bladder', capacity: BLADDER, water: diluted, tailwindMl: diluted, tailwindG: seg.tailwind });
+    if (plain > 0) vessels.push({ name: 'Vest flask A', capacity: VEST, water: Math.min(plain, VEST), tailwindMl: 0 });
+  } else {
+    const bladderPortion = BLADDER;
+    const beltPortion = Math.min(diluted - BLADDER, BELT);
+    const bladderG = seg.tailwind * (bladderPortion / diluted);
+    const beltG = seg.tailwind * (beltPortion / diluted);
+    vessels.push({ name: 'Bladder', capacity: BLADDER, water: bladderPortion, tailwindMl: bladderPortion, tailwindG: bladderG });
+    vessels.push({ name: 'Belt flask', capacity: BELT, water: beltPortion, tailwindMl: beltPortion, tailwindG: beltG });
+  }
+  return vessels;
+}
+
+function popsicleBagsForVessels(vessels, maxG = 80) {
+  const bags = [];
+  vessels.filter(v => v.tailwindG > 0).forEach(v => {
+    const g = v.tailwindG;
+    if (g <= maxG) {
+      bags.push({ vessel: v.name, grams: Math.round(g) });
+    } else {
+      const bagCount = Math.ceil(g / maxG);
+      const per = g / bagCount;
+      for (let i = 0; i < bagCount; i++) {
+        bags.push({ vessel: v.name, grams: Math.round(per) });
+      }
+    }
+  });
+  return bags;
+}
+
 window.SectionHeader = SectionHeader;
 window.StatBox = StatBox;
 window.SmallLabel = SmallLabel;
+window.vesselPlan = vesselPlan;
+window.popsicleBagsForVessels = popsicleBagsForVessels;
