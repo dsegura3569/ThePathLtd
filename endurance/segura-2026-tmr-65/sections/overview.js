@@ -71,6 +71,7 @@ function useLiveWeather() {
 }
 
 const STAT_DEFS_KEY = 'tmr_overview_stat_order_v1';
+const STAT_VISIBILITY_KEY = 'tmr_overview_stat_visibility_v1';
 
 function Overview({ goTo }) {
   // Race starts 6:00am Saturday Aug 22, 2026, Mountain Time (MDT, UTC-6 in August)
@@ -129,6 +130,21 @@ function Overview({ goTo }) {
     try { localStorage.setItem(STAT_DEFS_KEY, JSON.stringify(statOrder)); } catch (e) {}
   }, [statOrder]);
 
+  const [statVisible, setStatVisible] = React.useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STAT_VISIBILITY_KEY));
+      if (saved && typeof saved === 'object') return saved;
+    } catch (e) {}
+    return {};
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem(STAT_VISIBILITY_KEY, JSON.stringify(statVisible)); } catch (e) {}
+  }, [statVisible]);
+  function isVisible(key) { return statVisible[key] !== false; }
+  function toggleVisible(key) {
+    setStatVisible(prev => ({ ...prev, [key]: prev[key] === false ? true : false }));
+  }
+
   function moveStat(index, dir) {
     setStatOrder(prev => {
       const next = [...prev];
@@ -138,9 +154,9 @@ function Overview({ goTo }) {
       return next;
     });
   }
-  function resetStats() { setStatOrder(defaultOrder); }
+  function resetStats() { setStatOrder(defaultOrder); setStatVisible({}); }
 
-  const orderedStats = statOrder.map(k => allStats.find(s => s.key === k)).filter(Boolean);
+  const orderedStats = statOrder.map(k => allStats.find(s => s.key === k)).filter(Boolean).filter(s => isVisible(s.key));
 
   const cards = [
     { id: 'raceplan', n: '01', t: 'Race Day Plan', d: 'Segment-by-segment pace, fuel, gear, and drop bag logistics for all 10 legs.' },
@@ -231,9 +247,15 @@ function Overview({ goTo }) {
           <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:16}}>
             {statOrder.map((key, i) => {
               const s = allStats.find(x => x.key === key);
+              const vis = isVisible(key);
               return (
-                <div key={key} style={{display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none'}}>
+                <div key={key} style={{display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none', opacity: vis ? 1 : 0.45}}>
                   <span style={{flex:1, fontSize:13, color:'var(--ink)'}}>{s.label}</span>
+                  <button onClick={() => toggleVisible(key)} style={{
+                    fontSize:10, fontFamily:'var(--mono)', padding:'4px 9px', borderRadius:6,
+                    border:'1px solid var(--line)', background: vis ? 'var(--bg-raised)' : 'transparent',
+                    color: vis ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer', minWidth:52,
+                  }}>{vis ? 'Shown' : 'Hidden'}</button>
                   <button disabled={i===0} onClick={() => moveStat(i, -1)} style={{
                     width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
                     color: i===0 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===0 ? 'not-allowed' : 'pointer', fontSize:12,
@@ -252,9 +274,9 @@ function Overview({ goTo }) {
           </div>
         )}
 
-        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:1, background:'var(--line)'}}>
+        <div style={{display:'flex', flexWrap:'wrap', gap:1, background:'var(--line)'}}>
           {orderedStats.map(s => (
-            <div key={s.key} style={{background:'var(--bg)', padding:'20px 16px'}}>
+            <div key={s.key} style={{background:'var(--bg)', padding:'20px 16px', flex:'1 1 140px', minWidth:140}}>
               <div style={{fontFamily:'var(--display)', fontSize:26, fontWeight:700, color:'var(--ink)'}}>
                 {s.value}<span style={{fontSize:14, color:'var(--ink-faint)', marginLeft:4}}>{s.unit}</span>
               </div>
