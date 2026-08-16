@@ -1,8 +1,52 @@
+const COLUMN_DEFS = [
+  { key:'clock', label:'Clock', cellStyle:() => cellStyle('var(--ink-faint)'), render: s => s.clockS.split(' ')[1] },
+  { key:'segment', label:'Segment', cellStyle:() => cellStyle('var(--ink)'), render: s => <React.Fragment>{s.from} &rarr; {s.to.split(' (')[0]}</React.Fragment> },
+  { key:'dist', label:'Dist', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => `${s.distReal.toFixed(1)}mi` },
+  { key:'pace', label:'Pace', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.avgPace },
+  { key:'mph', label:'Mph', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.avgMph },
+  { key:'grade', label:'Avg Grade', cellStyle: s => cellStyle(parseFloat(s.avgGrade) >= 0 ? 'var(--climb)' : 'var(--descent)'), render: s => `${s.avgGrade}%` },
+  { key:'dir', label:'Dir', cellStyle: s => cellStyle(s.netDir==='climb'?'var(--climb)':'var(--descent)', 700), render: s => s.netDir==='climb'?'\u25B2':'\u25BC' },
+  { key:'tailwind', label:'Tailwind', cellStyle:() => cellStyle('var(--climb)'), render: s => `${s.tailwind}g/${s.waterMl}ml` },
+  { key:'gels', label:'Gels', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.gels },
+  { key:'saltcaps', label:'Salt caps', cellStyle: s => cellStyle(s.saltCapType==='caffeine'?'var(--ok)':'var(--ink-dim)'), render: s => <React.Fragment>{s.saltCaps} {s.saltCapType==='caffeine'?'+caf':''}</React.Fragment> },
+  { key:'bag', label:'Bag', cellStyle: s => cellStyle(s.dropoff.length?'var(--db)':'var(--ink-faint)', s.dropoff.length?600:400), render: s => s.dropoff.length?'DB':'\u2014' },
+];
+const DEFAULT_COLUMN_ORDER = COLUMN_DEFS.map(c => c.key);
+const COLUMN_ORDER_KEY = 'tmr_segment_table_col_order_v1';
+
+function loadColumnOrder() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(COLUMN_ORDER_KEY));
+    if (Array.isArray(saved) && saved.length === DEFAULT_COLUMN_ORDER.length &&
+        saved.every(k => DEFAULT_COLUMN_ORDER.includes(k))) {
+      return saved;
+    }
+  } catch (e) {}
+  return DEFAULT_COLUMN_ORDER;
+}
+
 function RaceDayPlanView() {
   const { targetHours, setTargetHours } = React.useContext(window.TargetHoursContext);
   const segments = React.useMemo(() => computeDerivedSegments(targetHours), [targetHours]);
   const [active, setActive] = React.useState(1);
   const seg = segments.find(s => s.id === active);
+  const [showColumnPanel, setShowColumnPanel] = React.useState(false);
+  const [columnOrder, setColumnOrder] = React.useState(loadColumnOrder);
+
+  React.useEffect(() => {
+    try { localStorage.setItem(COLUMN_ORDER_KEY, JSON.stringify(columnOrder)); } catch (e) {}
+  }, [columnOrder]);
+
+  function moveColumn(index, dir) {
+    setColumnOrder(prev => {
+      const next = [...prev];
+      const target = index + dir;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+  function resetColumns() { setColumnOrder(DEFAULT_COLUMN_ORDER); }
 
   // Vessel breakdown now comes from the same shared vesselPlan() used by the
   // Segments tab, so both views describe the same physical flasks/bladder
@@ -155,29 +199,62 @@ function RaceDayPlanView() {
       </div>
 
       <div style={{marginTop:32}}>
-        <SmallLabel>All segments</SmallLabel>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8}}>
+          <SmallLabel>All segments</SmallLabel>
+          <button onClick={() => setShowColumnPanel(v => !v)} style={{
+            fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'var(--bg-raised)',
+            border:'1px solid var(--line)', borderRadius:8, padding:'5px 10px', cursor:'pointer',
+          }}>
+            {showColumnPanel ? 'Done' : 'Customize columns'}
+          </button>
+        </div>
+
+        {showColumnPanel && (
+          <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginTop:10}}>
+            <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:8}}>Reorder with the arrows, or reset.</div>
+            {columnOrder.map((key, i) => {
+              const col = COLUMN_DEFS.find(c => c.key === key);
+              return (
+                <div key={key} style={{display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none'}}>
+                  <span style={{flex:1, fontSize:13, color:'var(--ink)'}}>{col.label}</span>
+                  <button disabled={i===0} onClick={() => moveColumn(i, -1)} style={{
+                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
+                    color: i===0 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===0 ? 'not-allowed' : 'pointer', fontSize:12,
+                  }}>&uarr;</button>
+                  <button disabled={i===columnOrder.length-1} onClick={() => moveColumn(i, 1)} style={{
+                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
+                    color: i===columnOrder.length-1 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===columnOrder.length-1 ? 'not-allowed' : 'pointer', fontSize:12,
+                  }}>&darr;</button>
+                </div>
+              );
+            })}
+            <button onClick={resetColumns} style={{
+              marginTop:10, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
+              border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
+            }}>Reset to default order</button>
+          </div>
+        )}
+
         <div style={{border:'1px solid var(--line)', borderRadius:12, overflow:'hidden', overflowX:'auto', marginTop:10}}>
-          <table style={{width:'100%', minWidth:820, borderCollapse:'collapse', fontFamily:'var(--body)'}}>
+          <table style={{width:'100%', minWidth:900, borderCollapse:'collapse', fontFamily:'var(--body)'}}>
             <thead>
               <tr style={{background:'var(--bg-raised)', textAlign:'left'}}>
-                {['Clock','Segment','Dist','Pace','Mph','','Tailwind','Gels','Salt caps','Bag'].map(h=>(
-                  <th key={h} style={{padding:'9px 12px', fontFamily:'var(--mono)', fontSize:10, color:'var(--ink-faint)', fontWeight:500, textTransform:'uppercase', borderBottom:'1px solid var(--line)'}}>{h}</th>
-                ))}
+                {columnOrder.map(key => {
+                  const col = COLUMN_DEFS.find(c => c.key === key);
+                  return (
+                    <th key={key} style={{padding:'9px 12px', fontFamily:'var(--mono)', fontSize:10, color:'var(--ink-faint)', fontWeight:500, textTransform:'uppercase', borderBottom:'1px solid var(--line)'}}>{col.label}</th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
               {segments.map(s=>(
                 <tr key={s.id} onClick={()=>setActive(s.id)} style={{cursor:'pointer', background: active===s.id ? s.color+'14' : 'transparent'}}>
-                  <td style={cellStyle('var(--ink-faint)')}>{s.clockS.split(' ')[1]}</td>
-                  <td style={cellStyle('var(--ink)')}>{s.from} &rarr; {s.to.split(' (')[0]}</td>
-                  <td style={cellStyle('var(--ink-dim)')}>{s.dist}mi</td>
-                  <td style={cellStyle('var(--ink-dim)')}>{s.avgPace}</td>
-                  <td style={cellStyle('var(--ink-dim)')}>{s.avgMph}</td>
-                  <td style={cellStyle(s.netDir==='climb'?'var(--climb)':'var(--descent)', 700)}>{s.netDir==='climb'?'\u25B2':'\u25BC'}</td>
-                  <td style={cellStyle('var(--climb)')}>{s.tailwind}g/{s.waterMl}ml</td>
-                  <td style={cellStyle('var(--ink-dim)')}>{s.gels}</td>
-                  <td style={cellStyle(s.saltCapType==='caffeine'?'var(--ok)':'var(--ink-dim)')}>{s.saltCaps} {s.saltCapType==='caffeine'?'+caf':''}</td>
-                  <td style={cellStyle(s.dropoff.length?'var(--db)':'var(--ink-faint)', s.dropoff.length?600:400)}>{s.dropoff.length?'DB':'\u2014'}</td>
+                  {columnOrder.map(key => (
+                    <td key={key} style={COLUMN_DEFS.find(c => c.key === key).cellStyle(s)}>
+                      {COLUMN_DEFS.find(c => c.key === key).render(s)}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
