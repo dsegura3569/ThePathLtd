@@ -4,7 +4,11 @@ const { useState, useEffect } = React;
 // terrain (distance/elevation/grade) is derived from this at render time,
 // so changing it updates pace, clock times, cutoff margins, and the whole
 // nutrition plan consistently across every tab that reads it.
-const TargetHoursContext = React.createContext({ targetHours: 24, setTargetHours: () => {} });
+const TargetHoursContext = React.createContext({
+  targetHours: 24, setTargetHours: () => {},
+  targetCarb: 80, setTargetCarb: () => {},
+  targetSodium: 700, setTargetSodium: () => {},
+});
 window.TargetHoursContext = TargetHoursContext;
 
 // ---------- Nav elevation spine data (simplified TMR profile for the header signature) ----------
@@ -109,6 +113,8 @@ function App() {
   const [active, setActive] = useState('overview');
   const [open, setOpen] = useState(false);
   const [targetHours, setTargetHours] = useState(24);
+  const [targetCarb, setTargetCarb] = useState(80);
+  const [targetSodium, setTargetSodium] = useState(700);
 
   useEffect(() => { window.scrollTo(0,0); }, [active]);
 
@@ -128,7 +134,7 @@ function App() {
   }[active];
 
   return (
-    <TargetHoursContext.Provider value={{ targetHours, setTargetHours }}>
+    <TargetHoursContext.Provider value={{ targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium }}>
       <div>
         <Nav active={active} setActive={setActive} open={open} setOpen={setOpen} />
         <main style={{maxWidth:1180, margin:'0 auto', padding:'32px 20px 0'}}>

@@ -104,8 +104,8 @@ function PackCard({ point }) {
 }
 
 function PackListView() {
-  const { targetHours } = React.useContext(window.TargetHoursContext);
-  const segments = React.useMemo(() => computeDerivedSegments(targetHours), [targetHours]);
+  const { targetHours, targetCarb, targetSodium } = React.useContext(window.TargetHoursContext);
+  const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium), [targetHours, targetCarb, targetSodium]);
   const packing = React.useMemo(() => buildPackingData(segments), [segments]);
 
   const grandGels = packing.reduce((s, p) => s + p.gelsTotal, 0);

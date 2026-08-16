@@ -45,8 +45,8 @@ function AmenityBadge({ label, active }) {
 }
 
 function SegmentsView() {
-  const { targetHours } = React.useContext(window.TargetHoursContext);
-  const segments = React.useMemo(() => computeDerivedSegments(targetHours), [targetHours]);
+  const { targetHours, targetCarb, targetSodium } = React.useContext(window.TargetHoursContext);
+  const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium), [targetHours, targetCarb, targetSodium]);
   const [active, setActive] = React.useState(1);
   const gSeg = gradeSegments.find(s => s.id === active);
   const pSeg = segments.find(s => s.id === active);

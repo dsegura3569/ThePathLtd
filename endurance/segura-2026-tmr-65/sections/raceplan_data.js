@@ -19,7 +19,7 @@ const baseSegments = [
     elevS: 10319, elevE: 11512, conditions: "Warming, 50-60°F, sustained altitude 11-13.5K via Telluride Peak",
     cutoffClock: "11:00am", cutoffHours: 5,
     amenities: {"water": true, "food": true, "dropBag": false, "crew": false},
-    pickup: ["Refill water (no drop bag here)"],
+    pickup: [],
     dropoff: [],
     socks: "No change", bladder: "Refill bladder fully — single mix for entire next segment",
     color: "#E8943A",
@@ -65,7 +65,7 @@ const baseSegments = [
     note: "Exposed ridgeline section. Watch weather — afternoon is when storms are most likely to build.",
   },
   {
-    id: 6, from: "Gold Hill", to: "Bridal Veil (Drop Bag #2)", miS: 26.5, miE: 35, dist: 8.5, distReal: 8.62,
+    id: 6, from: "Gold Hill", to: "Bridal Veil #2 (Drop Bag #2)", miS: 26.5, miE: 35, dist: 8.5, distReal: 8.62,
     avgGrade: "-4.1", maxClimb: "+26.7", maxDescent: "-20.7",
     segGain: 2126, segLoss: 4464, netFt: "-1,856", netDir: "descent",
     elevS: 12175, elevE: 10319, conditions: "Late afternoon into evening, cooling 45-58°F, Black Bear + Brooklyn Pass",
@@ -84,7 +84,7 @@ const baseSegments = [
     note: "Most important stop of the race. Pacer joins here. Take 10-15 min. Sun sets ~8:15pm — headlamp goes on soon after this stop.",
   },
   {
-    id: 7, from: "Bridal Veil (Drop Bag #2)", to: "Red Mtn", miS: 35, miE: 42, dist: 7, distReal: 7.08,
+    id: 7, from: "Bridal Veil #2 (Drop Bag #2)", to: "Red Mtn", miS: 35, miE: 42, dist: 7, distReal: 7.08,
     avgGrade: "2.2", maxClimb: "+24.6", maxDescent: "-18.7",
     segGain: 3009, segLoss: 2244, netFt: "+820", netDir: "climb",
     elevS: 10319, elevE: 11139, conditions: "Dusk into dark, 40-50°F dropping, headlamp required by end of segment",

@@ -6,11 +6,16 @@
 
 const WATER_BANDS = [480, 520, 650, 650, 580, 520, 450, 400, 400, 420]; // ml/hr baseline by segment
 const GEL_RATES = [2, 3, 2, 3, 2, 2, 1, 1, 3, 2];   // gels/hr, terrain-based (2-3 on the real climbs)
-const CARB_TARGETS = [80, 80, 80, 80, 80, 80, 65, 60, 80, 75]; // g/hr, appetite-adjusted at dusk/deep night
+// Baseline per-segment carb targets at a default 80g/hr overall setting --
+// segments 7/8 sit lower for appetite reasons (dusk/deep night). When the
+// user picks a different overall target, this whole array scales
+// proportionally so that relative dip is preserved.
+const BASE_CARB_TARGETS = [80, 80, 80, 80, 80, 80, 65, 60, 80, 75];
+const BASE_CARB_HR = 80;
+const BASE_SODIUM_HR = 700;
 
 const SCOOP_G = 27, CARB_PER_SCOOP = 25, NA_PER_SCOOP = 310, GEL_CARB = 22; // SIS GO Isotonic
 const CAP_NA = 215, CAP_NA_CAFFEINE = 190, CAP_CAFFEINE_MG = 30;
-const SODIUM_TARGET_HR = 700;
 
 function gradeFactor(grade) {
   if (grade >= 0) return 1 + 0.05 * grade;
@@ -69,7 +74,9 @@ function fmtHm(h) {
   return mm ? `${hh}h${String(mm).padStart(2, '0')}m` : `${hh}h`;
 }
 
-function computeDerivedSegments(targetTotalHours) {
+function computeDerivedSegments(targetTotalHours, targetCarbHr = BASE_CARB_HR, targetSodiumHr = BASE_SODIUM_HR) {
+  const carbScale = targetCarbHr / BASE_CARB_HR;
+  const CARB_TARGETS = BASE_CARB_TARGETS.map(c => Math.round(c * carbScale));
   const hoursList = calibratedHours(targetTotalHours);
 
   // First pass: clock times, to determine which segments actually span the
@@ -125,7 +132,7 @@ function computeDerivedSegments(targetTotalHours) {
     const isCaffeine = caffeineSegIdx.has(i);
     const naTwHr = hours > 0 ? (scoops * NA_PER_SCOOP) / hours : 0;
     const capNaUse = isCaffeine ? CAP_NA_CAFFEINE : CAP_NA;
-    const gapHr = Math.max(0, SODIUM_TARGET_HR - naTwHr);
+    const gapHr = Math.max(0, targetSodiumHr - naTwHr);
     const capsHr = Math.round((gapHr / capNaUse) * 2) / 2;
     const saltCaps = Math.round(capsHr * hours);
     const sodiumHr = Math.round(naTwHr + capsHr * capNaUse);
