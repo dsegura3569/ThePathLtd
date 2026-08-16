@@ -27,6 +27,7 @@ function Sparkline({ data, color, height = 40 }) {
 
 const SECTIONS = [
   { id: 'overview', label: 'Overview', eyebrow: '00' },
+  { id: 'packlist', label: 'Pack List', eyebrow: '00b' },
   { id: 'raceplan', label: 'Race Day Plan', eyebrow: '01' },
   { id: 'grade', label: 'Grade Profile', eyebrow: '02' },
   { id: 'segments', label: 'Segments', eyebrow: '02b' },
@@ -113,6 +114,7 @@ function App() {
 
   const ActiveComponent = {
     overview: window.Overview,
+    packlist: window.PackListView,
     raceplan: window.RaceDayPlanView,
     grade: window.GradeProfileView,
     segments: window.SegmentsView,
