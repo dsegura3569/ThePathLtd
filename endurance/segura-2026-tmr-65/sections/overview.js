@@ -15,19 +15,132 @@ function useCountdown(targetIso) {
   return { days, hours, minutes, seconds };
 }
 
+// WMO weather codes used by Open-Meteo's `weather_code` field.
+const WMO_CODES = {
+  0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast',
+  45: 'Fog', 48: 'Rime fog',
+  51: 'Light drizzle', 53: 'Drizzle', 55: 'Dense drizzle',
+  61: 'Light rain', 63: 'Rain', 65: 'Heavy rain',
+  71: 'Light snow', 73: 'Snow', 75: 'Heavy snow', 77: 'Snow grains',
+  80: 'Light showers', 81: 'Showers', 82: 'Heavy showers',
+  95: 'Thunderstorm', 96: 'Thunderstorm w/ hail', 99: 'Severe thunderstorm',
+};
+
+function aqiLabel(aqi) {
+  if (aqi <= 50) return { label: 'Good', color: 'var(--ok, #3CB897)' };
+  if (aqi <= 100) return { label: 'Moderate', color: 'var(--climb)' };
+  if (aqi <= 150) return { label: 'Unhealthy (sensitive)', color: '#E8943A' };
+  if (aqi <= 200) return { label: 'Unhealthy', color: 'var(--descent)' };
+  return { label: 'Very unhealthy', color: '#C0392B' };
+}
+
+// Start line coordinates (Town Park, Telluride) -- same point used for the
+// GPX-derived course data elsewhere on the dashboard.
+const START_LAT = 37.93508, START_LON = -107.80772;
+
+function useLiveWeather() {
+  const [state, setState] = React.useState({ status: 'loading' });
+  React.useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const [wxRes, aqRes] = await Promise.all([
+          fetch(`https://api.open-meteo.com/v1/forecast?latitude=${START_LAT}&longitude=${START_LON}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FDenver`),
+          fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${START_LAT}&longitude=${START_LON}&current=us_aqi&timezone=America%2FDenver`),
+        ]);
+        if (!wxRes.ok || !aqRes.ok) throw new Error('bad response');
+        const wx = await wxRes.json();
+        const aq = await aqRes.json();
+        if (cancelled) return;
+        setState({
+          status: 'ok',
+          temp: Math.round(wx.current.temperature_2m),
+          condition: WMO_CODES[wx.current.weather_code] || 'Unknown',
+          wind: Math.round(wx.current.wind_speed_10m),
+          humidity: Math.round(wx.current.relative_humidity_2m),
+          aqi: aq.current.us_aqi,
+        });
+      } catch (e) {
+        if (!cancelled) setState({ status: 'error' });
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+  return state;
+}
+
+const STAT_DEFS_KEY = 'tmr_overview_stat_order_v1';
+
 function Overview({ goTo }) {
   // Race starts 6:00am Saturday Aug 22, 2026, Mountain Time (MDT, UTC-6 in August)
   const countdown = useCountdown('2026-08-22T06:00:00-06:00');
+  const weather = useLiveWeather();
 
-  const stats = [
-    { label: 'Distance', value: '63.5', unit: 'mi' },
-    { label: 'Vert gain', value: '23,320', unit: 'ft' },
-    { label: 'Aid stations', value: '9', unit: '' },
-    { label: 'Drop bags', value: '3', unit: '' },
-    { label: 'Elevation range', value: '8,750–13,500', unit: 'ft' },
-    { label: 'Avg altitude', value: '11,255', unit: 'ft' },
-    { label: 'Cutoff', value: '32', unit: 'hr' },
+  const staticStats = [
+    { key: 'distance', label: 'Distance', value: '63.5', unit: 'mi' },
+    { key: 'vert', label: 'Vert gain', value: '25,385', unit: 'ft' },
+    { key: 'aid', label: 'Aid stations', value: '9', unit: '' },
+    { key: 'bags', label: 'Drop bags', value: '3', unit: '' },
+    { key: 'range', label: 'Elevation range', value: '8,750–13,500', unit: 'ft' },
+    { key: 'avgalt', label: 'Avg altitude', value: '11,255', unit: 'ft' },
+    { key: 'cutoff', label: 'Cutoff', value: '32', unit: 'hr' },
   ];
+
+  const weatherStats = React.useMemo(() => {
+    if (weather.status === 'ok') {
+      const aq = aqiLabel(weather.aqi);
+      return [
+        { key: 'temp', label: 'Live temp (start line)', value: `${weather.temp}`, unit: '°F', sub: `${weather.humidity}% humidity` },
+        { key: 'conditions', label: 'Live conditions', value: weather.condition, unit: '', sub: `${weather.wind}mph wind` },
+        { key: 'aqi', label: 'Air quality (AQI)', value: `${weather.aqi}`, unit: '', sub: aq.label, subColor: aq.color },
+      ];
+    }
+    if (weather.status === 'error') {
+      return [
+        { key: 'temp', label: 'Live temp (start line)', value: '—', unit: '', sub: 'unavailable' },
+        { key: 'conditions', label: 'Live conditions', value: '—', unit: '', sub: 'unavailable' },
+        { key: 'aqi', label: 'Air quality (AQI)', value: '—', unit: '', sub: 'unavailable' },
+      ];
+    }
+    return [
+      { key: 'temp', label: 'Live temp (start line)', value: '···', unit: '' },
+      { key: 'conditions', label: 'Live conditions', value: '···', unit: '' },
+      { key: 'aqi', label: 'Air quality (AQI)', value: '···', unit: '' },
+    ];
+  }, [weather]);
+
+  const allStats = [...staticStats, ...weatherStats];
+  const defaultOrder = allStats.map(s => s.key);
+
+  const [showStatPanel, setShowStatPanel] = React.useState(false);
+  const [statOrder, setStatOrder] = React.useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STAT_DEFS_KEY));
+      if (Array.isArray(saved) && saved.every(k => defaultOrder.includes(k)) &&
+          defaultOrder.every(k => saved.includes(k))) {
+        return saved;
+      }
+    } catch (e) {}
+    return defaultOrder;
+  });
+
+  React.useEffect(() => {
+    try { localStorage.setItem(STAT_DEFS_KEY, JSON.stringify(statOrder)); } catch (e) {}
+  }, [statOrder]);
+
+  function moveStat(index, dir) {
+    setStatOrder(prev => {
+      const next = [...prev];
+      const target = index + dir;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+  function resetStats() { setStatOrder(defaultOrder); }
+
+  const orderedStats = statOrder.map(k => allStats.find(s => s.key === k)).filter(Boolean);
 
   const cards = [
     { id: 'raceplan', n: '01', t: 'Race Day Plan', d: 'Segment-by-segment pace, fuel, gear, and drop bag logistics for all 10 legs.' },
@@ -52,17 +165,13 @@ function Overview({ goTo }) {
           lineHeight:1.02, letterSpacing:'-0.02em', margin:'0 0 20px',
         }}>
           63.5 miles.<br/>
-          <span style={{color:'var(--climb)'}}>23,320 feet</span> of climbing.<br/>
+          <span style={{color:'var(--climb)'}}>25,385 feet</span> of climbing.<br/>
           One race day.
         </h1>
-        <p style={{fontFamily:'var(--body)', fontSize:17, color:'var(--ink-dim)', maxWidth:560, lineHeight:1.6, margin:'0 0 32px'}}>
-          Every segment, every grade, every drop bag &mdash; built from the official ultraPacer GPX
-          and race-day Strava data. This is the command center for race day.
-        </p>
         <button onClick={()=>goTo('raceplan')} style={{
           background:'var(--climb)', color:'#12151A', border:'none', borderRadius:10,
           padding:'14px 24px', fontFamily:'var(--display)', fontWeight:600, fontSize:15,
-          cursor:'pointer',
+          cursor:'pointer', marginTop:8,
         }}>
           Open race day plan &rarr;
         </button>
@@ -94,9 +203,11 @@ function Overview({ goTo }) {
                 avg low <strong style={{color:'var(--ink)'}}>40&deg;F</strong>, ~42% chance of rain on a given day.
               </p>
               <p style={{fontFamily:'var(--body)', fontSize:13, color:'var(--ink-faint)', lineHeight:1.6, marginTop:8}}>
-                The course runs 2,600&ndash;4,850ft above that station &mdash; expect meaningfully colder,
-                especially at the 6am start and on exposed ridgeline above treeline. Afternoon storms are
-                also more likely at altitude than these town-level numbers suggest.
+                The start (Town Park, 8,750ft) sits almost exactly at this station&rsquo;s elevation &mdash;
+                the 6am cold is a time-of-day thing, not an altitude thing. Elevation starts to matter once
+                you climb: you&rsquo;re 2,000ft+ above the station for most of the course, and up to
+                4,850ft above it on the highest sections (13,500ft, above treeline). That&rsquo;s where the
+                real temperature drop and storm risk kick in, not at the start line.
               </p>
             </div>
           </div>
@@ -104,15 +215,57 @@ function Overview({ goTo }) {
       )}
 
       <section style={{padding:'40px 0', borderBottom:'1px solid var(--line)'}}>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginBottom:12}}>
+          <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase'}}>
+            Course &amp; Conditions
+          </div>
+          <button onClick={() => setShowStatPanel(v => !v)} style={{
+            fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'var(--bg-raised)',
+            border:'1px solid var(--line)', borderRadius:8, padding:'5px 10px', cursor:'pointer',
+          }}>
+            {showStatPanel ? 'Done' : 'Reorder blocks'}
+          </button>
+        </div>
+
+        {showStatPanel && (
+          <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:16}}>
+            {statOrder.map((key, i) => {
+              const s = allStats.find(x => x.key === key);
+              return (
+                <div key={key} style={{display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none'}}>
+                  <span style={{flex:1, fontSize:13, color:'var(--ink)'}}>{s.label}</span>
+                  <button disabled={i===0} onClick={() => moveStat(i, -1)} style={{
+                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
+                    color: i===0 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===0 ? 'not-allowed' : 'pointer', fontSize:12,
+                  }}>&uarr;</button>
+                  <button disabled={i===statOrder.length-1} onClick={() => moveStat(i, 1)} style={{
+                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
+                    color: i===statOrder.length-1 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===statOrder.length-1 ? 'not-allowed' : 'pointer', fontSize:12,
+                  }}>&darr;</button>
+                </div>
+              );
+            })}
+            <button onClick={resetStats} style={{
+              marginTop:10, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
+              border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
+            }}>Reset to default order</button>
+          </div>
+        )}
+
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:1, background:'var(--line)'}}>
-          {stats.map(s => (
-            <div key={s.label} style={{background:'var(--bg)', padding:'20px 16px'}}>
+          {orderedStats.map(s => (
+            <div key={s.key} style={{background:'var(--bg)', padding:'20px 16px'}}>
               <div style={{fontFamily:'var(--display)', fontSize:26, fontWeight:700, color:'var(--ink)'}}>
                 {s.value}<span style={{fontSize:14, color:'var(--ink-faint)', marginLeft:4}}>{s.unit}</span>
               </div>
               <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginTop:6, textTransform:'uppercase', letterSpacing:'0.05em'}}>
                 {s.label}
               </div>
+              {s.sub && (
+                <div style={{fontFamily:'var(--mono)', fontSize:10, color: s.subColor || 'var(--ink-faint)', marginTop:4}}>
+                  {s.sub}
+                </div>
+              )}
             </div>
           ))}
         </div>
