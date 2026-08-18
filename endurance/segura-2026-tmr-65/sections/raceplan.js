@@ -166,6 +166,26 @@ function RaceDayPlanView() {
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr style={{background:'var(--bg-raised)', borderTop:'2px solid var(--line)'}}>
+                {columnOrder.map(key => {
+                  const totalDist = segments.reduce((a,s)=>a+s.distReal,0);
+                  const totalTailwind = segments.reduce((a,s)=>a+s.tailwind,0);
+                  const totalWater = segments.reduce((a,s)=>a+s.waterMl,0);
+                  const totalGels = segments.reduce((a,s)=>a+s.gels,0);
+                  const totalSalt = segments.reduce((a,s)=>a+s.saltCaps,0);
+                  const cellBase = {padding:'10px 12px', fontFamily:'var(--mono)', fontWeight:700, fontSize:12.5};
+                  switch(key) {
+                    case 'segment': return <td key={key} style={{...cellBase, color:'var(--ink)'}}>TOTAL</td>;
+                    case 'dist': return <td key={key} style={{...cellBase, color:'var(--ink)'}}>{totalDist.toFixed(1)}mi</td>;
+                    case 'tailwind': return <td key={key} style={{...cellBase, color:'var(--climb)'}}>{totalTailwind}g/{totalWater}ml</td>;
+                    case 'gels': return <td key={key} style={{...cellBase, color:'var(--ink)'}}>{totalGels}</td>;
+                    case 'saltcaps': return <td key={key} style={{...cellBase, color:'var(--ink)'}}>{totalSalt}</td>;
+                    default: return <td key={key} style={cellBase}></td>;
+                  }
+                })}
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
@@ -200,10 +220,21 @@ function RaceDayPlanView() {
                   DB{dropBagNum(seg)}
                 </span>
               )}
-              <span style={{fontSize:11, padding:'5px 12px', borderRadius:20, fontWeight:700, fontFamily:'var(--mono)',
-                background: seg.netDir==='climb' ? 'var(--climb)25' : 'var(--descent)25', color: seg.netDir==='climb' ? 'var(--climb)' : 'var(--descent)'}}>
-                {seg.netDir==='climb' ? '\u25B2 CLIMB' : '\u25BC DESCENT'} {seg.netFt}ft
-              </span>
+              {seg.segGain > 300 && seg.segLoss > 300 ? (
+                <React.Fragment>
+                  <span style={{fontSize:11, padding:'5px 12px', borderRadius:20, fontWeight:700, fontFamily:'var(--mono)', background:'var(--climb)25', color:'var(--climb)'}}>
+                    &#9650; {seg.segGain.toLocaleString()}ft
+                  </span>
+                  <span style={{fontSize:11, padding:'5px 12px', borderRadius:20, fontWeight:700, fontFamily:'var(--mono)', background:'var(--descent)25', color:'var(--descent)'}}>
+                    &#9660; {seg.segLoss.toLocaleString()}ft
+                  </span>
+                </React.Fragment>
+              ) : (
+                <span style={{fontSize:11, padding:'5px 12px', borderRadius:20, fontWeight:700, fontFamily:'var(--mono)',
+                  background: seg.netDir==='climb' ? 'var(--climb)25' : 'var(--descent)25', color: seg.netDir==='climb' ? 'var(--climb)' : 'var(--descent)'}}>
+                  {seg.netDir==='climb' ? '\u25B2 CLIMB' : '\u25BC DESCENT'} {seg.netFt}ft
+                </span>
+              )}
               {seg.pacer && <span style={{fontSize:11, padding:'5px 12px', borderRadius:20, background:'#A78BFA20', color:'#A78BFA', fontWeight:600}}>Pacer joins</span>}
             </div>
           </div>
