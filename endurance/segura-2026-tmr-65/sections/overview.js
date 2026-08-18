@@ -75,6 +75,7 @@ const STAT_VISIBILITY_KEY = 'tmr_overview_stat_visibility_v1';
 
 function CourseProfileChart() {
   const [hovered, setHovered] = React.useState(null);
+  const [focused, setFocused] = React.useState(null);
   const samples = React.useMemo(() => buildFullCourseSamples(), []);
   const stats = React.useMemo(() => computeElevationStats(samples), [samples]);
 
@@ -129,29 +130,60 @@ function CourseProfileChart() {
           <polyline points={linePts} fill="none" stroke="var(--climb)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
 
           {markers.map((m, i) => (
-            <g key={i} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} style={{cursor:'pointer'}}>
-              <circle cx={xFor(m.mile)} cy={yFor(m.elev)} r={hovered===i ? 8 : 6}
+            <g key={i}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              onClick={() => setFocused(focused === i ? null : i)}
+              style={{cursor:'pointer'}}
+            >
+              <circle cx={xFor(m.mile)} cy={yFor(m.elev)}
+                r={focused===i ? 10 : hovered===i ? 8 : 6}
                 fill={m.type==='start' ? '#3CB897' : m.type==='finish' ? '#C0392B' : 'var(--climb)'}
-                stroke="var(--bg-card)" strokeWidth="2" />
+                stroke={focused===i ? 'var(--ink)' : 'var(--bg-card)'} strokeWidth={focused===i ? 2.5 : 2} />
             </g>
           ))}
         </svg>
       </div>
 
-      {hovered !== null && markers[hovered] && (
-        <div style={{background:'var(--bg-raised)', borderRadius:10, padding:'10px 16px', marginTop:10, display:'flex', gap:16, flexWrap:'wrap', fontSize:13}}>
-          <strong style={{color:'var(--ink)'}}>{markers[hovered].label}</strong>
-          <span style={{color:'var(--ink-faint)'}}>Mile {markers[hovered].mile}</span>
-          <span style={{color:'var(--ink-faint)'}}>{markers[hovered].elev.toLocaleString()}ft</span>
-        </div>
-      )}
+      {(focused !== null || hovered !== null) && (() => {
+        const idx = focused !== null ? focused : hovered;
+        const m = markers[idx];
+        if (!m) return null;
+        const isFocused = focused === idx;
+        return (
+          <div style={{
+            background: isFocused ? 'var(--bg-card)' : 'var(--bg-raised)',
+            border: isFocused ? '1px solid var(--climb)' : '1px solid var(--line)',
+            borderRadius:10, padding:'12px 16px', marginTop:10,
+          }}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:8}}>
+              <div>
+                <div style={{fontFamily:'var(--display)', fontWeight:600, fontSize:15, color:'var(--ink)', marginBottom:4}}>{m.label}</div>
+                <div style={{display:'flex', gap:16, flexWrap:'wrap', fontSize:13}}>
+                  <span style={{color:'var(--ink-faint)'}}>Mile {m.mile}</span>
+                  <span style={{color:'var(--climb)'}}>{m.elev.toLocaleString()} ft</span>
+                  <span style={{
+                    color: m.type==='start' ? '#3CB897' : m.type==='finish' ? '#C0392B' : 'var(--ink-faint)',
+                    fontFamily:'var(--mono)', fontSize:11, textTransform:'uppercase',
+                  }}>{m.type}</span>
+                </div>
+              </div>
+              {isFocused && (
+                <button onClick={() => setFocused(null)} style={{
+                  background:'none', border:'none', color:'var(--ink-faint)', cursor:'pointer', fontSize:18, lineHeight:1,
+                }}>✕</button>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))', gap:1, background:'var(--line)', marginTop:14}}>
         {[
-          ['MIN', `${stats.min.toLocaleString()} ft`, 'var(--ink)'],
-          ['MAX', `${stats.max.toLocaleString()} ft`, 'var(--climb)'],
           ['GAIN', `+${stats.gain.toLocaleString()} ft`, '#3CB897'],
           ['LOSS', `-${stats.loss.toLocaleString()} ft`, 'var(--descent)'],
+          ['MAX', `${stats.max.toLocaleString()} ft`, 'var(--climb)'],
+          ['MIN', `${stats.min.toLocaleString()} ft`, 'var(--ink)'],
           ['MAX CLIMB', `+${stats.maxClimbStreak.toLocaleString()} ft`, 'var(--ink)'],
           ['MAX DESCENT', `-${stats.maxDescentStreak.toLocaleString()} ft`, 'var(--ink)'],
         ].map(([label, value, color]) => (
@@ -165,7 +197,7 @@ function CourseProfileChart() {
   );
 }
 
-function Overview({ goTo }) {
+function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
   // Race starts 6:00am Saturday Aug 22, 2026, Mountain Time (MDT, UTC-6 in August)
   const countdown = useCountdown('2026-08-22T06:00:00-06:00');
   const weather = useLiveWeather();
@@ -266,6 +298,9 @@ function Overview({ goTo }) {
   const cardDefaultOrder = builtinCards.map(c => c.id);
 
   const [showCardPanel, setShowCardPanel] = React.useState(false);
+  React.useEffect(() => {
+    if (externalCardPanelOpen !== undefined) setShowCardPanel(externalCardPanelOpen);
+  }, [externalCardPanelOpen]);
   const [showAddForm, setShowAddForm] = React.useState(false);
   const [newCardTitle, setNewCardTitle] = React.useState('');
   const [newCardDesc, setNewCardDesc] = React.useState('');
@@ -395,16 +430,15 @@ function Overview({ goTo }) {
       )}
 
       <section style={{padding:'40px 0', borderBottom:'1px solid var(--line)'}}>
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginBottom:12}}>
-          <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase'}}>
+        <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
+          <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase', flex:1}}>
             Course &amp; Conditions
           </div>
-          <button onClick={() => setShowStatPanel(v => !v)} style={{
-            fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'var(--bg-raised)',
-            border:'1px solid var(--line)', borderRadius:8, padding:'5px 10px', cursor:'pointer',
-          }}>
-            {showStatPanel ? 'Done' : 'Reorder blocks'}
-          </button>
+          <button onClick={() => setShowStatPanel(v => !v)} aria-label="Configure stats" title="Configure stats" style={{
+            background:'none', border:'1px solid var(--line)', borderRadius:6, width:28, height:28,
+            color: showStatPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
+          }}>⚙️</button>
         </div>
 
         {showStatPanel && (
@@ -415,11 +449,11 @@ function Overview({ goTo }) {
               return (
                 <div key={key} style={{display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none', opacity: vis ? 1 : 0.45}}>
                   <span style={{flex:1, fontSize:13, color:'var(--ink)'}}>{s.label}</span>
-                  <button onClick={() => toggleVisible(key)} style={{
-                    fontSize:10, fontFamily:'var(--mono)', padding:'4px 9px', borderRadius:6,
-                    border:'1px solid var(--line)', background: vis ? 'var(--bg-raised)' : 'transparent',
-                    color: vis ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer', minWidth:52,
-                  }}>{vis ? 'Shown' : 'Hidden'}</button>
+                  <button onClick={() => toggleVisible(key)} aria-label={vis ? 'Hide stat' : 'Show stat'} style={{
+                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)',
+                    background: vis ? 'var(--climb)' : 'var(--bg-raised)',
+                    color: vis ? '#12151A' : 'var(--ink-faint)', cursor:'pointer', fontSize:16, lineHeight:1,
+                  }}>{vis ? '−' : '+'}</button>
                   <button disabled={i===0} onClick={() => moveStat(i, -1)} style={{
                     width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
                     color: i===0 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===0 ? 'not-allowed' : 'pointer', fontSize:12,
@@ -467,39 +501,38 @@ function Overview({ goTo }) {
       <CourseProfileChart />
 
       <section style={{padding:'48px 0 20px'}}>
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginBottom:24}}>
-          <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--ink-faint)', letterSpacing:'0.08em'}}>
+        <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:24}}>
+          <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--ink-faint)', letterSpacing:'0.08em', flex:1}}>
             ALL SECTIONS
           </div>
-          <button onClick={() => setShowCardPanel(v => !v)} style={{
-            fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'var(--bg-raised)',
-            border:'1px solid var(--line)', borderRadius:8, padding:'5px 10px', cursor:'pointer',
-          }}>
-            {showCardPanel ? 'Done' : 'Manage sections'}
-          </button>
+          <button onClick={() => { setShowCardPanel(v => !v); if (onCardPanelToggle) onCardPanelToggle(v => !v); }} aria-label="Manage sections" title="Manage sections" style={{
+            background:'none', border:'1px solid var(--line)', borderRadius:6, width:28, height:28,
+            color: showCardPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
+          }}>⚙️</button>
         </div>
 
         {showCardPanel && (
           <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:20}}>
-            <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:8}}>Tap the state button to cycle Shown &rarr; Minimized &rarr; Hidden.</div>
+            <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:8}}>+ to show · − to minimize · tap again to hide. Drag ↑↓ to reorder.</div>
             {cardOrder.map((id, i) => {
               const c = cards.find(x => x.id === id);
               if (!c) return null;
               const state = getCardState(id);
-              const stateColor = state === 'shown' ? 'var(--climb)' : state === 'minimized' ? '#4A9FE8' : 'var(--ink-faint)';
               return (
-                <div key={id} style={{display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none', opacity: state==='hidden' ? 0.45 : 1}}>
-                  <span style={{flex:1, fontSize:13, color:'var(--ink)'}}>{c.t}{c.isCustom && <span style={{color:'var(--ink-faint)', fontSize:11}}> (custom)</span>}</span>
-                  <button onClick={() => cycleCardState(id)} style={{
-                    fontSize:10, fontFamily:'var(--mono)', padding:'4px 9px', borderRadius:6,
-                    border:'1px solid var(--line)', background: 'var(--bg-raised)',
-                    color: stateColor, cursor:'pointer', minWidth:66, textTransform:'capitalize',
-                  }}>{state}</button>
+                <div key={id} style={{display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none', opacity: state==='hidden' ? 0.35 : 1}}>
+                  <span style={{flex:1, fontSize:13, color:'var(--ink)'}}>{c.t}{c.isCustom && <span style={{color:'var(--ink-faint)', fontSize:11}}> ↗</span>}</span>
+                  <button onClick={() => cycleCardState(id)} aria-label={`${state} — tap to cycle`} title={state} style={{
+                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)',
+                    background: state==='shown' ? 'var(--climb)' : state==='minimized' ? 'var(--bg-raised)' : 'transparent',
+                    color: state==='shown' ? '#12151A' : state==='minimized' ? '#4A9FE8' : 'var(--ink-faint)',
+                    cursor:'pointer', fontSize:16, lineHeight:1,
+                  }}>{state==='shown' ? '−' : state==='minimized' ? '◻' : '+'}</button>
                   {c.isCustom && (
                     <button onClick={() => removeCustomCard(id)} style={{
                       fontSize:10, fontFamily:'var(--mono)', padding:'4px 9px', borderRadius:6,
                       border:'1px solid var(--descent)', background:'transparent', color:'var(--descent)', cursor:'pointer',
-                    }}>Remove</button>
+                    }}>✕</button>
                   )}
                   <button disabled={i===0} onClick={() => moveCard(i, -1)} style={{
                     width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
@@ -563,7 +596,6 @@ function Overview({ goTo }) {
             };
             const inner = (
               <React.Fragment>
-                <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--climb)', marginBottom: minimized ? 0 : 10}}>{c.n || '\u2022'}</div>
                 <div style={{fontFamily:'var(--display)', fontSize:19, fontWeight:600, marginBottom: minimized ? 0 : 8}}>{c.t}</div>
                 {!minimized && <div style={{fontFamily:'var(--body)', fontSize:13.5, color:'var(--ink-dim)', lineHeight:1.5}}>{c.d}</div>}
               </React.Fragment>
