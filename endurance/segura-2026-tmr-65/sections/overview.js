@@ -136,6 +136,10 @@ function CourseProfileChart() {
               onClick={() => setFocused(focused === i ? null : i)}
               style={{cursor:'pointer'}}
             >
+              {/* invisible larger hit-target -- the visible marker (r=6-10) is far
+                  too small to reliably tap on a phone once the 1000-unit viewBox
+                  is scaled down to actual screen width */}
+              <circle cx={xFor(m.mile)} cy={yFor(m.elev)} r={22} fill="transparent" />
               <circle cx={xFor(m.mile)} cy={yFor(m.elev)}
                 r={focused===i ? 10 : hovered===i ? 8 : 6}
                 fill={m.type==='start' ? '#3CB897' : m.type==='finish' ? '#C0392B' : 'var(--climb)'}
@@ -298,10 +302,20 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
   const cardDefaultOrder = builtinCards.map(c => c.id);
 
   const [showCardPanel, setShowCardPanel] = React.useState(false);
+  const cardSectionRef = React.useRef(null);
   React.useEffect(() => {
-    if (externalCardPanelOpen !== undefined) setShowCardPanel(externalCardPanelOpen);
+    if (externalCardPanelOpen !== undefined) {
+      setShowCardPanel(externalCardPanelOpen);
+      if (externalCardPanelOpen && cardSectionRef.current) {
+        // wait a tick for the panel to actually render before scrolling
+        setTimeout(() => {
+          cardSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 50);
+      }
+    }
   }, [externalCardPanelOpen]);
   const [showAddForm, setShowAddForm] = React.useState(false);
+  const [editingCardId, setEditingCardId] = React.useState(null);
   const [newCardTitle, setNewCardTitle] = React.useState('');
   const [newCardDesc, setNewCardDesc] = React.useState('');
   const [newCardUrl, setNewCardUrl] = React.useState('');
@@ -374,14 +388,28 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
     setCustomCards(prev => prev.filter(c => c.id !== id));
     setCardOrder(prev => prev.filter(x => x !== id));
   }
-  function addCustomCard() {
+  function saveCustomCard() {
     if (!newCardTitle.trim() || !newCardUrl.trim()) return;
     let url = newCardUrl.trim();
     if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-    const id = 'custom-' + Date.now();
-    setCustomCards(prev => [...prev, { id, t: newCardTitle.trim(), d: newCardDesc.trim(), url }]);
+    if (editingCardId) {
+      setCustomCards(prev => prev.map(c => c.id === editingCardId ? { ...c, t: newCardTitle.trim(), d: newCardDesc.trim(), url } : c));
+    } else {
+      const id = 'custom-' + Date.now();
+      setCustomCards(prev => [...prev, { id, t: newCardTitle.trim(), d: newCardDesc.trim(), url }]);
+    }
     setNewCardTitle(''); setNewCardDesc(''); setNewCardUrl('');
     setShowAddForm(false);
+    setEditingCardId(null);
+  }
+  function startEditCustomCard(c) {
+    setEditingCardId(c.id);
+    setNewCardTitle(c.t); setNewCardDesc(c.d || ''); setNewCardUrl(c.url);
+    setShowAddForm(true);
+  }
+  function cancelCardForm() {
+    setShowAddForm(false); setEditingCardId(null);
+    setNewCardTitle(''); setNewCardDesc(''); setNewCardUrl('');
   }
 
   const orderedCards = cardOrder.map(id => cards.find(c => c.id === id)).filter(Boolean).filter(c => getCardState(c.id) !== 'hidden');
@@ -500,7 +528,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
 
       <CourseProfileChart />
 
-      <section style={{padding:'48px 0 20px'}}>
+      <section ref={cardSectionRef} style={{padding:'48px 0 20px'}}>
         <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:24}}>
           <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--ink-faint)', letterSpacing:'0.08em', flex:1}}>
             ALL SECTIONS
@@ -529,6 +557,12 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
                     cursor:'pointer', fontSize:16, lineHeight:1,
                   }}>{state==='shown' ? '−' : state==='minimized' ? '◻' : '+'}</button>
                   {c.isCustom && (
+                    <button onClick={() => startEditCustomCard(c)} aria-label="Edit custom card" title="Edit" style={{
+                      fontSize:10, fontFamily:'var(--mono)', padding:'4px 9px', borderRadius:6,
+                      border:'1px solid var(--line)', background:'transparent', color:'var(--ink-dim)', cursor:'pointer',
+                    }}>&#9998;</button>
+                  )}
+                  {c.isCustom && (
                     <button onClick={() => removeCustomCard(id)} style={{
                       fontSize:10, fontFamily:'var(--mono)', padding:'4px 9px', borderRadius:6,
                       border:'1px solid var(--descent)', background:'transparent', color:'var(--descent)', cursor:'pointer',
@@ -548,6 +582,9 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
 
             {showAddForm ? (
               <div style={{marginTop:14, paddingTop:14, borderTop:'1px solid var(--line)'}}>
+                {editingCardId && (
+                  <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:8}}>Editing &ldquo;{cards.find(c=>c.id===editingCardId)?.t}&rdquo;</div>
+                )}
                 <input placeholder="Title" value={newCardTitle} onChange={e=>setNewCardTitle(e.target.value)} style={{
                   width:'100%', marginBottom:8, padding:'8px 10px', borderRadius:8, border:'1px solid var(--line)',
                   background:'var(--bg-raised)', color:'var(--ink)', fontSize:13, fontFamily:'var(--body)',
@@ -561,13 +598,13 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
                   background:'var(--bg-raised)', color:'var(--ink)', fontSize:13, fontFamily:'var(--body)',
                 }} />
                 <div style={{display:'flex', gap:8}}>
-                  <button onClick={addCustomCard} disabled={!newCardTitle.trim() || !newCardUrl.trim()} style={{
+                  <button onClick={saveCustomCard} disabled={!newCardTitle.trim() || !newCardUrl.trim()} style={{
                     flex:1, padding:'8px 14px', borderRadius:8, border:'none',
                     background: (newCardTitle.trim() && newCardUrl.trim()) ? 'var(--climb)' : 'var(--bg-raised)',
                     color: (newCardTitle.trim() && newCardUrl.trim()) ? '#12151A' : 'var(--ink-faint)',
                     fontWeight:600, fontSize:13, cursor: (newCardTitle.trim() && newCardUrl.trim()) ? 'pointer' : 'not-allowed',
-                  }}>Add card</button>
-                  <button onClick={() => { setShowAddForm(false); setNewCardTitle(''); setNewCardDesc(''); setNewCardUrl(''); }} style={{
+                  }}>{editingCardId ? 'Save changes' : 'Add card'}</button>
+                  <button onClick={cancelCardForm} style={{
                     padding:'8px 14px', borderRadius:8, border:'1px solid var(--line)', background:'transparent', color:'var(--ink-dim)', fontSize:13, cursor:'pointer',
                   }}>Cancel</button>
                 </div>
@@ -589,30 +626,65 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:14}}>
           {orderedCards.map(c => {
             const minimized = getCardState(c.id) === 'minimized';
+            const trueIndex = cardOrder.indexOf(c.id);
             const commonStyle = {
               textAlign:'left', background:'var(--bg-card)', border:'1px solid var(--line)',
               borderRadius:14, padding: minimized ? '14px 20px' : '22px 20px', cursor:'pointer', color:'var(--ink)',
-              transition:'border-color 0.15s', display:'block', textDecoration:'none',
+              transition:'border-color 0.15s', display:'block', textDecoration:'none', width:'100%',
             };
             const inner = (
               <React.Fragment>
-                <div style={{fontFamily:'var(--display)', fontSize:19, fontWeight:600, marginBottom: minimized ? 0 : 8}}>{c.t}</div>
+                <div style={{fontFamily:'var(--display)', fontSize:19, fontWeight:600, marginBottom: minimized ? 0 : 8, paddingRight:60}}>{c.t}</div>
                 {!minimized && <div style={{fontFamily:'var(--body)', fontSize:13.5, color:'var(--ink-dim)', lineHeight:1.5}}>{c.d}</div>}
               </React.Fragment>
             );
+            const overlayControls = (
+              <div style={{position:'absolute', top:12, right:12, display:'flex', gap:4, zIndex:2}}>
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); cycleCardState(c.id); }}
+                  aria-label="Toggle card size" title="Toggle shown/minimized/hidden"
+                  style={{
+                    width:24, height:24, borderRadius:6, border:'1px solid var(--line)',
+                    background: minimized ? 'var(--bg-raised)' : 'var(--climb)',
+                    color: minimized ? '#4A9FE8' : '#12151A', cursor:'pointer', fontSize:15, lineHeight:1,
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                  }}
+                >{minimized ? '◻' : '−'}</button>
+                <button
+                  disabled={trueIndex===0}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); moveCard(trueIndex, -1); }}
+                  aria-label="Move card earlier" style={{
+                    width:24, height:24, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
+                    color: trueIndex===0 ? 'var(--ink-faint)' : 'var(--ink)', cursor: trueIndex===0 ? 'not-allowed' : 'pointer', fontSize:11,
+                  }}>&uarr;</button>
+                <button
+                  disabled={trueIndex===cardOrder.length-1}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); moveCard(trueIndex, 1); }}
+                  aria-label="Move card later" style={{
+                    width:24, height:24, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
+                    color: trueIndex===cardOrder.length-1 ? 'var(--ink-faint)' : 'var(--ink)', cursor: trueIndex===cardOrder.length-1 ? 'not-allowed' : 'pointer', fontSize:11,
+                  }}>&darr;</button>
+              </div>
+            );
             if (c.isCustom) {
               return (
-                <a key={c.id} href={c.url} target="_blank" rel="noopener noreferrer" style={commonStyle}
-                  onMouseEnter={e=>e.currentTarget.style.borderColor='var(--climb)'}
-                  onMouseLeave={e=>e.currentTarget.style.borderColor='var(--line)'}
-                >{inner}</a>
+                <div key={c.id} style={{position:'relative'}}>
+                  <a href={c.url} target="_blank" rel="noopener noreferrer" style={commonStyle}
+                    onMouseEnter={e=>e.currentTarget.style.borderColor='var(--climb)'}
+                    onMouseLeave={e=>e.currentTarget.style.borderColor='var(--line)'}
+                  >{inner}</a>
+                  {overlayControls}
+                </div>
               );
             }
             return (
-              <button key={c.id} onClick={()=>goTo(c.id)} style={commonStyle}
-                onMouseEnter={e=>e.currentTarget.style.borderColor='var(--climb)'}
-                onMouseLeave={e=>e.currentTarget.style.borderColor='var(--line)'}
-              >{inner}</button>
+              <div key={c.id} style={{position:'relative'}}>
+                <button onClick={()=>goTo(c.id)} style={commonStyle}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor='var(--climb)'}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor='var(--line)'}
+                >{inner}</button>
+                {overlayControls}
+              </div>
             );
           })}
         </div>
