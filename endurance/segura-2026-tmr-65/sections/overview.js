@@ -353,25 +353,25 @@ function Overview({ goTo }) {
 
   return (
     <div>
-      <section style={{padding:'40px 0 56px', borderBottom:'1px solid var(--line)'}}>
-        <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--climb)', letterSpacing:'0.08em', marginBottom:14}}>
+      <section style={{padding:'20px 0 24px', borderBottom:'1px solid var(--line)'}}>
+        <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--climb)', letterSpacing:'0.08em', marginBottom:10}}>
           TELLURIDE MOUNTAIN RUN &middot; SAT, AUG 22, 2026 &middot; 6:00 AM START
         </div>
-        <h1 style={{
-          fontFamily:'var(--display)', fontWeight:700, fontSize:'clamp(38px, 8vw, 68px)',
-          lineHeight:1.02, letterSpacing:'-0.02em', margin:'0 0 20px',
-        }}>
-          63.5 miles.<br/>
-          <span style={{color:'var(--climb)'}}>25,385 feet</span> of climbing.<br/>
-          One race day.
-        </h1>
-        <button onClick={()=>goTo('raceplan')} style={{
-          background:'var(--climb)', color:'#12151A', border:'none', borderRadius:10,
-          padding:'14px 24px', fontFamily:'var(--display)', fontWeight:600, fontSize:15,
-          cursor:'pointer', marginTop:8,
-        }}>
-          Open race day plan &rarr;
-        </button>
+        <div style={{display:'flex', alignItems:'center', gap:16, flexWrap:'wrap'}}>
+          <h1 style={{
+            fontFamily:'var(--display)', fontWeight:700, fontSize:'clamp(18px, 2.6vw, 24px)',
+            lineHeight:1.2, letterSpacing:'-0.01em', margin:0, whiteSpace:'nowrap',
+          }}>
+            63.5mi &middot; <span style={{color:'var(--climb)'}}>25,385ft</span> of climbing &middot; one race day.
+          </h1>
+          <button onClick={()=>goTo('raceplan')} style={{
+            background:'var(--climb)', color:'#12151A', border:'none', borderRadius:8,
+            padding:'8px 16px', fontFamily:'var(--display)', fontWeight:600, fontSize:13,
+            cursor:'pointer', whiteSpace:'nowrap',
+          }}>
+            Open race day plan &rarr;
+          </button>
+        </div>
       </section>
 
       {countdown && (

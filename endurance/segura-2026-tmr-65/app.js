@@ -11,23 +11,6 @@ const TargetHoursContext = React.createContext({
 });
 window.TargetHoursContext = TargetHoursContext;
 
-// ---------- Nav elevation spine data (simplified TMR profile for the header signature) ----------
-const SPINE = [8750,9563,10801,12278,13500,11824,11339,12374,9128,9407,11003,11833,11077,12437,12718,12049,11990,13056,11412,10415,10957,12139,12621,12566,11223,11275,11934,11253,10138,10082,10430,11195,11771,10603,11909,13104,12235,10891,9443,8858];
-
-function Sparkline({ data, color, height = 40 }) {
-  const min = Math.min(...data), max = Math.max(...data);
-  const range = max - min || 1;
-  const pts = data.map((v,i) => {
-    const x = (i/(data.length-1))*100;
-    const y = 100 - ((v-min)/range)*100;
-    return `${x},${y}`;
-  }).join(' ');
-  return (
-    <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{width:'100%',height,display:'block'}}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.4" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" opacity="0.9" />
-    </svg>
-  );
-}
 
 const SECTIONS = [
   { id: 'overview', label: 'Overview', eyebrow: '00' },
@@ -63,10 +46,7 @@ function Nav({ active, setActive, open, setOpen }) {
                 TMR<span style={{color:'var(--climb)'}}>/</span>Command
               </span>
             </div>
-            <span style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)'}}>63.5mi · 25,385ft</span>
-          </div>
-          <div style={{height:36, opacity:0.5}}>
-            <Sparkline data={SPINE} color="var(--climb)" height={36} />
+            <span style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)'}}>63.5mi &middot; 25,385ft</span>
           </div>
         </div>
       </header>
