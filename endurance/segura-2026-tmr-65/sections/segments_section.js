@@ -75,7 +75,7 @@ function SegmentsView() {
 
   return (
     <div style={{ paddingBottom: 60 }}>
-      <SectionHeader eyebrow="02b" title="Segments" sub={`Course broken into legs &middot; step through start to finish &middot; official aid station miles + ultraPacer elevation &middot; ${targetHours}hr target (adjust on Race Day Plan)`} />
+      <SectionHeader eyebrow="04" title="Segments" sub={`Course broken into legs &middot; step through start to finish &middot; official aid station miles + ultraPacer elevation &middot; ${targetHours}hr target (adjust on Race Day Plan)`} />
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <button onClick={() => go(-1)} disabled={active === 1} style={{
@@ -234,26 +234,7 @@ function SegmentsView() {
         </div>
       </div>
 
-      <div style={{ marginBottom: 28 }}>
-        <SmallLabel>Inventory — what goes where</SmallLabel>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginTop: 10, marginBottom: 14 }}>
-          {vessels.map((v, i) => (
-            <div key={i} style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 12 }}>
-              <div style={{ fontSize: 10, color: 'var(--ink-faint)', fontFamily: 'var(--mono)', textTransform: 'uppercase' }}>{v.name}</div>
-              <div style={{ fontSize: 15, fontWeight: 600, marginTop: 4 }}>
-                {v.tailwindMl > 0 ? `${Math.round(v.water)}ml + ${v.tailwindG.toFixed(0)}g tailwind` : `${Math.round(v.water)}ml water`}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 2 }}>{v.capacity}ml capacity</div>
-            </div>
-          ))}
-        </div>
-        {pSeg.tailwind > 0 && (
-          <div style={{ background: 'var(--bg-raised)', borderRadius: 10, padding: '10px 14px', fontSize: 12.5, color: 'var(--ink-dim)' }}>
-            <strong style={{ color: 'var(--ink)' }}>Popsicle bags:</strong>{' '}
-            {popsicleBagsForVessels(vessels).map((b, i) => `${b.grams}g (${b.vessel})`).join(', ')}
-          </div>
-        )}
-      </div>
+      <VesselPlanCompact seg={pSeg} vessels={vessels} bags={popsicleBagsForVessels(vessels)} labelColor={undefined} />
 
       {pSeg.conditions && (
         <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 14 }}>{pSeg.conditions}</div>

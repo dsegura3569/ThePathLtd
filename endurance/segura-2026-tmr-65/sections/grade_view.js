@@ -10,7 +10,7 @@ function GradeProfileView() {
 
   return (
     <div style={{paddingBottom:60}}>
-      <SectionHeader eyebrow="02" title="Grade Profile" sub="63 miles &middot; 23,320 ft gain &middot; ultraPacer GPX &middot; 0.1-mile resolution &middot; tap any bar for detail" />
+      <SectionHeader eyebrow="03" title="Grade Profile" sub="63 miles &middot; 23,320 ft gain &middot; ultraPacer GPX &middot; 0.1-mile resolution &middot; tap any bar for detail" />
 
       <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 8, marginBottom: 20 }}>
         {gradeSegments.map(s => (

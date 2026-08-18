@@ -94,6 +94,34 @@ function gradeLabel(g) {
   return "Gentle";
 }
 
+function VesselPlanCompact({ seg, vessels, bags, labelColor }) {
+  return (
+    <div style={{marginBottom:14}}>
+      <SmallLabel color={labelColor || 'var(--climb)'}>
+        Vessel plan &mdash; {seg.tailwind}g tailwind total, refill at every aid station
+      </SmallLabel>
+      <div style={{background:'var(--bg-raised)', borderRadius:10, padding:'2px 14px', marginTop:8}}>
+        {vessels.map((v, i) => (
+          <div key={i} style={{
+            display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0',
+            borderTop: i>0 ? '1px solid var(--line)' : 'none', fontSize:13,
+          }}>
+            <span style={{color:'var(--ink-dim)'}}>{v.name} <span style={{color:'var(--ink-faint)', fontSize:11}}>({v.capacity}ml)</span></span>
+            <span style={{fontWeight:600, color: v.tailwindMl > 0 ? 'var(--climb)' : 'var(--ink-faint)'}}>
+              {v.tailwindMl > 0 ? `+${v.tailwindG.toFixed(0)}g tailwind` : 'water only'} <span style={{color:'var(--ink-faint)', fontWeight:400, fontSize:11}}>&middot; {Math.round(v.water)}ml</span>
+            </span>
+          </div>
+        ))}
+      </div>
+      {bags.length > 0 && (
+        <div style={{fontSize:11.5, color:'var(--ink-faint)', marginTop:8}}>
+          Popsicle bags: {bags.map(b => `${b.grams}g (${b.vessel})`).join(', ')}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function vesselPlan(seg) {
   // Vessel capacities: two 500ml vest flasks, one 2000ml bladder, one 650ml belt flask.
   // Tailwind-diluted mix goes in whichever vessel(s) fit the diluted volume most simply;
@@ -161,3 +189,4 @@ window.gradeColor = gradeColor;
 window.gradeLabel = gradeLabel;
 window.buildFullCourseSamples = buildFullCourseSamples;
 window.computeElevationStats = computeElevationStats;
+window.VesselPlanCompact = VesselPlanCompact;

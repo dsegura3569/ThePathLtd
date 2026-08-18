@@ -252,14 +252,16 @@ function Overview({ goTo }) {
   const CARD_STATE_KEY = 'tmr_overview_card_state_v1';
   const CUSTOM_CARDS_KEY = 'tmr_overview_custom_cards_v1';
   const builtinCards = [
-    { id: 'raceplan', n: '01', t: 'Race Day Plan', d: 'Segment-by-segment pace, fuel, gear, and drop bag logistics for all 10 legs.' },
-    { id: 'grade', n: '02', t: 'Grade Profile', d: 'Every 0.1-mile grade reading across the full course, aid station by aid station.' },
-    { id: 'gradeExplorer', n: '03', t: 'Grade Explorer', d: 'Every 0.1-mile sample across the full course \u2014 view in course order or sorted by grade.' },
-    { id: 'treadmill', n: '05', t: 'Treadmill Legs', d: 'Indoor replication sessions matched to real course grade and duration.' },
-    { id: 'vertcalc', n: '06', t: 'Vert Calculator', d: 'Grade, speed, and time-to-target vertical gain calculator.' },
-    { id: 'history', n: '07', t: 'Race History', d: 'Completed races leading into TMR \u2014 Dead Horse, Desert RATS, Colfax.' },
-    { id: 'comparison', n: '08', t: 'Race Comparison', d: 'How training runs and past races stack up against TMR\u2019s demands.' },
-    { id: 'hillreps', n: '09', t: 'Hill Reps', d: 'Local hill session analysis and grade-matched training terrain.' },
+    { id: 'packlist', n: '01', t: 'Pack List', d: 'What to portion into popsicle bags and drop bags before Saturday \u2014 gels, tailwind, salt caps, by pickup point.' },
+    { id: 'raceplan', n: '02', t: 'Race Day Plan', d: 'Segment-by-segment pace, fuel, gear, and drop bag logistics for all 10 legs.' },
+    { id: 'grade', n: '03', t: 'Grade Profile', d: 'Every 0.1-mile grade reading across the full course, aid station by aid station.' },
+    { id: 'segments', n: '04', t: 'Segments', d: 'Step through each leg with elevation chart, cutoff margin, aid station info, and fuel timing.' },
+    { id: 'gradeExplorer', n: '05', t: 'Grade Explorer', d: 'Every 0.1-mile sample across the full course \u2014 view in course order or sorted by grade.' },
+    { id: 'treadmill', n: '06', t: 'Treadmill Legs', d: 'Indoor replication sessions matched to real course grade and duration.' },
+    { id: 'vertcalc', n: '07', t: 'Vert Calculator', d: 'Grade, speed, and time-to-target vertical gain calculator.' },
+    { id: 'history', n: '08', t: 'Race History', d: 'Completed races leading into TMR \u2014 Dead Horse, Desert RATS, Colfax.' },
+    { id: 'comparison', n: '09', t: 'Race Comparison', d: 'How training runs and past races stack up against TMR\u2019s demands.' },
+    { id: 'hillreps', n: '10', t: 'Hill Reps', d: 'Local hill session analysis and grade-matched training terrain.' },
   ];
   const cardDefaultOrder = builtinCards.map(c => c.id);
 

@@ -100,10 +100,10 @@ function RaceDayPlanView() {
 
   return (
     <div style={{paddingBottom:60}}>
-      <SectionHeader eyebrow="01" title="Race Day Plan" sub="Sat 6:00am start &middot; 9 aid stations, 3 drop bags (Mi 17, 35, 56)" />
+      <SectionHeader eyebrow="02" title="Race Day Plan" sub="Sat 6:00am start &middot; 9 aid stations, 3 drop bags (Mi 17, 35, 56)" />
 
       <TargetStepper label="Target finish time" value={targetHours} setValue={setTargetHours} min={12} max={32} step={0.5} unit="hr" note="32hr official cutoff" />
-      <TargetStepper label="Target carb intake" value={targetCarb} setValue={setTargetCarb} min={50} max={120} step={5} unit="g/hr" note="scales the whole plan proportionally" />
+      <TargetStepper label="Target carb intake" value={targetCarb} setValue={setTargetCarb} min={50} max={120} step={5} unit="g/hr" />
       <TargetStepper label="Target salt intake" value={targetSodium} setValue={setTargetSodium} min={400} max={1200} step={50} unit="mg/hr" />
 
       <div style={{marginTop:32, marginBottom:32}}>
@@ -219,25 +219,7 @@ function RaceDayPlanView() {
             </div>
           )}
 
-          <div style={{marginBottom:14}}>
-            <SmallLabel color="var(--climb)">Vessel plan &mdash; refill at every aid station</SmallLabel>
-            <div style={{display:'flex', gap:10, marginTop:10, flexWrap:'wrap'}}>
-              {vessels.map((v, i) => (
-                <div key={i} style={{background:'var(--bg-raised)', borderRadius:10, padding:'10px 14px', minWidth:150}}>
-                  <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)'}}>{v.name.toUpperCase()} ({v.capacity}ml)</div>
-                  <div style={{fontSize:15, fontWeight:600, color: v.tailwindMl > 0 ? 'var(--climb)' : 'var(--ink-faint)', marginTop:3}}>
-                    {v.tailwindMl > 0 ? `+${v.tailwindG.toFixed(0)}g tailwind` : 'water only'}
-                  </div>
-                  <div style={{fontSize:11, color:'var(--ink-faint)', marginTop:2}}>{Math.round(v.water)}ml</div>
-                </div>
-              ))}
-            </div>
-            {bags.length > 0 && (
-              <div style={{fontSize:12, color:'var(--ink-faint)', marginTop:10}}>
-                Popsicle bags: {bags.map(b => `${b.grams}g (${b.vessel})`).join(', ')}
-              </div>
-            )}
-          </div>
+          <VesselPlanCompact seg={seg} vessels={vessels} bags={bags} />
 
           <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))', gap:10, marginBottom:16}}>
             <StatBox label="Elevation" value={`\u2191${seg.segGain.toLocaleString()} / \u2193${seg.segLoss.toLocaleString()}ft`} sub={`avg grade ${seg.avgGrade}% \u00b7 max ${seg.maxClimb}%/${seg.maxDescent}%`} />
@@ -261,7 +243,6 @@ function RaceDayPlanView() {
                 : <InfoRow label="Pick up" value="Refill water &amp; bladder &mdash; no drop bag this stop" />
               }
               {seg.dropoff.map((item,i)=><InfoRow key={'d'+i} label="Drop off" value={item} />)}
-              {!dropBagNum(seg) && <InfoRow label="Socks" value={seg.socks} />}
             </div>
           </div>
 

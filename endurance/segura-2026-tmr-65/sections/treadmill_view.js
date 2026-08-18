@@ -9,7 +9,7 @@ function TreadmillView() {
 
   return (
     <div style={{paddingBottom:60}}>
-      <SectionHeader eyebrow="05" title="Treadmill Legs" sub="Based on official Bibstation aid station miles + ultraPacer GPX elevation data" />
+      <SectionHeader eyebrow="06" title="Treadmill Legs" sub="Based on official Bibstation aid station miles + ultraPacer GPX elevation data" />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(90px,1fr))", gap: 6, marginBottom: 20 }}>
         {legsWithCumulative.map(l => (

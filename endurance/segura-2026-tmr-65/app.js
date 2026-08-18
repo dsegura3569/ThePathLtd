@@ -14,16 +14,16 @@ window.TargetHoursContext = TargetHoursContext;
 
 const SECTIONS = [
   { id: 'overview', label: 'Overview', eyebrow: '00' },
-  { id: 'packlist', label: 'Pack List', eyebrow: '00b' },
-  { id: 'raceplan', label: 'Race Day Plan', eyebrow: '01' },
-  { id: 'grade', label: 'Grade Profile', eyebrow: '02' },
-  { id: 'segments', label: 'Segments', eyebrow: '02b' },
-  { id: 'gradeExplorer', label: 'Grade Explorer', eyebrow: '03' },
-  { id: 'treadmill', label: 'Treadmill Legs', eyebrow: '05' },
-  { id: 'vertcalc', label: 'Vert Calculator', eyebrow: '06' },
-  { id: 'history', label: 'Race History', eyebrow: '07' },
-  { id: 'comparison', label: 'Race Comparison', eyebrow: '08' },
-  { id: 'hillreps', label: 'Hill Reps', eyebrow: '09' },
+  { id: 'packlist', label: 'Pack List', eyebrow: '01' },
+  { id: 'raceplan', label: 'Race Day Plan', eyebrow: '02' },
+  { id: 'grade', label: 'Grade Profile', eyebrow: '03' },
+  { id: 'segments', label: 'Segments', eyebrow: '04' },
+  { id: 'gradeExplorer', label: 'Grade Explorer', eyebrow: '05' },
+  { id: 'treadmill', label: 'Treadmill Legs', eyebrow: '06' },
+  { id: 'vertcalc', label: 'Vert Calculator', eyebrow: '07' },
+  { id: 'history', label: 'Race History', eyebrow: '08' },
+  { id: 'comparison', label: 'Race Comparison', eyebrow: '09' },
+  { id: 'hillreps', label: 'Hill Reps', eyebrow: '10' },
 ];
 
 function Nav({ active, setActive, open, setOpen }) {

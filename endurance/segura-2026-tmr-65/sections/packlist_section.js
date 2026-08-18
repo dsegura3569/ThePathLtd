@@ -113,15 +113,21 @@ function PackListView() {
   const grandSaltOrig = packing.reduce((s, p) => s + p.saltOriginalTotal, 0);
   const grandSaltCaf = packing.reduce((s, p) => s + p.saltCaffeineTotal, 0);
 
+  const GEL_CARB = 22, SCOOP_G = 27, CARB_PER_SCOOP = 25, CAP_NA = 215, CAP_NA_CAFFEINE = 190;
+  const gelCarbs = grandGels * GEL_CARB;
+  const tailwindCarbs = Math.round(grandTailwind * (CARB_PER_SCOOP / SCOOP_G));
+  const totalCarbs = gelCarbs + tailwindCarbs;
+  const totalSodium = grandSaltOrig * CAP_NA + grandSaltCaf * CAP_NA_CAFFEINE;
+
   return (
     <div style={{ paddingBottom: 60 }}>
-      <SectionHeader eyebrow="00b" title="Pack List" sub={`Everything to portion and label before Saturday &middot; ${targetHours}hr target (adjust on Race Day Plan)`} />
+      <SectionHeader eyebrow="01" title="Pack List" sub={`Everything to portion and label before Saturday &middot; ${targetHours}hr target (adjust on Race Day Plan)`} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8, marginBottom: 24 }}>
-        <StatBox label="Gels" value={grandGels} />
-        <StatBox label="Tailwind" value={`${grandTailwind}g`} />
-        <StatBox label="Salt caps" value={grandSaltOrig} />
-        <StatBox label="Salt +caf" value={grandSaltCaf} />
+        <StatBox label="Gels" value={grandGels} sub={`${totalCarbs}g carbs total`} />
+        <StatBox label="Tailwind" value={`${grandTailwind}g`} sub={`${totalCarbs}g carbs total`} />
+        <StatBox label="Salt caps" value={grandSaltOrig} sub={`${totalSodium}mg sodium total`} />
+        <StatBox label="Salt +caf" value={grandSaltCaf} sub={`${totalSodium}mg sodium total`} />
       </div>
 
       {packing.map(point => <PackCard key={point.key} point={point} />)}

@@ -34,7 +34,7 @@ function GradeExplorerView() {
 
   return (
     <div style={{paddingBottom:60}}>
-      <SectionHeader eyebrow="03" title="Grade Explorer" sub={`Full course \u00b7 ${officialTotalMi.toFixed(1)} miles \u00b7 0.1-mile samples from ultraPacer GPX \u00b7 tap any bar for detail`} />
+      <SectionHeader eyebrow="05" title="Grade Explorer" sub={`Full course \u00b7 ${officialTotalMi.toFixed(1)} miles \u00b7 0.1-mile samples from ultraPacer GPX \u00b7 tap any bar for detail`} />
 
       <div style={{display:'flex', gap:8, marginBottom:20}}>
         <button onClick={() => setOrder('course')} style={{
