@@ -1,18 +1,20 @@
 const COLUMN_DEFS = [
   { key:'clock', label:'Clock', cellStyle:() => cellStyle('var(--ink-faint)'), render: s => s.clockS.split(' ')[1] },
-  { key:'segment', label:'Segment', cellStyle:() => cellStyle('var(--ink)'), render: s => <React.Fragment>{s.from} &rarr; {s.to.split(' (')[0]}</React.Fragment> },
+  { key:'cutoff', label:'Cutoff', cellStyle:() => cellStyle('var(--ink-faint)'), render: s => s.cutoffClock },
+  { key:'segment', label:'Segment', cellStyle: s => cellStyle(s.dropoff.length ? 'var(--db)' : 'var(--ink)', s.dropoff.length ? 600 : 400), render: s => <React.Fragment>{s.from} &rarr; {s.to.split(' (')[0]}</React.Fragment> },
   { key:'dist', label:'Dist', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => `${s.distReal.toFixed(1)}mi` },
   { key:'pace', label:'Pace', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.avgPace },
   { key:'mph', label:'Mph', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.avgMph },
   { key:'grade', label:'Avg Grade', cellStyle: s => cellStyle(parseFloat(s.avgGrade) >= 0 ? 'var(--climb)' : 'var(--descent)'), render: s => `${s.avgGrade}%` },
   { key:'dir', label:'Dir', cellStyle: s => cellStyle(s.netDir==='climb'?'var(--climb)':'var(--descent)', 700), render: s => s.netDir==='climb'?'\u25B2':'\u25BC' },
-  { key:'tailwind', label:'Tailwind', cellStyle:() => cellStyle('var(--climb)'), render: s => `${s.tailwind}g/${s.waterMl}ml` },
+  { key:'gain', label:'Gain', cellStyle:() => cellStyle('var(--climb)'), render: s => `+${s.segGain.toLocaleString()}ft` },
+  { key:'loss', label:'Loss', cellStyle:() => cellStyle('var(--descent)'), render: s => `-${s.segLoss.toLocaleString()}ft` },
+  { key:'tailwind', label:'Tailwind', cellStyle:() => cellStyle('var(--climb)'), render: s => `${s.tailwind}g` },
   { key:'gels', label:'Gels', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.gels },
-  { key:'saltcaps', label:'Salt caps', cellStyle: s => cellStyle(s.saltCapType==='caffeine'?'var(--ok)':'var(--ink-dim)'), render: s => <React.Fragment>{s.saltCaps} {s.saltCapType==='caffeine'?'+caf':''}</React.Fragment> },
-  { key:'bag', label:'Bag', cellStyle: s => cellStyle(s.dropoff.length?'var(--db)':'var(--ink-faint)', s.dropoff.length?600:400), render: s => s.dropoff.length?'DB':'\u2014' },
+  { key:'saltcaps', label:'Salt', cellStyle: s => cellStyle(s.saltCapType==='caffeine'?'var(--ok)':'var(--ink-dim)'), render: s => <React.Fragment>{s.saltCaps} {s.saltCapType==='caffeine'?'+caf':''}</React.Fragment> },
 ];
 const DEFAULT_COLUMN_ORDER = COLUMN_DEFS.map(c => c.key);
-const COLUMN_ORDER_KEY = 'tmr_segment_table_col_order_v1';
+const COLUMN_ORDER_KEY = 'tmr_segment_table_col_order_v2';
 
 function loadColumnOrder() {
   try {
@@ -170,15 +172,18 @@ function RaceDayPlanView() {
               <tr style={{background:'var(--bg-raised)', borderTop:'2px solid var(--line)'}}>
                 {columnOrder.map(key => {
                   const totalDist = segments.reduce((a,s)=>a+s.distReal,0);
+                  const totalGain = segments.reduce((a,s)=>a+s.segGain,0);
+                  const totalLoss = segments.reduce((a,s)=>a+s.segLoss,0);
                   const totalTailwind = segments.reduce((a,s)=>a+s.tailwind,0);
-                  const totalWater = segments.reduce((a,s)=>a+s.waterMl,0);
                   const totalGels = segments.reduce((a,s)=>a+s.gels,0);
                   const totalSalt = segments.reduce((a,s)=>a+s.saltCaps,0);
                   const cellBase = {padding:'10px 12px', fontFamily:'var(--mono)', fontWeight:700, fontSize:12.5};
                   switch(key) {
                     case 'segment': return <td key={key} style={{...cellBase, color:'var(--ink)'}}>TOTAL</td>;
                     case 'dist': return <td key={key} style={{...cellBase, color:'var(--ink)'}}>{totalDist.toFixed(1)}mi</td>;
-                    case 'tailwind': return <td key={key} style={{...cellBase, color:'var(--climb)'}}>{totalTailwind}g/{totalWater}ml</td>;
+                    case 'gain': return <td key={key} style={{...cellBase, color:'var(--climb)'}}>+{totalGain.toLocaleString()}ft</td>;
+                    case 'loss': return <td key={key} style={{...cellBase, color:'var(--descent)'}}>-{totalLoss.toLocaleString()}ft</td>;
+                    case 'tailwind': return <td key={key} style={{...cellBase, color:'var(--climb)'}}>{totalTailwind}g</td>;
                     case 'gels': return <td key={key} style={{...cellBase, color:'var(--ink)'}}>{totalGels}</td>;
                     case 'saltcaps': return <td key={key} style={{...cellBase, color:'var(--ink)'}}>{totalSalt}</td>;
                     default: return <td key={key} style={cellBase}></td>;

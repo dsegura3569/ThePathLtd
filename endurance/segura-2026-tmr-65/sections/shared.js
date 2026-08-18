@@ -45,7 +45,6 @@ function buildFullCourseSamples() {
 function computeElevationStats(samples) {
   const NOISE_FT = 15;
   let min = samples[0].elev, max = samples[0].elev;
-  let gain = 0, loss = 0;
   let maxClimbStreak = 0, maxDescentStreak = 0;
   let streakStart = samples[0].elev;
   let direction = null; // 'up' | 'down'
@@ -54,7 +53,6 @@ function computeElevationStats(samples) {
     const d = samples[i].elev - samples[i - 1].elev;
     min = Math.min(min, samples[i].elev);
     max = Math.max(max, samples[i].elev);
-    if (d > 0) gain += d; else loss += -d;
 
     const newDir = d >= 0 ? 'up' : 'down';
     if (direction === null) { direction = newDir; streakStart = samples[i - 1].elev; }
@@ -72,7 +70,16 @@ function computeElevationStats(samples) {
   if (direction === 'up') maxClimbStreak = Math.max(maxClimbStreak, finalStreak);
   else if (direction === 'down') maxDescentStreak = Math.max(maxDescentStreak, finalStreak);
 
-  return { min, max, gain: Math.round(gain), loss: Math.round(loss), maxClimbStreak: Math.round(maxClimbStreak), maxDescentStreak: Math.round(maxDescentStreak) };
+  // Gain/loss come from the authoritative per-segment sums (segGain/segLoss,
+  // computed from the full-resolution 3,289-point raw GPX) rather than being
+  // recomputed here from the flattened 0.1-mile-binned samples -- binning
+  // smooths out small elevation wiggles and undercounts the true total.
+  // Min/max and climb/descent streaks stay sample-based since there's no
+  // simpler authoritative source for those.
+  const gain = baseSegments.reduce((a, s) => a + s.segGain, 0);
+  const loss = baseSegments.reduce((a, s) => a + s.segLoss, 0);
+
+  return { min, max, gain, loss, maxClimbStreak: Math.round(maxClimbStreak), maxDescentStreak: Math.round(maxDescentStreak) };
 }
 
 function gradeColor(g) {
