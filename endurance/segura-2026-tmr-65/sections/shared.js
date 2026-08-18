@@ -26,6 +26,55 @@ function SmallLabel({ children, color }) {
   );
 }
 
+function buildFullCourseSamples() {
+  const samples = [];
+  gradeSegments.forEach(seg => {
+    seg.data.forEach(d => {
+      samples.push({ mile: Math.round((seg.miS + d.mile) * 100) / 100, elev: d.elev, grade: d.grade });
+    });
+  });
+  samples.sort((a, b) => a.mile - b.mile);
+  return samples;
+}
+
+// Walks the elevation profile and finds the single largest continuous
+// climb streak and largest continuous descent streak (the "max climb" /
+// "max descent" stat -- how big the biggest uninterrupted push is, not
+// just the steepest instantaneous grade). Uses a small noise threshold
+// so tiny back-and-forth wiggles don't reset the streak.
+function computeElevationStats(samples) {
+  const NOISE_FT = 15;
+  let min = samples[0].elev, max = samples[0].elev;
+  let gain = 0, loss = 0;
+  let maxClimbStreak = 0, maxDescentStreak = 0;
+  let streakStart = samples[0].elev;
+  let direction = null; // 'up' | 'down'
+
+  for (let i = 1; i < samples.length; i++) {
+    const d = samples[i].elev - samples[i - 1].elev;
+    min = Math.min(min, samples[i].elev);
+    max = Math.max(max, samples[i].elev);
+    if (d > 0) gain += d; else loss += -d;
+
+    const newDir = d >= 0 ? 'up' : 'down';
+    if (direction === null) { direction = newDir; streakStart = samples[i - 1].elev; }
+    else if (newDir !== direction) {
+      const streakSize = Math.abs(samples[i - 1].elev - streakStart);
+      if (streakSize >= NOISE_FT) {
+        if (direction === 'up') maxClimbStreak = Math.max(maxClimbStreak, streakSize);
+        else maxDescentStreak = Math.max(maxDescentStreak, streakSize);
+      }
+      direction = newDir;
+      streakStart = samples[i - 1].elev;
+    }
+  }
+  const finalStreak = Math.abs(samples[samples.length - 1].elev - streakStart);
+  if (direction === 'up') maxClimbStreak = Math.max(maxClimbStreak, finalStreak);
+  else if (direction === 'down') maxDescentStreak = Math.max(maxDescentStreak, finalStreak);
+
+  return { min, max, gain: Math.round(gain), loss: Math.round(loss), maxClimbStreak: Math.round(maxClimbStreak), maxDescentStreak: Math.round(maxDescentStreak) };
+}
+
 function gradeColor(g) {
   if (g >= 20) return "#7B1010";
   if (g >= 15) return "#A32D2D";
@@ -110,3 +159,5 @@ window.vesselPlan = vesselPlan;
 window.popsicleBagsForVessels = popsicleBagsForVessels;
 window.gradeColor = gradeColor;
 window.gradeLabel = gradeLabel;
+window.buildFullCourseSamples = buildFullCourseSamples;
+window.computeElevationStats = computeElevationStats;

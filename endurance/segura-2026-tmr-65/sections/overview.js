@@ -73,6 +73,98 @@ function useLiveWeather() {
 const STAT_DEFS_KEY = 'tmr_overview_stat_order_v1';
 const STAT_VISIBILITY_KEY = 'tmr_overview_stat_visibility_v1';
 
+function CourseProfileChart() {
+  const [hovered, setHovered] = React.useState(null);
+  const samples = React.useMemo(() => buildFullCourseSamples(), []);
+  const stats = React.useMemo(() => computeElevationStats(samples), [samples]);
+
+  // aid station markers: start (green), 9 aid stations (orange), finish (red) --
+  // positioned at each segment boundary using the real official mile markers
+  const markers = React.useMemo(() => {
+    const points = [];
+    gradeSegments.forEach((seg, i) => {
+      if (i === 0) {
+        const first = samples.find(s => s.mile >= seg.miS) || samples[0];
+        points.push({ mile: seg.miS, elev: first.elev, label: seg.from, type: 'start' });
+      }
+      const last = [...samples].reverse().find(s => s.mile <= seg.miE) || samples[samples.length - 1];
+      points.push({ mile: seg.miE, elev: last.elev, label: seg.to.replace(/\s*\(Drop Bag #\d+\)/i, ''), type: i === gradeSegments.length - 1 ? 'finish' : 'aid' });
+    });
+    return points;
+  }, [samples]);
+
+  const w = 1000, h = 260, padL = 74, padB = 36, padT = 14, padR = 14;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  const elevRange = stats.max - stats.min || 1;
+  const maxMile = samples[samples.length - 1].mile;
+
+  function xFor(mile) { return padL + (mile / maxMile) * plotW; }
+  function yFor(elev) { return padT + plotH - ((elev - stats.min) / elevRange) * plotH; }
+
+  const linePts = samples.map(s => `${xFor(s.mile)},${yFor(s.elev)}`).join(' ');
+  const areaPts = `${xFor(0)},${padT + plotH} ${linePts} ${xFor(maxMile)},${padT + plotH}`;
+
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(t => Math.round(stats.min + t * elevRange));
+  const xTickCount = 10;
+  const xTicks = Array.from({ length: xTickCount + 1 }, (_, i) => Math.round((maxMile / xTickCount) * i * 10) / 10);
+
+  return (
+    <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
+      <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:16, letterSpacing:'0.08em', textTransform:'uppercase'}}>
+        Full Course Profile
+      </div>
+      <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:12, padding:'16px 12px 8px', overflowX:'auto'}}>
+        <svg viewBox={`0 0 ${w} ${h}`} style={{width:'100%', minWidth:640, height:'auto', display:'block'}}>
+          {yTicks.map((v, i) => (
+            <g key={i}>
+              <line x1={padL} x2={w-padR} y1={yFor(v)} y2={yFor(v)} stroke="var(--line)" strokeWidth="1" />
+              <text x={padL-8} y={yFor(v)+4} textAnchor="end" fontSize="10" fill="var(--ink-faint)" fontFamily="var(--mono)">{v.toLocaleString()}ft</text>
+            </g>
+          ))}
+          {xTicks.map((v, i) => (
+            <text key={i} x={xFor(v)} y={h-14} textAnchor="middle" fontSize="10" fill="var(--ink-faint)" fontFamily="var(--mono)">{v}mi</text>
+          ))}
+
+          <polygon points={areaPts} fill="var(--climb)" opacity="0.14" />
+          <polyline points={linePts} fill="none" stroke="var(--climb)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+
+          {markers.map((m, i) => (
+            <g key={i} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} style={{cursor:'pointer'}}>
+              <circle cx={xFor(m.mile)} cy={yFor(m.elev)} r={hovered===i ? 8 : 6}
+                fill={m.type==='start' ? '#3CB897' : m.type==='finish' ? '#C0392B' : 'var(--climb)'}
+                stroke="var(--bg-card)" strokeWidth="2" />
+            </g>
+          ))}
+        </svg>
+      </div>
+
+      {hovered !== null && markers[hovered] && (
+        <div style={{background:'var(--bg-raised)', borderRadius:10, padding:'10px 16px', marginTop:10, display:'flex', gap:16, flexWrap:'wrap', fontSize:13}}>
+          <strong style={{color:'var(--ink)'}}>{markers[hovered].label}</strong>
+          <span style={{color:'var(--ink-faint)'}}>Mile {markers[hovered].mile}</span>
+          <span style={{color:'var(--ink-faint)'}}>{markers[hovered].elev.toLocaleString()}ft</span>
+        </div>
+      )}
+
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))', gap:1, background:'var(--line)', marginTop:14}}>
+        {[
+          ['MIN', `${stats.min.toLocaleString()} ft`, 'var(--ink)'],
+          ['MAX', `${stats.max.toLocaleString()} ft`, 'var(--climb)'],
+          ['GAIN', `+${stats.gain.toLocaleString()} ft`, '#3CB897'],
+          ['LOSS', `-${stats.loss.toLocaleString()} ft`, 'var(--descent)'],
+          ['MAX CLIMB', `+${stats.maxClimbStreak.toLocaleString()} ft`, 'var(--ink)'],
+          ['MAX DESCENT', `-${stats.maxDescentStreak.toLocaleString()} ft`, 'var(--ink)'],
+        ].map(([label, value, color]) => (
+          <div key={label} style={{background:'var(--bg)', padding:'14px 12px'}}>
+            <div style={{fontFamily:'var(--display)', fontSize:18, fontWeight:700, color}}>{value}</div>
+            <div style={{fontFamily:'var(--mono)', fontSize:9.5, color:'var(--ink-faint)', marginTop:4, letterSpacing:'0.04em'}}>{label}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function Overview({ goTo }) {
   // Race starts 6:00am Saturday Aug 22, 2026, Mountain Time (MDT, UTC-6 in August)
   const countdown = useCountdown('2026-08-22T06:00:00-06:00');
@@ -82,7 +174,7 @@ function Overview({ goTo }) {
     { key: 'distance', label: 'Distance', value: '63.5', unit: 'mi' },
     { key: 'vert', label: 'Vert gain', value: '25,385', unit: 'ft' },
     { key: 'aid', label: 'Aid stations', value: '9', unit: '' },
-    { key: 'bags', label: 'Drop bags', value: '3', unit: '' },
+    { key: 'bags', label: 'Drop bags', value: '3', unit: '', sub: 'Mi 17, 35, 56' },
     { key: 'range', label: 'Elevation range', value: '8,750–13,500', unit: 'ft' },
     { key: 'avgalt', label: 'Avg altitude', value: '11,255', unit: 'ft' },
     { key: 'cutoff', label: 'Cutoff', value: '32', unit: 'hr' },
@@ -324,6 +416,8 @@ function Overview({ goTo }) {
           })}
         </div>
       </section>
+
+      <CourseProfileChart />
 
       <section style={{padding:'48px 0 20px'}}>
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginBottom:24}}>

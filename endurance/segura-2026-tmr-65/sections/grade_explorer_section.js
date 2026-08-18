@@ -2,17 +2,6 @@
 // full-course dataset with absolute mile position, computed once from the
 // real GPX-derived gradeSegments (same source as Grade Profile) so this
 // view never drifts out of sync with the rest of the dashboard.
-function buildFullCourseSamples() {
-  const samples = [];
-  gradeSegments.forEach(seg => {
-    seg.data.forEach(d => {
-      samples.push({ mile: Math.round((seg.miS + d.mile) * 100) / 100, elev: d.elev, grade: d.grade });
-    });
-  });
-  samples.sort((a, b) => a.mile - b.mile);
-  return samples;
-}
-
 function GradeExplorerView() {
   const [order, setOrder] = React.useState('course'); // 'course' | 'grade'
   const [hovered, setHovered] = React.useState(null);
