@@ -26,7 +26,7 @@ const SECTIONS = [
   { id: 'hillreps', label: 'Hill Reps', eyebrow: '10' },
 ];
 
-function Nav({ active, setActive, open, setOpen }) {
+function Nav({ active, setActive, open, setOpen, onGear }) {
   return (
     <React.Fragment>
       <header style={{
@@ -46,7 +46,11 @@ function Nav({ active, setActive, open, setOpen }) {
                 TMR<span style={{color:'var(--climb)'}}>/</span>Command
               </span>
             </div>
-            <span style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)'}}>63.5mi &middot; 25,385ft</span>
+            <button onClick={onGear} aria-label="Manage sections" title="Manage sections" style={{
+              background:'none', border:'1px solid var(--line)', borderRadius:8, width:36, height:36,
+              color:'var(--ink-faint)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:16,
+            }}>⚙️</button>
           </div>
         </div>
       </header>
@@ -91,11 +95,17 @@ function Footer() {
 function App() {
   const [active, setActive] = useState('overview');
   const [open, setOpen] = useState(false);
+  const [openCardPanel, setOpenCardPanel] = useState(false);
   const [targetHours, setTargetHours] = useState(24);
   const [targetCarb, setTargetCarb] = useState(80);
   const [targetSodium, setTargetSodium] = useState(700);
 
   useEffect(() => { window.scrollTo(0,0); }, [active]);
+
+  function handleGear() {
+    if (active !== 'overview') { setActive('overview'); setOpenCardPanel(true); }
+    else { setOpenCardPanel(v => !v); }
+  }
 
   const ActiveComponent = {
     overview: window.Overview,
@@ -114,9 +124,11 @@ function App() {
   return (
     <TargetHoursContext.Provider value={{ targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium }}>
       <div>
-        <Nav active={active} setActive={setActive} open={open} setOpen={setOpen} />
+        <Nav active={active} setActive={setActive} open={open} setOpen={setOpen} onGear={handleGear} />
         <main style={{maxWidth:1180, margin:'0 auto', padding:'32px 20px 0'}}>
-          {ActiveComponent ? <ActiveComponent goTo={setActive} /> : <div style={{padding:'80px 0', textAlign:'center', color:'var(--ink-faint)'}}>Section not found.</div>}
+          {ActiveComponent
+            ? <ActiveComponent goTo={setActive} externalCardPanelOpen={active==='overview' ? openCardPanel : undefined} onCardPanelToggle={active==='overview' ? setOpenCardPanel : undefined} />
+            : <div style={{padding:'80px 0', textAlign:'center', color:'var(--ink-faint)'}}>Section not found.</div>}
         </main>
         <Footer />
       </div>
