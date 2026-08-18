@@ -92,22 +92,22 @@ function Overview({ goTo }) {
     if (weather.status === 'ok') {
       const aq = aqiLabel(weather.aqi);
       return [
-        { key: 'temp', label: 'Live temp (start line)', value: `${weather.temp}`, unit: '°F', sub: `${weather.humidity}% humidity` },
-        { key: 'conditions', label: 'Live conditions', value: weather.condition, unit: '', sub: `${weather.wind}mph wind` },
-        { key: 'aqi', label: 'Air quality (AQI)', value: `${weather.aqi}`, unit: '', sub: aq.label, subColor: aq.color },
+        { key: 'temp', label: 'Live temp (start line)', value: `${weather.temp}`, unit: '°F', sub: `${weather.humidity}% humidity`, isWeather: true },
+        { key: 'conditions', label: 'Live conditions', value: weather.condition, unit: '', sub: `${weather.wind}mph wind`, isWeather: true },
+        { key: 'aqi', label: 'Air quality (AQI)', value: `${weather.aqi}`, unit: '', sub: aq.label, subColor: aq.color, isWeather: true },
       ];
     }
     if (weather.status === 'error') {
       return [
-        { key: 'temp', label: 'Live temp (start line)', value: '—', unit: '', sub: 'unavailable' },
-        { key: 'conditions', label: 'Live conditions', value: '—', unit: '', sub: 'unavailable' },
-        { key: 'aqi', label: 'Air quality (AQI)', value: '—', unit: '', sub: 'unavailable' },
+        { key: 'temp', label: 'Live temp (start line)', value: '—', unit: '', sub: 'unavailable', isWeather: true },
+        { key: 'conditions', label: 'Live conditions', value: '—', unit: '', sub: 'unavailable', isWeather: true },
+        { key: 'aqi', label: 'Air quality (AQI)', value: '—', unit: '', sub: 'unavailable', isWeather: true },
       ];
     }
     return [
-      { key: 'temp', label: 'Live temp (start line)', value: '···', unit: '' },
-      { key: 'conditions', label: 'Live conditions', value: '···', unit: '' },
-      { key: 'aqi', label: 'Air quality (AQI)', value: '···', unit: '' },
+      { key: 'temp', label: 'Live temp (start line)', value: '···', unit: '', isWeather: true },
+      { key: 'conditions', label: 'Live conditions', value: '···', unit: '', isWeather: true },
+      { key: 'aqi', label: 'Air quality (AQI)', value: '···', unit: '', isWeather: true },
     ];
   }, [weather]);
 
@@ -156,19 +156,63 @@ function Overview({ goTo }) {
   }
   function resetStats() { setStatOrder(defaultOrder); setStatVisible({}); }
 
-  const orderedStats = statOrder.map(k => allStats.find(s => s.key === k)).filter(Boolean).filter(s => isVisible(s.key));
-
+  const CARD_ORDER_KEY = 'tmr_overview_card_order_v1';
+  const CARD_VISIBILITY_KEY = 'tmr_overview_card_visibility_v1';
   const cards = [
     { id: 'raceplan', n: '01', t: 'Race Day Plan', d: 'Segment-by-segment pace, fuel, gear, and drop bag logistics for all 10 legs.' },
     { id: 'grade', n: '02', t: 'Grade Profile', d: 'Every 0.1-mile grade reading across the full course, aid station by aid station.' },
-    { id: 'histogram', n: '03', t: 'Grade Distribution', d: 'How many miles sit at each grade band, from -45% to +45%.' },
-    { id: 'climb', n: '04', t: 'Opening Climb', d: 'The 7.5-mile, 4,712ft opening push to Telluride Peak, broken down half-mile by half-mile.' },
+    { id: 'gradeExplorer', n: '03', t: 'Grade Explorer', d: 'Every 0.1-mile sample across the full course \u2014 view in course order or sorted by grade.' },
     { id: 'treadmill', n: '05', t: 'Treadmill Legs', d: 'Indoor replication sessions matched to real course grade and duration.' },
     { id: 'vertcalc', n: '06', t: 'Vert Calculator', d: 'Grade, speed, and time-to-target vertical gain calculator.' },
-    { id: 'history', n: '07', t: 'Race History', d: 'Completed races leading into TMR — Dead Horse, Desert RATS, Colfax.' },
+    { id: 'history', n: '07', t: 'Race History', d: 'Completed races leading into TMR \u2014 Dead Horse, Desert RATS, Colfax.' },
     { id: 'comparison', n: '08', t: 'Race Comparison', d: 'How training runs and past races stack up against TMR\u2019s demands.' },
     { id: 'hillreps', n: '09', t: 'Hill Reps', d: 'Local hill session analysis and grade-matched training terrain.' },
   ];
+  const cardDefaultOrder = cards.map(c => c.id);
+
+  const [showCardPanel, setShowCardPanel] = React.useState(false);
+  const [cardOrder, setCardOrder] = React.useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CARD_ORDER_KEY));
+      if (Array.isArray(saved) && saved.every(k => cardDefaultOrder.includes(k)) &&
+          cardDefaultOrder.every(k => saved.includes(k))) {
+        return saved;
+      }
+    } catch (e) {}
+    return cardDefaultOrder;
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(cardOrder)); } catch (e) {}
+  }, [cardOrder]);
+
+  const [cardVisible, setCardVisible] = React.useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CARD_VISIBILITY_KEY));
+      if (saved && typeof saved === 'object') return saved;
+    } catch (e) {}
+    return {};
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem(CARD_VISIBILITY_KEY, JSON.stringify(cardVisible)); } catch (e) {}
+  }, [cardVisible]);
+  function isCardVisible(id) { return cardVisible[id] !== false; }
+  function toggleCardVisible(id) {
+    setCardVisible(prev => ({ ...prev, [id]: prev[id] === false ? true : false }));
+  }
+  function moveCard(index, dir) {
+    setCardOrder(prev => {
+      const next = [...prev];
+      const target = index + dir;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+  function resetCards() { setCardOrder(cardDefaultOrder); setCardVisible({}); }
+
+  const orderedCards = cardOrder.map(id => cards.find(c => c.id === id)).filter(Boolean).filter(c => isCardVisible(c.id));
+
+  const orderedStats = statOrder.map(k => allStats.find(s => s.key === k)).filter(Boolean).filter(s => isVisible(s.key));
 
   return (
     <div>
@@ -198,7 +242,7 @@ function Overview({ goTo }) {
           <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:16, letterSpacing:'0.08em', textTransform:'uppercase'}}>
             Countdown to Start
           </div>
-          <div style={{display:'flex', gap:28, flexWrap:'wrap', marginBottom:28}}>
+          <div style={{display:'flex', gap:28, flexWrap:'wrap', marginBottom:0}}>
             {[['days','Days'],['hours','Hours'],['minutes','Min'],['seconds','Sec']].map(([key,label]) => (
               <div key={key}>
                 <div style={{fontFamily:'var(--display)', fontSize:32, fontWeight:700, color:'var(--climb)'}}>
@@ -207,25 +251,6 @@ function Overview({ goTo }) {
                 <div style={{fontFamily:'var(--mono)', fontSize:10, color:'var(--ink-faint)', textTransform:'uppercase', letterSpacing:'0.05em'}}>{label}</div>
               </div>
             ))}
-          </div>
-
-          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))', gap:20}}>
-            <div>
-              <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:8, textTransform:'uppercase', letterSpacing:'0.05em'}}>
-                Historical Weather &mdash; Telluride, August
-              </div>
-              <p style={{fontFamily:'var(--body)', fontSize:14, color:'var(--ink-dim)', lineHeight:1.6, margin:0}}>
-                Town-level (8,647ft) NOAA climate normals: avg high <strong style={{color:'var(--ink)'}}>74&deg;F</strong>,
-                avg low <strong style={{color:'var(--ink)'}}>40&deg;F</strong>, ~42% chance of rain on a given day.
-              </p>
-              <p style={{fontFamily:'var(--body)', fontSize:13, color:'var(--ink-faint)', lineHeight:1.6, marginTop:8}}>
-                The start (Town Park, 8,750ft) sits almost exactly at this station&rsquo;s elevation &mdash;
-                the 6am cold is a time-of-day thing, not an altitude thing. Elevation starts to matter once
-                you climb: you&rsquo;re 2,000ft+ above the station for most of the course, and up to
-                4,850ft above it on the highest sections (13,500ft, above treeline). That&rsquo;s where the
-                real temperature drop and storm risk kick in, not at the start line.
-              </p>
-            </div>
           </div>
         </section>
       )}
@@ -275,30 +300,77 @@ function Overview({ goTo }) {
         )}
 
         <div style={{display:'flex', flexWrap:'wrap', gap:1, background:'var(--line)'}}>
-          {orderedStats.map(s => (
-            <div key={s.key} style={{background:'var(--bg)', padding:'20px 16px', flex:'1 1 140px', minWidth:140}}>
-              <div style={{fontFamily:'var(--display)', fontSize:26, fontWeight:700, color:'var(--ink)'}}>
-                {s.value}<span style={{fontSize:14, color:'var(--ink-faint)', marginLeft:4}}>{s.unit}</span>
-              </div>
-              <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginTop:6, textTransform:'uppercase', letterSpacing:'0.05em'}}>
-                {s.label}
-              </div>
-              {s.sub && (
-                <div style={{fontFamily:'var(--mono)', fontSize:10, color: s.subColor || 'var(--ink-faint)', marginTop:4}}>
-                  {s.sub}
+          {orderedStats.map((s, i) => {
+            const prev = orderedStats[i - 1];
+            const startsWeatherGroup = s.isWeather && (!prev || !prev.isWeather);
+            return (
+              <React.Fragment key={s.key}>
+                {startsWeatherGroup && <div style={{flexBasis:'100%', height:0}} />}
+                <div style={{background:'var(--bg)', padding:'20px 16px', flex:'1 1 140px', minWidth:140}}>
+                  <div style={{fontFamily:'var(--display)', fontSize:26, fontWeight:700, color:'var(--ink)'}}>
+                    {s.value}<span style={{fontSize:14, color:'var(--ink-faint)', marginLeft:4}}>{s.unit}</span>
+                  </div>
+                  <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginTop:6, textTransform:'uppercase', letterSpacing:'0.05em'}}>
+                    {s.label}
+                  </div>
+                  {s.sub && (
+                    <div style={{fontFamily:'var(--mono)', fontSize:10, color: s.subColor || 'var(--ink-faint)', marginTop:4}}>
+                      {s.sub}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
+              </React.Fragment>
+            );
+          })}
         </div>
       </section>
 
       <section style={{padding:'48px 0 20px'}}>
-        <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--ink-faint)', marginBottom:24, letterSpacing:'0.08em'}}>
-          ALL SECTIONS
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginBottom:24}}>
+          <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--ink-faint)', letterSpacing:'0.08em'}}>
+            ALL SECTIONS
+          </div>
+          <button onClick={() => setShowCardPanel(v => !v)} style={{
+            fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'var(--bg-raised)',
+            border:'1px solid var(--line)', borderRadius:8, padding:'5px 10px', cursor:'pointer',
+          }}>
+            {showCardPanel ? 'Done' : 'Manage sections'}
+          </button>
         </div>
+
+        {showCardPanel && (
+          <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:20}}>
+            {cardOrder.map((id, i) => {
+              const c = cards.find(x => x.id === id);
+              const vis = isCardVisible(id);
+              return (
+                <div key={id} style={{display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none', opacity: vis ? 1 : 0.45}}>
+                  <span style={{flex:1, fontSize:13, color:'var(--ink)'}}>{c.t}</span>
+                  <button onClick={() => toggleCardVisible(id)} style={{
+                    fontSize:10, fontFamily:'var(--mono)', padding:'4px 9px', borderRadius:6,
+                    border:'1px solid var(--line)', background: vis ? 'var(--bg-raised)' : 'transparent',
+                    color: vis ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer', minWidth:52,
+                  }}>{vis ? 'Shown' : 'Hidden'}</button>
+                  <button disabled={i===0} onClick={() => moveCard(i, -1)} style={{
+                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
+                    color: i===0 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===0 ? 'not-allowed' : 'pointer', fontSize:12,
+                  }}>&uarr;</button>
+                  <button disabled={i===cardOrder.length-1} onClick={() => moveCard(i, 1)} style={{
+                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
+                    color: i===cardOrder.length-1 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===cardOrder.length-1 ? 'not-allowed' : 'pointer', fontSize:12,
+                  }}>&darr;</button>
+                </div>
+              );
+            })}
+            <button onClick={resetCards} style={{
+              marginTop:10, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
+              border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
+            }}>Reset to default order</button>
+          </div>
+        )}
+
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:14}}>
-          {cards.map(c => (
+          {orderedCards.map(c => (
             <button key={c.id} onClick={()=>goTo(c.id)} style={{
               textAlign:'left', background:'var(--bg-card)', border:'1px solid var(--line)',
               borderRadius:14, padding:'22px 20px', cursor:'pointer', color:'var(--ink)',

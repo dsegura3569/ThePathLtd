@@ -26,6 +26,25 @@ function SmallLabel({ children, color }) {
   );
 }
 
+function gradeColor(g) {
+  if (g >= 20) return "#7B1010";
+  if (g >= 15) return "#A32D2D";
+  if (g >= 8)  return "#E8943A";
+  if (g >= 0)  return "#3CB897";
+  if (g >= -8) return "#7DD3FC";
+  if (g >= -15) return "#4A9FE8";
+  if (g >= -20) return "#1460A8";
+  return "#0C3B6E";
+}
+function gradeLabel(g) {
+  const ag = Math.abs(g);
+  const dir = g >= 0 ? "climb" : "descent";
+  if (ag >= 20) return `Very steep ${dir}`;
+  if (ag >= 15) return `Steep ${dir}`;
+  if (ag >= 8)  return `Moderate ${dir}`;
+  return "Gentle";
+}
+
 function vesselPlan(seg) {
   // Vessel capacities: two 500ml vest flasks, one 2000ml bladder, one 650ml belt flask.
   // Tailwind-diluted mix goes in whichever vessel(s) fit the diluted volume most simply;
@@ -89,3 +108,5 @@ window.StatBox = StatBox;
 window.SmallLabel = SmallLabel;
 window.vesselPlan = vesselPlan;
 window.popsicleBagsForVessels = popsicleBagsForVessels;
+window.gradeColor = gradeColor;
+window.gradeLabel = gradeLabel;
