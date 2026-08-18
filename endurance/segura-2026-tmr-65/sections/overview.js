@@ -248,9 +248,10 @@ function Overview({ goTo }) {
   }
   function resetStats() { setStatOrder(defaultOrder); setStatVisible({}); }
 
-  const CARD_ORDER_KEY = 'tmr_overview_card_order_v1';
-  const CARD_VISIBILITY_KEY = 'tmr_overview_card_visibility_v1';
-  const cards = [
+  const CARD_ORDER_KEY = 'tmr_overview_card_order_v2';
+  const CARD_STATE_KEY = 'tmr_overview_card_state_v1';
+  const CUSTOM_CARDS_KEY = 'tmr_overview_custom_cards_v1';
+  const builtinCards = [
     { id: 'raceplan', n: '01', t: 'Race Day Plan', d: 'Segment-by-segment pace, fuel, gear, and drop bag logistics for all 10 legs.' },
     { id: 'grade', n: '02', t: 'Grade Profile', d: 'Every 0.1-mile grade reading across the full course, aid station by aid station.' },
     { id: 'gradeExplorer', n: '03', t: 'Grade Explorer', d: 'Every 0.1-mile sample across the full course \u2014 view in course order or sorted by grade.' },
@@ -260,36 +261,67 @@ function Overview({ goTo }) {
     { id: 'comparison', n: '08', t: 'Race Comparison', d: 'How training runs and past races stack up against TMR\u2019s demands.' },
     { id: 'hillreps', n: '09', t: 'Hill Reps', d: 'Local hill session analysis and grade-matched training terrain.' },
   ];
-  const cardDefaultOrder = cards.map(c => c.id);
+  const cardDefaultOrder = builtinCards.map(c => c.id);
 
   const [showCardPanel, setShowCardPanel] = React.useState(false);
+  const [showAddForm, setShowAddForm] = React.useState(false);
+  const [newCardTitle, setNewCardTitle] = React.useState('');
+  const [newCardDesc, setNewCardDesc] = React.useState('');
+  const [newCardUrl, setNewCardUrl] = React.useState('');
+
+  const [customCards, setCustomCards] = React.useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CUSTOM_CARDS_KEY));
+      if (Array.isArray(saved)) return saved;
+    } catch (e) {}
+    return [];
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem(CUSTOM_CARDS_KEY, JSON.stringify(customCards)); } catch (e) {}
+  }, [customCards]);
+
+  const cards = [...builtinCards, ...customCards.map(c => ({ ...c, isCustom: true }))];
+
   const [cardOrder, setCardOrder] = React.useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(CARD_ORDER_KEY));
-      if (Array.isArray(saved) && saved.every(k => cardDefaultOrder.includes(k)) &&
-          cardDefaultOrder.every(k => saved.includes(k))) {
-        return saved;
-      }
+      if (Array.isArray(saved)) return saved;
     } catch (e) {}
     return cardDefaultOrder;
   });
+  // reconcile order with whatever cards actually exist right now (new custom
+  // cards appended at the end, removed/renamed ones dropped) without
+  // clobbering the user's saved arrangement of everything else
+  React.useEffect(() => {
+    const allIds = cards.map(c => c.id);
+    setCardOrder(prev => {
+      const kept = prev.filter(id => allIds.includes(id));
+      const missing = allIds.filter(id => !kept.includes(id));
+      const next = [...kept, ...missing];
+      return next.length === prev.length && next.every((id, i) => id === prev[i]) ? prev : next;
+    });
+  }, [customCards.length]);
   React.useEffect(() => {
     try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(cardOrder)); } catch (e) {}
   }, [cardOrder]);
 
-  const [cardVisible, setCardVisible] = React.useState(() => {
+  const [cardState, setCardState] = React.useState(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(CARD_VISIBILITY_KEY));
+      const saved = JSON.parse(localStorage.getItem(CARD_STATE_KEY));
       if (saved && typeof saved === 'object') return saved;
     } catch (e) {}
     return {};
   });
   React.useEffect(() => {
-    try { localStorage.setItem(CARD_VISIBILITY_KEY, JSON.stringify(cardVisible)); } catch (e) {}
-  }, [cardVisible]);
-  function isCardVisible(id) { return cardVisible[id] !== false; }
-  function toggleCardVisible(id) {
-    setCardVisible(prev => ({ ...prev, [id]: prev[id] === false ? true : false }));
+    try { localStorage.setItem(CARD_STATE_KEY, JSON.stringify(cardState)); } catch (e) {}
+  }, [cardState]);
+  function getCardState(id) { return cardState[id] || 'shown'; }
+  function cycleCardState(id) {
+    setCardState(prev => {
+      const cur = prev[id] || 'shown';
+      const next = cur === 'shown' ? 'minimized' : cur === 'minimized' ? 'hidden' : 'shown';
+      return { ...prev, [id]: next };
+    });
   }
   function moveCard(index, dir) {
     setCardOrder(prev => {
@@ -300,9 +332,22 @@ function Overview({ goTo }) {
       return next;
     });
   }
-  function resetCards() { setCardOrder(cardDefaultOrder); setCardVisible({}); }
+  function resetCards() { setCardOrder([...cardDefaultOrder, ...customCards.map(c => c.id)]); setCardState({}); }
+  function removeCustomCard(id) {
+    setCustomCards(prev => prev.filter(c => c.id !== id));
+    setCardOrder(prev => prev.filter(x => x !== id));
+  }
+  function addCustomCard() {
+    if (!newCardTitle.trim() || !newCardUrl.trim()) return;
+    let url = newCardUrl.trim();
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    const id = 'custom-' + Date.now();
+    setCustomCards(prev => [...prev, { id, t: newCardTitle.trim(), d: newCardDesc.trim(), url }]);
+    setNewCardTitle(''); setNewCardDesc(''); setNewCardUrl('');
+    setShowAddForm(false);
+  }
 
-  const orderedCards = cardOrder.map(id => cards.find(c => c.id === id)).filter(Boolean).filter(c => isCardVisible(c.id));
+  const orderedCards = cardOrder.map(id => cards.find(c => c.id === id)).filter(Boolean).filter(c => getCardState(c.id) !== 'hidden');
 
   const orderedStats = statOrder.map(k => allStats.find(s => s.key === k)).filter(Boolean).filter(s => isVisible(s.key));
 
@@ -434,17 +479,26 @@ function Overview({ goTo }) {
 
         {showCardPanel && (
           <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:20}}>
+            <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:8}}>Tap the state button to cycle Shown &rarr; Minimized &rarr; Hidden.</div>
             {cardOrder.map((id, i) => {
               const c = cards.find(x => x.id === id);
-              const vis = isCardVisible(id);
+              if (!c) return null;
+              const state = getCardState(id);
+              const stateColor = state === 'shown' ? 'var(--climb)' : state === 'minimized' ? '#4A9FE8' : 'var(--ink-faint)';
               return (
-                <div key={id} style={{display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none', opacity: vis ? 1 : 0.45}}>
-                  <span style={{flex:1, fontSize:13, color:'var(--ink)'}}>{c.t}</span>
-                  <button onClick={() => toggleCardVisible(id)} style={{
+                <div key={id} style={{display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none', opacity: state==='hidden' ? 0.45 : 1}}>
+                  <span style={{flex:1, fontSize:13, color:'var(--ink)'}}>{c.t}{c.isCustom && <span style={{color:'var(--ink-faint)', fontSize:11}}> (custom)</span>}</span>
+                  <button onClick={() => cycleCardState(id)} style={{
                     fontSize:10, fontFamily:'var(--mono)', padding:'4px 9px', borderRadius:6,
-                    border:'1px solid var(--line)', background: vis ? 'var(--bg-raised)' : 'transparent',
-                    color: vis ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer', minWidth:52,
-                  }}>{vis ? 'Shown' : 'Hidden'}</button>
+                    border:'1px solid var(--line)', background: 'var(--bg-raised)',
+                    color: stateColor, cursor:'pointer', minWidth:66, textTransform:'capitalize',
+                  }}>{state}</button>
+                  {c.isCustom && (
+                    <button onClick={() => removeCustomCard(id)} style={{
+                      fontSize:10, fontFamily:'var(--mono)', padding:'4px 9px', borderRadius:6,
+                      border:'1px solid var(--descent)', background:'transparent', color:'var(--descent)', cursor:'pointer',
+                    }}>Remove</button>
+                  )}
                   <button disabled={i===0} onClick={() => moveCard(i, -1)} style={{
                     width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
                     color: i===0 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===0 ? 'not-allowed' : 'pointer', fontSize:12,
@@ -456,28 +510,77 @@ function Overview({ goTo }) {
                 </div>
               );
             })}
+
+            {showAddForm ? (
+              <div style={{marginTop:14, paddingTop:14, borderTop:'1px solid var(--line)'}}>
+                <input placeholder="Title" value={newCardTitle} onChange={e=>setNewCardTitle(e.target.value)} style={{
+                  width:'100%', marginBottom:8, padding:'8px 10px', borderRadius:8, border:'1px solid var(--line)',
+                  background:'var(--bg-raised)', color:'var(--ink)', fontSize:13, fontFamily:'var(--body)',
+                }} />
+                <input placeholder="Description (optional)" value={newCardDesc} onChange={e=>setNewCardDesc(e.target.value)} style={{
+                  width:'100%', marginBottom:8, padding:'8px 10px', borderRadius:8, border:'1px solid var(--line)',
+                  background:'var(--bg-raised)', color:'var(--ink)', fontSize:13, fontFamily:'var(--body)',
+                }} />
+                <input placeholder="URL (e.g. strava.com/...)" value={newCardUrl} onChange={e=>setNewCardUrl(e.target.value)} style={{
+                  width:'100%', marginBottom:10, padding:'8px 10px', borderRadius:8, border:'1px solid var(--line)',
+                  background:'var(--bg-raised)', color:'var(--ink)', fontSize:13, fontFamily:'var(--body)',
+                }} />
+                <div style={{display:'flex', gap:8}}>
+                  <button onClick={addCustomCard} disabled={!newCardTitle.trim() || !newCardUrl.trim()} style={{
+                    flex:1, padding:'8px 14px', borderRadius:8, border:'none',
+                    background: (newCardTitle.trim() && newCardUrl.trim()) ? 'var(--climb)' : 'var(--bg-raised)',
+                    color: (newCardTitle.trim() && newCardUrl.trim()) ? '#12151A' : 'var(--ink-faint)',
+                    fontWeight:600, fontSize:13, cursor: (newCardTitle.trim() && newCardUrl.trim()) ? 'pointer' : 'not-allowed',
+                  }}>Add card</button>
+                  <button onClick={() => { setShowAddForm(false); setNewCardTitle(''); setNewCardDesc(''); setNewCardUrl(''); }} style={{
+                    padding:'8px 14px', borderRadius:8, border:'1px solid var(--line)', background:'transparent', color:'var(--ink-dim)', fontSize:13, cursor:'pointer',
+                  }}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setShowAddForm(true)} style={{
+                marginTop:10, width:'100%', padding:'10px', borderRadius:8, border:'1px dashed var(--line)',
+                background:'transparent', color:'var(--climb)', fontSize:13, fontWeight:600, cursor:'pointer',
+              }}>+ Add card</button>
+            )}
+
             <button onClick={resetCards} style={{
               marginTop:10, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
               border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
-            }}>Reset to default order</button>
+            }}>Reset order &amp; states (keeps custom cards)</button>
           </div>
         )}
 
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:14}}>
-          {orderedCards.map(c => (
-            <button key={c.id} onClick={()=>goTo(c.id)} style={{
+          {orderedCards.map(c => {
+            const minimized = getCardState(c.id) === 'minimized';
+            const commonStyle = {
               textAlign:'left', background:'var(--bg-card)', border:'1px solid var(--line)',
-              borderRadius:14, padding:'22px 20px', cursor:'pointer', color:'var(--ink)',
-              transition:'border-color 0.15s',
-            }}
-            onMouseEnter={e=>e.currentTarget.style.borderColor='var(--climb)'}
-            onMouseLeave={e=>e.currentTarget.style.borderColor='var(--line)'}
-            >
-              <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--climb)', marginBottom:10}}>{c.n}</div>
-              <div style={{fontFamily:'var(--display)', fontSize:19, fontWeight:600, marginBottom:8}}>{c.t}</div>
-              <div style={{fontFamily:'var(--body)', fontSize:13.5, color:'var(--ink-dim)', lineHeight:1.5}}>{c.d}</div>
-            </button>
-          ))}
+              borderRadius:14, padding: minimized ? '14px 20px' : '22px 20px', cursor:'pointer', color:'var(--ink)',
+              transition:'border-color 0.15s', display:'block', textDecoration:'none',
+            };
+            const inner = (
+              <React.Fragment>
+                <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--climb)', marginBottom: minimized ? 0 : 10}}>{c.n || '\u2022'}</div>
+                <div style={{fontFamily:'var(--display)', fontSize:19, fontWeight:600, marginBottom: minimized ? 0 : 8}}>{c.t}</div>
+                {!minimized && <div style={{fontFamily:'var(--body)', fontSize:13.5, color:'var(--ink-dim)', lineHeight:1.5}}>{c.d}</div>}
+              </React.Fragment>
+            );
+            if (c.isCustom) {
+              return (
+                <a key={c.id} href={c.url} target="_blank" rel="noopener noreferrer" style={commonStyle}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor='var(--climb)'}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor='var(--line)'}
+                >{inner}</a>
+              );
+            }
+            return (
+              <button key={c.id} onClick={()=>goTo(c.id)} style={commonStyle}
+                onMouseEnter={e=>e.currentTarget.style.borderColor='var(--climb)'}
+                onMouseLeave={e=>e.currentTarget.style.borderColor='var(--line)'}
+              >{inner}</button>
+            );
+          })}
         </div>
       </section>
     </div>
