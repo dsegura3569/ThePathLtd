@@ -44,11 +44,12 @@ function calibratedHours(targetTotalHours) {
     if (totalFor(mid) < targetTotalHours) lo = mid; else hi = mid;
   }
   const basePace = (lo + hi) / 2;
-  return baseSegments.map(s => {
+  const hoursList = baseSegments.map(s => {
     const avgElev = (s.elevS + s.elevE) / 2;
     const pace = basePace * gradeFactor(parseFloat(s.avgGrade)) * altitudeFactor(avgElev);
     return (pace * s.distReal) / 60;
   });
+  return { hoursList, basePace };
 }
 
 function hToClockParts(h) {
@@ -77,7 +78,34 @@ function fmtHm(h) {
 function computeDerivedSegments(targetTotalHours, targetCarbHr = BASE_CARB_HR, targetSodiumHr = BASE_SODIUM_HR) {
   const carbScale = targetCarbHr / BASE_CARB_HR;
   const CARB_TARGETS = BASE_CARB_TARGETS.map(c => Math.round(c * carbScale));
-  const hoursList = calibratedHours(targetTotalHours);
+  const { hoursList, basePace } = calibratedHours(targetTotalHours);
+
+  // Per-segment average grade and pace split by climbing vs descending,
+  // computed from the real 0.1-mile profile samples (gradeSegments) rather
+  // than the single net avg grade -- redistributes each segment's total
+  // time across its samples proportionally to each sample's own difficulty
+  // (grade + altitude), so the up/down pace split stays internally
+  // consistent with the segment's overall calibrated time.
+  const upDownStats = baseSegments.map((s, i) => {
+    const gSeg = gradeSegments[i];
+    if (!gSeg || !gSeg.data || gSeg.data.length === 0) {
+      return { avgGradeUp: null, avgGradeDown: null, avgPaceUpMin: null, avgPaceDownMin: null };
+    }
+    const samples = gSeg.data.map(d => ({
+      grade: d.grade,
+      factor: gradeFactor(d.grade) * altitudeFactor(d.elev),
+    }));
+    const segAvgFactor = samples.reduce((a, x) => a + x.factor, 0) / samples.length;
+    const segAvgPaceMin = (hoursList[i] * 60) / s.distReal;
+    const upSamples = samples.filter(x => x.grade > 0);
+    const downSamples = samples.filter(x => x.grade < 0);
+    const avg = (arr, key) => arr.length ? arr.reduce((a, x) => a + x[key], 0) / arr.length : null;
+    const avgGradeUp = avg(upSamples, 'grade');
+    const avgGradeDown = avg(downSamples, 'grade');
+    const avgPaceUpMin = upSamples.length ? segAvgPaceMin * (avg(upSamples, 'factor') / segAvgFactor) : null;
+    const avgPaceDownMin = downSamples.length ? segAvgPaceMin * (avg(downSamples, 'factor') / segAvgFactor) : null;
+    return { avgGradeUp, avgGradeDown, avgPaceUpMin, avgPaceDownMin };
+  });
 
   // First pass: clock times, to determine which segments actually span the
   // caffeine window (midnight to +4h, capped at sunrise ~6:30am) under THIS
@@ -141,6 +169,14 @@ function computeDerivedSegments(targetTotalHours, targetCarbHr = BASE_CARB_HR, t
     const modeledArrivalHours = endClock - 6.0;
     const cutoffMarginHours = s.cutoffHours - modeledArrivalHours;
 
+    const ud = upDownStats[i];
+    function fmtPace(min) {
+      if (min === null) return null;
+      const mm = Math.floor(min);
+      const ss = Math.round((min - mm) * 60);
+      return `${mm}:${String(ss).padStart(2, '0')}`;
+    }
+
     return {
       ...s,
       hours, clockS, clockE, time, avgPace, avgMph,
@@ -150,6 +186,10 @@ function computeDerivedSegments(targetTotalHours, targetCarbHr = BASE_CARB_HR, t
       saltCaps, saltCapType: isCaffeine ? 'caffeine' : 'original', sodiumHr, caffeineHr,
       modeledArrivalHours: Math.round(modeledArrivalHours * 100) / 100,
       cutoffMarginHours: Math.round(cutoffMarginHours * 100) / 100,
+      avgGradeUp: ud.avgGradeUp !== null ? Math.round(ud.avgGradeUp * 10) / 10 : null,
+      avgGradeDown: ud.avgGradeDown !== null ? Math.round(ud.avgGradeDown * 10) / 10 : null,
+      avgPaceUp: fmtPace(ud.avgPaceUpMin),
+      avgPaceDown: fmtPace(ud.avgPaceDownMin),
     };
   });
 }
