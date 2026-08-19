@@ -118,6 +118,8 @@ function PackListView() {
   const tailwindCarbs = Math.round(grandTailwind * (CARB_PER_SCOOP / SCOOP_G));
   const totalCarbs = gelCarbs + tailwindCarbs;
   const totalSodium = grandSaltOrig * CAP_NA + grandSaltCaf * CAP_NA_CAFFEINE;
+  const totalCalories = Math.round(totalCarbs * 4); // 4 kcal/g carb, matches both SIS GO and Tailwind label ratios
+  const totalWaterMl = segments.reduce((a, s) => a + s.waterMl, 0);
 
   return (
     <div style={{ paddingBottom: 60 }}>
@@ -128,6 +130,8 @@ function PackListView() {
         <StatBox label="Tailwind" value={`${grandTailwind}g`} sub={`${totalCarbs}g carbs total`} />
         <StatBox label="Salt caps" value={grandSaltOrig} sub={`${totalSodium}mg sodium total`} />
         <StatBox label="Salt +caf" value={grandSaltCaf} sub={`${totalSodium}mg sodium total`} />
+        <StatBox label="Water" value={`${(totalWaterMl/1000).toFixed(1)}L`} sub="whole race" color="#4A9FE8" />
+        <StatBox label="Calories" value={totalCalories} sub="whole race" />
       </div>
 
       {packing.map(point => <PackCard key={point.key} point={point} />)}

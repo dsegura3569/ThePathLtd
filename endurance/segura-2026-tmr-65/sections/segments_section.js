@@ -197,6 +197,8 @@ function SegmentsView() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginTop: 10, marginBottom: 14 }}>
           <StatBox label="Carbs/hr" value={`${pSeg.actualCarbHr}g`} />
           <StatBox label="Sodium/hr" value={`${pSeg.sodiumHr}mg`} />
+          <StatBox label="Water/hr" value={`${pSeg.waterMlPerHr}ml`} color="#4A9FE8" />
+          <StatBox label="Calories/hr" value={`${pSeg.caloriesPerHr}kcal`} />
           <StatBox label="Tailwind mix" value={`${(pSeg.tailwindConc*100).toFixed(1)}%`} />
           {pSeg.caffeineHr > 0 && <StatBox label="Caffeine/hr" value={`${pSeg.caffeineHr}mg`} color="var(--climb)" />}
         </div>

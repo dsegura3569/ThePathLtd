@@ -243,6 +243,8 @@ function RaceDayPlanView() {
             <StatBox label="SIS gels" value={seg.gels} sub={seg.gels>0 ? `every ~${Math.round(seg.hours*60/seg.gels)}min` : ''} />
             <StatBox label={seg.saltCapType==='caffeine' ? 'SaltStick +caf' : 'SaltStick'} value={seg.saltCaps} sub={seg.saltCaps>0 ? `every ~${Math.round(seg.hours*60/seg.saltCaps)}min` : ''} color={seg.saltCapType==='caffeine' ? 'var(--ok)' : undefined} />
             <StatBox label="Sodium" value={`${seg.sodiumHr}mg/hr`} />
+            <StatBox label="Water" value={`${seg.waterMlPerHr}ml/hr`} sub={`${(seg.waterMl/1000).toFixed(2)}L this segment`} color="#4A9FE8" />
+            <StatBox label="Calories" value={`${seg.caloriesPerHr}kcal/hr`} sub={`${seg.calories}kcal this segment`} />
           </div>
 
           <div style={{marginBottom:16}}>
@@ -282,13 +284,14 @@ function RaceDayPlanView() {
         </p>
         {(() => {
           const checkpoints = [];
-          const cum = { gels: 0, saltCaps: 0, tailwind: 0, waterMl: 0 };
+          const cum = { gels: 0, saltCaps: 0, tailwind: 0, waterMl: 0, calories: 0 };
           checkpoints.push({ label: 'Start', ...cum });
           segments.forEach(s => {
             cum.gels += s.gels;
             cum.saltCaps += s.saltCaps;
             cum.tailwind += s.tailwind;
             cum.waterMl += s.waterMl;
+            cum.calories += s.calories;
             const isDropBag = /drop bag/i.test(s.to);
             const isFinish = s.id === segments.length;
             if (isDropBag || isFinish) {
@@ -300,7 +303,7 @@ function RaceDayPlanView() {
               <table style={{width:'100%', minWidth:600, borderCollapse:'collapse', fontFamily:'var(--body)'}}>
                 <thead>
                   <tr style={{background:'var(--bg-raised)', textAlign:'left'}}>
-                    {['Checkpoint','Gels','Salt caps','Tailwind','Water'].map(h=>(
+                    {['Checkpoint','Gels','Salt caps','Tailwind','Water','Calories'].map(h=>(
                       <th key={h} style={{padding:'9px 12px', fontFamily:'var(--mono)', fontSize:10, color:'var(--ink-faint)', fontWeight:500, textTransform:'uppercase', borderBottom:'1px solid var(--line)'}}>{h}</th>
                     ))}
                   </tr>
@@ -312,7 +315,8 @@ function RaceDayPlanView() {
                       <td style={cellStyle('var(--ink-dim)')}>{c.gels}</td>
                       <td style={cellStyle('var(--ink-dim)')}>{c.saltCaps}</td>
                       <td style={cellStyle('var(--climb)')}>{c.tailwind}g</td>
-                      <td style={cellStyle('var(--ink-dim)')}>{(c.waterMl/1000).toFixed(1)}L</td>
+                      <td style={cellStyle('#4A9FE8')}>{(c.waterMl/1000).toFixed(1)}L</td>
+                      <td style={cellStyle('var(--ink-dim)')}>{c.calories}kcal</td>
                     </tr>
                   ))}
                 </tbody>

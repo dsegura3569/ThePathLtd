@@ -177,12 +177,18 @@ function computeDerivedSegments(targetTotalHours, targetCarbHr = BASE_CARB_HR, t
       return `${mm}:${String(ss).padStart(2, '0')}`;
     }
 
+    const totalCarbsG = actualCarbHr * hours;
+    const calories = Math.round(totalCarbsG * 4); // 4 kcal/g carb -- matches both SIS GO (87kcal/22g) and Tailwind (100kcal/25g) label ratios exactly
+    const caloriesPerHr = Math.round(actualCarbHr * 4);
+    const waterMlTotal = Math.round(dilutedMl + plainMl);
+    const waterMlPerHr = Math.round(waterMlTotal / hours);
+
     return {
       ...s,
       hours, clockS, clockE, time, avgPace, avgMph,
-      tailwind: Math.round(tailwind), waterMl: Math.round(dilutedMl + plainMl),
+      tailwind: Math.round(tailwind), waterMl: waterMlTotal, waterMlPerHr,
       dilutedMl: Math.round(dilutedMl), plainMl: Math.round(plainMl), tailwindConc: conc,
-      gels, gelsPerHr: gelsHr, carbTargetHr: carbHr, actualCarbHr,
+      gels, gelsPerHr: gelsHr, carbTargetHr: carbHr, actualCarbHr, calories, caloriesPerHr,
       saltCaps, saltCapType: isCaffeine ? 'caffeine' : 'original', sodiumHr, caffeineHr,
       modeledArrivalHours: Math.round(modeledArrivalHours * 100) / 100,
       cutoffMarginHours: Math.round(cutoffMarginHours * 100) / 100,
