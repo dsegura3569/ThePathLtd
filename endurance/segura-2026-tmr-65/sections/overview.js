@@ -301,6 +301,23 @@ function CourseProfileChart() {
   );
 }
 
+function PaceTargetsWidget() {
+  const { targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium } = React.useContext(window.TargetHoursContext);
+  return (
+    <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
+      <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:16, letterSpacing:'0.08em', textTransform:'uppercase'}}>
+        Pace &amp; Nutrition Targets
+      </div>
+      <div style={{fontSize:12, color:'var(--ink-faint)', marginBottom:16}}>
+        Set once here &mdash; every segment, the Pack List, and the Race Day Plan all update from these same numbers.
+      </div>
+      <TargetStepper label="Target finish time" value={targetHours} setValue={setTargetHours} min={12} max={32} step={0.5} unit="hr" note="32hr official cutoff" />
+      <TargetStepper label="Target carb intake" value={targetCarb} setValue={setTargetCarb} min={50} max={120} step={5} unit="g/hr" />
+      <TargetStepper label="Target salt intake" value={targetSodium} setValue={setTargetSodium} min={400} max={1200} step={50} unit="mg/hr" />
+    </section>
+  );
+}
+
 function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
   // Race starts 6:00am Saturday Aug 22, 2026, Mountain Time (MDT, UTC-6 in August)
   const countdown = useCountdown('2026-08-22T06:00:00-06:00');
@@ -403,16 +420,46 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
 
   const [showCardPanel, setShowCardPanel] = React.useState(false);
   const cardSectionRef = React.useRef(null);
-  React.useEffect(() => {
-    if (externalCardPanelOpen !== undefined) {
-      setShowCardPanel(externalCardPanelOpen);
-      if (externalCardPanelOpen && cardSectionRef.current) {
-        // wait a tick for the panel to actually render before scrolling
-        setTimeout(() => {
-          cardSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 50);
+
+  // Page-level section reorder -- the main nav gear (top-right of the whole
+  // app, not the local per-section gears) controls this: lets you reorder
+  // the four big Overview blocks themselves (Countdown, Conditions, Course
+  // Profile, Race Insights), separate from reordering/hiding the individual
+  // cards inside Race Insights or the individual stats inside Conditions.
+  const PAGE_SECTIONS = [
+    { id: 'countdown', label: 'Countdown' },
+    { id: 'conditions', label: 'Conditions' },
+    { id: 'courseProfile', label: 'Course Profile' },
+    { id: 'raceInsights', label: 'Race Insights' },
+  ];
+  const PAGE_SECTION_ORDER_KEY = 'tmr_overview_page_section_order_v1';
+  const pageSectionDefaultOrder = PAGE_SECTIONS.map(s => s.id);
+  const [pageSectionOrder, setPageSectionOrder] = React.useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(PAGE_SECTION_ORDER_KEY));
+      if (Array.isArray(saved) && saved.length === pageSectionDefaultOrder.length &&
+          saved.every(id => pageSectionDefaultOrder.includes(id))) {
+        return saved;
       }
-    }
+    } catch (e) {}
+    return pageSectionDefaultOrder;
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem(PAGE_SECTION_ORDER_KEY, JSON.stringify(pageSectionOrder)); } catch (e) {}
+  }, [pageSectionOrder]);
+  function movePageSection(index, dir) {
+    setPageSectionOrder(prev => {
+      const next = [...prev];
+      const target = index + dir;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+
+  const [showPageLayoutPanel, setShowPageLayoutPanel] = React.useState(false);
+  React.useEffect(() => {
+    if (externalCardPanelOpen !== undefined) setShowPageLayoutPanel(externalCardPanelOpen);
   }, [externalCardPanelOpen]);
   const [showAddForm, setShowAddForm] = React.useState(false);
   const [editingCardId, setEditingCardId] = React.useState(null);
@@ -539,6 +586,40 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
         </div>
       </section>
 
+      {showPageLayoutPanel && (
+        <div style={{background:'var(--bg-card)', border:'1px solid var(--climb)', borderRadius:10, padding:12, marginBottom:20}}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
+            <div style={{fontSize:12, color:'var(--ink-faint)'}}>Reorder the page sections below.</div>
+            <button onClick={() => setShowPageLayoutPanel(false)} style={{
+              background:'none', border:'none', color:'var(--ink-faint)', cursor:'pointer', fontSize:16, lineHeight:1,
+            }}>&#10005;</button>
+          </div>
+          {pageSectionOrder.map((id, i) => {
+            const s = PAGE_SECTIONS.find(x => x.id === id);
+            return (
+              <div key={id} style={{display:'flex', alignItems:'center', gap:8, padding:'6px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none'}}>
+                <span style={{flex:1, fontSize:13, color:'var(--ink)'}}>{s.label}</span>
+                <button disabled={i===0} onClick={() => movePageSection(i, -1)} style={{
+                  width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
+                  color: i===0 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===0 ? 'not-allowed' : 'pointer', fontSize:12,
+                }}>&uarr;</button>
+                <button disabled={i===pageSectionOrder.length-1} onClick={() => movePageSection(i, 1)} style={{
+                  width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
+                  color: i===pageSectionOrder.length-1 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===pageSectionOrder.length-1 ? 'not-allowed' : 'pointer', fontSize:12,
+                }}>&darr;</button>
+              </div>
+            );
+          })}
+          <button onClick={() => setPageSectionOrder(pageSectionDefaultOrder)} style={{
+            marginTop:10, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
+            border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
+          }}>Reset to default order</button>
+        </div>
+      )}
+
+      <div style={{display:'flex', flexDirection:'column'}}>
+
+      <div style={{order: pageSectionOrder.indexOf('countdown')}}>
       {countdown && (
         <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
           <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:16, letterSpacing:'0.08em', textTransform:'uppercase'}}>
@@ -556,7 +637,9 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
           </div>
         </section>
       )}
+      </div>
 
+      <div style={{order: pageSectionOrder.indexOf('conditions')}}>
       <section style={{padding:'40px 0', borderBottom:'1px solid var(--line)'}}>
         <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
           <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase', flex:1}}>
@@ -627,15 +710,20 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
       </section>
 
       <RaceDayForecastWidget />
+      </div>
 
+      <div style={{order: pageSectionOrder.indexOf('courseProfile')}}>
       <CourseProfileChart />
+      <PaceTargetsWidget />
+      </div>
 
+      <div style={{order: pageSectionOrder.indexOf('raceInsights')}}>
       <section ref={cardSectionRef} style={{padding:'48px 0 20px'}}>
         <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:24}}>
           <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--ink-faint)', letterSpacing:'0.08em', flex:1}}>
-            ALL SECTIONS
+            RACE INSIGHTS
           </div>
-          <button onClick={() => { setShowCardPanel(v => !v); if (onCardPanelToggle) onCardPanelToggle(v => !v); }} aria-label="Manage sections" title="Manage sections" style={{
+          <button onClick={() => setShowCardPanel(v => !v)} aria-label="Manage sections" title="Manage sections" style={{
             background:'none', border:'1px solid var(--line)', borderRadius:6, width:28, height:28,
             color: showCardPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer',
             display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
@@ -791,6 +879,9 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
           })}
         </div>
       </section>
+      </div>
+
+      </div>
     </div>
   );
 }

@@ -159,6 +159,38 @@ function VesselPlanCompact({ seg, vessels, bags, labelColor }) {
   );
 }
 
+function TargetStepper({ label, value, setValue, min, max, step, unit, note }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+      <SmallLabel>{label}</SmallLabel>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button onClick={() => setValue(v => Math.max(min, Math.round((v - step) * 100) / 100))} style={{
+          width: 28, height: 28, borderRadius: 8, border: '1px solid var(--line)', background: 'var(--bg-raised)',
+          color: 'var(--ink)', cursor: 'pointer', fontSize: 14,
+        }}>&minus;</button>
+        <input
+          type="number" step={step} min={min} max={max} value={value}
+          onChange={e => {
+            const v = parseFloat(e.target.value);
+            if (!isNaN(v)) setValue(Math.min(max, Math.max(min, v)));
+          }}
+          style={{
+            width: 66, textAlign: 'center', fontFamily: 'var(--display)', fontSize: 15, fontWeight: 600,
+            background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--climb)',
+            padding: '4px 6px',
+          }}
+        />
+        <span style={{ fontSize: 13, color: 'var(--ink-faint)' }}>{unit}</span>
+        <button onClick={() => setValue(v => Math.min(max, Math.round((v + step) * 100) / 100))} style={{
+          width: 28, height: 28, borderRadius: 8, border: '1px solid var(--line)', background: 'var(--bg-raised)',
+          color: 'var(--ink)', cursor: 'pointer', fontSize: 14,
+        }}>+</button>
+      </div>
+      {note && <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{note}</span>}
+    </div>
+  );
+}
+
 function vesselPlan(seg) {
   // Vessel capacities: two 500ml vest flasks, one 2000ml bladder, one 650ml belt flask.
   // Tailwind-diluted mix goes in whichever vessel(s) fit the diluted volume most simply;
@@ -229,3 +261,4 @@ window.computeElevationStats = computeElevationStats;
 window.findSegmentForMile = findSegmentForMile;
 window.computeSegmentElevationStats = computeSegmentElevationStats;
 window.VesselPlanCompact = VesselPlanCompact;
+window.TargetStepper = TargetStepper;
