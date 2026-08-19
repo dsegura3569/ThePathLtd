@@ -73,6 +73,85 @@ function useLiveWeather() {
 const STAT_DEFS_KEY = 'tmr_overview_stat_order_v1';
 const STAT_VISIBILITY_KEY = 'tmr_overview_stat_visibility_v1';
 
+function useRaceDayForecast() {
+  const [state, setState] = React.useState({ status: 'loading' });
+  React.useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const raceDate = '2026-08-22';
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${START_LAT}&longitude=${START_LON}&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m&start_date=${raceDate}&end_date=${raceDate}&temperature_unit=fahrenheit&timezone=America%2FDenver`);
+        if (!res.ok) throw new Error('bad response');
+        const data = await res.json();
+        if (cancelled) return;
+        if (!data.daily || data.daily.temperature_2m_max[0] == null) {
+          setState({ status: 'unavailable' }); // race day likely outside forecast range
+          return;
+        }
+        const hourlyTimes = data.hourly.time;
+        const hourlyTemps = data.hourly.temperature_2m;
+        const maxIdx = hourlyTemps.indexOf(Math.max(...hourlyTemps));
+        const minIdx = hourlyTemps.indexOf(Math.min(...hourlyTemps));
+        function fmtHourStr(isoStr) {
+          const h = parseInt(isoStr.slice(11, 13), 10);
+          const period = h < 12 ? 'am' : 'pm';
+          let h12 = h % 12; if (h12 === 0) h12 = 12;
+          return `${h12}${period}`;
+        }
+        setState({
+          status: 'ok',
+          high: Math.round(data.daily.temperature_2m_max[0]),
+          low: Math.round(data.daily.temperature_2m_min[0]),
+          highTime: fmtHourStr(hourlyTimes[maxIdx]),
+          lowTime: fmtHourStr(hourlyTimes[minIdx]),
+          sunrise: fmtHourStr(data.daily.sunrise[0]),
+          sunset: fmtHourStr(data.daily.sunset[0]),
+        });
+      } catch (e) {
+        if (!cancelled) setState({ status: 'error' });
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+  return state;
+}
+
+function RaceDayForecastWidget() {
+  const f = useRaceDayForecast();
+  const blocks = f.status === 'ok'
+    ? [
+        { label: 'Low', value: `${f.low}°F`, sub: f.lowTime, color: '#4A9FE8' },
+        { label: 'High', value: `${f.high}°F`, sub: f.highTime, color: 'var(--climb)' },
+        { label: 'Sunrise', value: f.sunrise, sub: null, color: 'var(--climb)' },
+        { label: 'Sunset', value: f.sunset, sub: null, color: '#4A9FE8' },
+      ]
+    : null;
+
+  return (
+    <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
+      <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:16, letterSpacing:'0.08em', textTransform:'uppercase'}}>
+        Race Day Forecast &mdash; Sat, Aug 22
+      </div>
+      {f.status === 'ok' ? (
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(130px, 1fr))', gap:1, background:'var(--line)'}}>
+          {blocks.map(b => (
+            <div key={b.label} style={{background:'var(--bg-card)', padding:'16px 18px'}}>
+              <div style={{fontFamily:'var(--display)', fontSize:22, fontWeight:700, color:b.color}}>{b.value}</div>
+              <div style={{fontFamily:'var(--mono)', fontSize:10.5, color:'var(--ink-faint)', marginTop:4, textTransform:'uppercase'}}>{b.label}</div>
+              {b.sub && <div style={{fontFamily:'var(--mono)', fontSize:10.5, color:'var(--ink-faint)', marginTop:2}}>{b.sub}</div>}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{fontSize:13, color:'var(--ink-faint)'}}>
+          {f.status === 'loading' ? 'Loading forecast\u2026' : 'Forecast unavailable \u2014 Aug 22 may be outside the current forecast window (usually ~15-16 days out), or the request failed.'}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function CourseProfileChart() {
   const [hovered, setHovered] = React.useState(null);
   const [focused, setFocused] = React.useState(null);
@@ -525,6 +604,8 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
           })}
         </div>
       </section>
+
+      <RaceDayForecastWidget />
 
       <CourseProfileChart />
 
