@@ -154,7 +154,7 @@ function RaceDayForecastWidget() {
 
 function CourseProfileChart() {
   const [hovered, setHovered] = React.useState(null);
-  const [focused, setFocused] = React.useState(null);
+  const [focusedSegment, setFocusedSegment] = React.useState(null);
   const samples = React.useMemo(() => buildFullCourseSamples(), []);
   const stats = React.useMemo(() => computeElevationStats(samples), [samples]);
 
@@ -180,6 +180,19 @@ function CourseProfileChart() {
 
   function xFor(mile) { return padL + (mile / maxMile) * plotW; }
   function yFor(elev) { return padT + plotH - ((elev - stats.min) / elevRange) * plotH; }
+  function mileForX(svgX) { return Math.max(0, Math.min(maxMile, ((svgX - padL) / plotW) * maxMile)); }
+
+  function selectMile(mile) {
+    const seg = findSegmentForMile(mile);
+    setFocusedSegment(seg); // null (e.g. clicking exactly at Finish) clears back to whole-course
+  }
+
+  function handlePlotClick(e) {
+    const svg = e.currentTarget.ownerSVGElement || e.currentTarget;
+    const rect = svg.getBoundingClientRect();
+    const clickX = ((e.clientX - rect.left) / rect.width) * w;
+    selectMile(mileForX(clickX));
+  }
 
   const linePts = samples.map(s => `${xFor(s.mile)},${yFor(s.elev)}`).join(' ');
   const areaPts = `${xFor(0)},${padT + plotH} ${linePts} ${xFor(maxMile)},${padT + plotH}`;
@@ -187,6 +200,10 @@ function CourseProfileChart() {
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map(t => Math.round(stats.min + t * elevRange));
   const xTickCount = 10;
   const xTicks = Array.from({ length: xTickCount + 1 }, (_, i) => Math.round((maxMile / xTickCount) * i * 10) / 10);
+
+  const segStats = focusedSegment ? computeSegmentElevationStats(focusedSegment, samples) : null;
+  const displayStats = segStats || stats;
+  const scopeLabel = focusedSegment ? `${focusedSegment.from} \u2192 ${focusedSegment.to.replace(/\s*\(Drop Bag #\d+\)/i, '')}` : 'Whole course';
 
   return (
     <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
@@ -205,70 +222,74 @@ function CourseProfileChart() {
             <text key={i} x={xFor(v)} y={h-14} textAnchor="middle" fontSize="10" fill="var(--ink-faint)" fontFamily="var(--mono)">{v}mi</text>
           ))}
 
-          <polygon points={areaPts} fill="var(--climb)" opacity="0.14" />
-          <polyline points={linePts} fill="none" stroke="var(--climb)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          {/* highlight the focused segment's mile range on the plot */}
+          {focusedSegment && (
+            <rect x={xFor(focusedSegment.miS)} y={padT} width={xFor(focusedSegment.miE) - xFor(focusedSegment.miS)} height={plotH}
+              fill="var(--climb)" opacity="0.08" />
+          )}
+
+          {/* invisible full-plot hit area so clicking anywhere on the line/area selects that mile's segment */}
+          <rect x={padL} y={padT} width={plotW} height={plotH} fill="transparent" style={{cursor:'pointer'}} onClick={handlePlotClick} />
+
+          <polygon points={areaPts} fill="var(--climb)" opacity="0.14" style={{pointerEvents:'none'}} />
+          <polyline points={linePts} fill="none" stroke="var(--climb)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" style={{pointerEvents:'none'}} />
 
           {markers.map((m, i) => (
             <g key={i}
               onMouseEnter={() => setHovered(i)}
               onMouseLeave={() => setHovered(null)}
-              onClick={() => setFocused(focused === i ? null : i)}
-              style={{cursor:'pointer'}}
+              onClick={(e) => { e.stopPropagation(); selectMile(m.mile); }}
+              style={{cursor: m.type === 'finish' ? 'default' : 'pointer'}}
             >
               {/* invisible larger hit-target -- the visible marker (r=6-10) is far
                   too small to reliably tap on a phone once the 1000-unit viewBox
                   is scaled down to actual screen width */}
               <circle cx={xFor(m.mile)} cy={yFor(m.elev)} r={22} fill="transparent" />
               <circle cx={xFor(m.mile)} cy={yFor(m.elev)}
-                r={focused===i ? 10 : hovered===i ? 8 : 6}
+                r={hovered===i ? 8 : 6}
                 fill={m.type==='start' ? '#3CB897' : m.type==='finish' ? '#C0392B' : 'var(--climb)'}
-                stroke={focused===i ? 'var(--ink)' : 'var(--bg-card)'} strokeWidth={focused===i ? 2.5 : 2} />
+                stroke="var(--bg-card)" strokeWidth={2} />
             </g>
           ))}
         </svg>
       </div>
 
-      {(focused !== null || hovered !== null) && (() => {
-        const idx = focused !== null ? focused : hovered;
-        const m = markers[idx];
-        if (!m) return null;
-        const isFocused = focused === idx;
+      {hovered !== null && markers[hovered] && (() => {
+        const m = markers[hovered];
         return (
-          <div style={{
-            background: isFocused ? 'var(--bg-card)' : 'var(--bg-raised)',
-            border: isFocused ? '1px solid var(--climb)' : '1px solid var(--line)',
-            borderRadius:10, padding:'12px 16px', marginTop:10,
-          }}>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:8}}>
-              <div>
-                <div style={{fontFamily:'var(--display)', fontWeight:600, fontSize:15, color:'var(--ink)', marginBottom:4}}>{m.label}</div>
-                <div style={{display:'flex', gap:16, flexWrap:'wrap', fontSize:13}}>
-                  <span style={{color:'var(--ink-faint)'}}>Mile {m.mile}</span>
-                  <span style={{color:'var(--climb)'}}>{m.elev.toLocaleString()} ft</span>
-                  <span style={{
-                    color: m.type==='start' ? '#3CB897' : m.type==='finish' ? '#C0392B' : 'var(--ink-faint)',
-                    fontFamily:'var(--mono)', fontSize:11, textTransform:'uppercase',
-                  }}>{m.type}</span>
-                </div>
-              </div>
-              {isFocused && (
-                <button onClick={() => setFocused(null)} style={{
-                  background:'none', border:'none', color:'var(--ink-faint)', cursor:'pointer', fontSize:18, lineHeight:1,
-                }}>✕</button>
-              )}
+          <div style={{ background: 'var(--bg-raised)', border: '1px solid var(--line)', borderRadius:10, padding:'12px 16px', marginTop:10 }}>
+            <div style={{fontFamily:'var(--display)', fontWeight:600, fontSize:15, color:'var(--ink)', marginBottom:4}}>{m.label}</div>
+            <div style={{display:'flex', gap:16, flexWrap:'wrap', fontSize:13}}>
+              <span style={{color:'var(--ink-faint)'}}>Mile {m.mile}</span>
+              <span style={{color:'var(--climb)'}}>{m.elev.toLocaleString()} ft</span>
+              <span style={{
+                color: m.type==='start' ? '#3CB897' : m.type==='finish' ? '#C0392B' : 'var(--ink-faint)',
+                fontFamily:'var(--mono)', fontSize:11, textTransform:'uppercase',
+              }}>{m.type}</span>
             </div>
           </div>
         );
       })()}
 
-      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))', gap:1, background:'var(--line)', marginTop:14}}>
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:14, marginBottom:4}}>
+        <div style={{fontFamily:'var(--display)', fontWeight:600, fontSize:14, color: focusedSegment ? 'var(--climb)' : 'var(--ink-faint)'}}>
+          {scopeLabel}
+        </div>
+        {focusedSegment && (
+          <button onClick={() => setFocusedSegment(null)} style={{
+            background:'none', border:'none', color:'var(--ink-faint)', cursor:'pointer', fontSize:11, fontFamily:'var(--mono)',
+          }}>&#10005; whole course</button>
+        )}
+      </div>
+
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))', gap:1, background:'var(--line)'}}>
         {[
-          ['GAIN', `+${stats.gain.toLocaleString()} ft`, '#3CB897'],
-          ['LOSS', `-${stats.loss.toLocaleString()} ft`, 'var(--descent)'],
-          ['MAX', `${stats.max.toLocaleString()} ft`, 'var(--climb)'],
-          ['MIN', `${stats.min.toLocaleString()} ft`, 'var(--ink)'],
-          ['MAX CLIMB', `+${stats.maxClimbStreak.toLocaleString()} ft`, 'var(--ink)'],
-          ['MAX DESCENT', `-${stats.maxDescentStreak.toLocaleString()} ft`, 'var(--ink)'],
+          ['GAIN', `+${displayStats.gain.toLocaleString()} ft`, '#3CB897'],
+          ['LOSS', `-${displayStats.loss.toLocaleString()} ft`, 'var(--descent)'],
+          ['MAX', `${displayStats.max.toLocaleString()} ft`, 'var(--climb)'],
+          ['MIN', `${displayStats.min.toLocaleString()} ft`, 'var(--ink)'],
+          ['MAX CLIMB', `+${displayStats.maxClimbStreak.toLocaleString()} ft`, 'var(--ink)'],
+          ['MAX DESCENT', `-${displayStats.maxDescentStreak.toLocaleString()} ft`, 'var(--ink)'],
         ].map(([label, value, color]) => (
           <div key={label} style={{background:'var(--bg)', padding:'14px 12px'}}>
             <div style={{fontFamily:'var(--display)', fontSize:18, fontWeight:700, color}}>{value}</div>

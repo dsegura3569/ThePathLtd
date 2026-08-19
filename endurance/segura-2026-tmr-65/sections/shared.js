@@ -42,12 +42,15 @@ function buildFullCourseSamples() {
 // "max descent" stat -- how big the biggest uninterrupted push is, not
 // just the steepest instantaneous grade). Uses a small noise threshold
 // so tiny back-and-forth wiggles don't reset the streak.
-function computeElevationStats(samples) {
+// Walks a set of samples and returns min/max elevation plus the largest
+// continuous climb/descent streak within just those samples. Shared by the
+// whole-course stats and the per-segment stats so both use identical logic.
+function walkElevationStreaks(samples) {
   const NOISE_FT = 15;
   let min = samples[0].elev, max = samples[0].elev;
   let maxClimbStreak = 0, maxDescentStreak = 0;
   let streakStart = samples[0].elev;
-  let direction = null; // 'up' | 'down'
+  let direction = null;
 
   for (let i = 1; i < samples.length; i++) {
     const d = samples[i].elev - samples[i - 1].elev;
@@ -70,6 +73,12 @@ function computeElevationStats(samples) {
   if (direction === 'up') maxClimbStreak = Math.max(maxClimbStreak, finalStreak);
   else if (direction === 'down') maxDescentStreak = Math.max(maxDescentStreak, finalStreak);
 
+  return { min, max, maxClimbStreak: Math.round(maxClimbStreak), maxDescentStreak: Math.round(maxDescentStreak) };
+}
+
+function computeElevationStats(samples) {
+  const streaks = walkElevationStreaks(samples);
+
   // Gain/loss come from the authoritative per-segment sums (segGain/segLoss,
   // computed from the full-resolution 3,289-point raw GPX) rather than being
   // recomputed here from the flattened 0.1-mile-binned samples -- binning
@@ -79,7 +88,28 @@ function computeElevationStats(samples) {
   const gain = baseSegments.reduce((a, s) => a + s.segGain, 0);
   const loss = baseSegments.reduce((a, s) => a + s.segLoss, 0);
 
-  return { min, max, gain, loss, maxClimbStreak: Math.round(maxClimbStreak), maxDescentStreak: Math.round(maxDescentStreak) };
+  return { ...streaks, gain, loss };
+}
+
+// Finds which segment a given course mile falls in, using a half-open
+// [miS, miE) range on every segment except none are inclusive at their own
+// miE -- so a point exactly at an aid station boundary belongs to the
+// segment that STARTS there, not the one that ends there, and the finish
+// mile (65) naturally matches no segment at all since segment 10's own
+// miE is 65.
+function findSegmentForMile(mile) {
+  return baseSegments.find(s => mile >= s.miS && mile < s.miE) || null;
+}
+
+// Per-segment version of computeElevationStats: uses that segment's own
+// authoritative segGain/segLoss (same numbers as the Race Day Plan table)
+// rather than recomputing from samples, and scopes min/max/streaks to only
+// the samples within that segment's mile range.
+function computeSegmentElevationStats(segment, allSamples) {
+  const samples = allSamples.filter(s => s.mile >= segment.miS && s.mile <= segment.miE);
+  if (samples.length === 0) return null;
+  const streaks = walkElevationStreaks(samples);
+  return { ...streaks, gain: segment.segGain, loss: segment.segLoss };
 }
 
 function gradeColor(g) {
@@ -196,4 +226,6 @@ window.gradeColor = gradeColor;
 window.gradeLabel = gradeLabel;
 window.buildFullCourseSamples = buildFullCourseSamples;
 window.computeElevationStats = computeElevationStats;
+window.findSegmentForMile = findSegmentForMile;
+window.computeSegmentElevationStats = computeSegmentElevationStats;
 window.VesselPlanCompact = VesselPlanCompact;
