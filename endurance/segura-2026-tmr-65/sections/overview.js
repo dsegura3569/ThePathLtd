@@ -92,20 +92,21 @@ function useRaceDayForecast() {
         const hourlyTemps = data.hourly.temperature_2m;
         const maxIdx = hourlyTemps.indexOf(Math.max(...hourlyTemps));
         const minIdx = hourlyTemps.indexOf(Math.min(...hourlyTemps));
-        function fmtHourStr(isoStr) {
+        function fmtTimeStr(isoStr) {
           const h = parseInt(isoStr.slice(11, 13), 10);
+          const m = parseInt(isoStr.slice(14, 16), 10);
           const period = h < 12 ? 'am' : 'pm';
           let h12 = h % 12; if (h12 === 0) h12 = 12;
-          return `${h12}${period}`;
+          return `${h12}:${String(m).padStart(2, '0')}${period}`;
         }
         setState({
           status: 'ok',
           high: Math.round(data.daily.temperature_2m_max[0]),
           low: Math.round(data.daily.temperature_2m_min[0]),
-          highTime: fmtHourStr(hourlyTimes[maxIdx]),
-          lowTime: fmtHourStr(hourlyTimes[minIdx]),
-          sunrise: fmtHourStr(data.daily.sunrise[0]),
-          sunset: fmtHourStr(data.daily.sunset[0]),
+          highTime: fmtTimeStr(hourlyTimes[maxIdx]),
+          lowTime: fmtTimeStr(hourlyTimes[minIdx]),
+          sunrise: fmtTimeStr(data.daily.sunrise[0]),
+          sunset: fmtTimeStr(data.daily.sunset[0]),
         });
       } catch (e) {
         if (!cancelled) setState({ status: 'error' });
