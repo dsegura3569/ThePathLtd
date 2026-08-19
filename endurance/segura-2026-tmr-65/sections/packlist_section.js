@@ -126,10 +126,30 @@ function PackListView() {
       <SectionHeader eyebrow="01" title="Pack List" sub={`Everything to portion and label before Saturday &middot; ${targetHours}hr target (adjust on Race Day Plan)`} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8, marginBottom: 24 }}>
-        <StatBox label="Gels" value={grandGels} sub={`${totalCarbs}g carbs total`} />
-        <StatBox label="Tailwind" value={`${grandTailwind}g`} sub={`${totalCarbs}g carbs total`} />
-        <StatBox label="Salt caps" value={grandSaltOrig} sub={`${totalSodium}mg sodium total`} />
-        <StatBox label="Salt +caf" value={grandSaltCaf} sub={`${totalSodium}mg sodium total`} />
+        <StatBox label="Gels" value={grandGels} sub={
+          <React.Fragment>
+            <div>{gelCarbs}g carbs (22g/gel)</div>
+            <div>{totalCarbs}g combined w/ tailwind</div>
+          </React.Fragment>
+        } />
+        <StatBox label="Tailwind" value={`${grandTailwind}g`} sub={
+          <React.Fragment>
+            <div>{tailwindCarbs}g carbs from tailwind</div>
+            <div>{totalCarbs}g combined w/ gels</div>
+          </React.Fragment>
+        } />
+        <StatBox label="Salt caps" value={grandSaltOrig} sub={
+          <React.Fragment>
+            <div>{grandSaltOrig * CAP_NA}mg sodium (215mg/cap)</div>
+            <div>{totalSodium}mg combined w/ +caf</div>
+          </React.Fragment>
+        } />
+        <StatBox label="Salt +caf" value={grandSaltCaf} sub={
+          <React.Fragment>
+            <div>{grandSaltCaf * CAP_NA_CAFFEINE}mg sodium (190mg/cap)</div>
+            <div>{totalSodium}mg combined w/ caps</div>
+          </React.Fragment>
+        } />
         <StatBox label="Water" value={`${(totalWaterMl/1000).toFixed(1)}L`} sub="whole race" color="#4A9FE8" />
         <StatBox label="Calories" value={totalCalories} sub="whole race" />
       </div>
