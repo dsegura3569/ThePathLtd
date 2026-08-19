@@ -76,9 +76,11 @@ function RaceDayPlanView() {
     <div style={{paddingBottom:60}}>
       <SectionHeader eyebrow="02" title="Race Day Plan" sub="Sat 6:00am start &middot; 9 aid stations, 3 drop bags (Mi 17, 35, 56)" />
 
-      <TargetStepper label="Target finish time" value={targetHours} setValue={setTargetHours} min={12} max={32} step={0.5} unit="hr" note="32hr official cutoff" />
-      <TargetStepper label="Target carb intake" value={targetCarb} setValue={setTargetCarb} min={50} max={120} step={5} unit="g/hr" />
-      <TargetStepper label="Target salt intake" value={targetSodium} setValue={setTargetSodium} min={400} max={1200} step={50} unit="mg/hr" />
+      <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16 }}>
+        <TargetStepper label="Target finish time" value={targetHours} setValue={setTargetHours} min={12} max={32} step={0.5} unit="hr" note="32hr official cutoff" />
+        <TargetStepper label="Target carb intake" value={targetCarb} setValue={setTargetCarb} min={50} max={120} step={5} unit="g/hr" />
+        <TargetStepper label="Target salt intake" value={targetSodium} setValue={setTargetSodium} min={400} max={1200} step={50} unit="mg/hr" />
+      </div>
 
       <div style={{marginTop:32, marginBottom:32}}>
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8}}>

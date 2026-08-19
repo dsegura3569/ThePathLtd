@@ -161,7 +161,7 @@ function VesselPlanCompact({ seg, vessels, bags, labelColor }) {
 
 function TargetStepper({ label, value, setValue, min, max, step, unit, note }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
       <SmallLabel>{label}</SmallLabel>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <button onClick={() => setValue(v => Math.max(min, Math.round((v - step) * 100) / 100))} style={{
