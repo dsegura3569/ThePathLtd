@@ -264,6 +264,11 @@ function App() {
   const [bladderCapacity, setBladderCapacity] = useState(2000);
   const [beltCapacity, setBeltCapacity] = useState(650);
   const [raceId, setRaceId] = useState(() => window.getCurrentRaceId());
+  // Bumped whenever race data is edited in place (e.g. applying parsed race
+  // info) so the active page remounts and picks up fresh data, the same way
+  // switching races does -- switching raceId alone wouldn't detect an edit
+  // to the SAME race's data, since the id itself hasn't changed.
+  const [raceDataVersion, setRaceDataVersion] = useState(0);
 
   useEffect(() => { window.scrollTo(0,0); }, [active]);
 
@@ -302,7 +307,7 @@ function App() {
         <Nav active={active} setActive={setActive} open={open} setOpen={setOpen} onGear={handleGear} raceId={raceId} onSelectRace={handleSelectRace} />
         <main style={{maxWidth:1180, margin:'0 auto', padding:'32px 20px 0'}}>
           {ActiveComponent
-            ? <ActiveComponent key={raceId} goTo={setActive} externalCardPanelOpen={active==='overview' ? openCardPanel : undefined} onCardPanelToggle={active==='overview' ? setOpenCardPanel : undefined} />
+            ? <ActiveComponent key={raceId + ':' + raceDataVersion} goTo={setActive} externalCardPanelOpen={active==='overview' ? openCardPanel : undefined} onCardPanelToggle={active==='overview' ? setOpenCardPanel : undefined} onRaceDataChanged={() => setRaceDataVersion(v => v + 1)} />
             : <div style={{padding:'80px 0', textAlign:'center', color:'var(--ink-faint)'}}>Section not found.</div>}
         </main>
         <Footer raceId={raceId} />

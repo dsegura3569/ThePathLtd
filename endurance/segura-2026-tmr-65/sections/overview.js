@@ -362,7 +362,206 @@ function PaceTargetsWidget() {
   );
 }
 
-function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
+function RaceInfoImportWidget({ onRaceDataChanged }) {
+  const [pastedText, setPastedText] = React.useState('');
+  const [parsed, setParsed] = React.useState(null);
+  const [stationRows, setStationRows] = React.useState([]); // editable copies of detected stations
+  const [dateApplied, setDateApplied] = React.useState(false);
+  const [stationsMessage, setStationsMessage] = React.useState('');
+
+  const race = window.RACES[window.getCurrentRaceId()];
+  const segments = race.baseSegments;
+
+  function handleExtract() {
+    if (!pastedText.trim()) return;
+    const result = window.parseRaceInfoText(pastedText);
+    setParsed(result);
+    setDateApplied(false);
+    setStationsMessage('');
+
+    const rows = result.aidStations.map(s => {
+      // auto-match by closest mile within half a mile -- anything further
+      // is left unmatched rather than guessing, since a wrong match would
+      // silently overwrite the wrong segment's cutoff
+      let bestId = '', bestDist = 0.5;
+      segments.forEach(seg => {
+        const d = Math.abs(seg.miE - s.mile);
+        if (d < bestDist) { bestDist = d; bestId = String(seg.id); }
+      });
+      return {
+        key: s.lineNumber,
+        rawLine: s.rawLine,
+        name: s.name || '',
+        mile: s.mile,
+        cutoffHH: s.cutoffHH,
+        cutoffMM: s.cutoffMM,
+        dropBag: s.dropBag,
+        crew: s.crew,
+        pacer: s.pacer,
+        matchedSegmentId: bestId,
+      };
+    });
+    setStationRows(rows);
+  }
+
+  function updateRow(key, patch) {
+    setStationRows(rows => rows.map(r => r.key === key ? { ...r, ...patch } : r));
+  }
+
+  const [pendingRefresh, setPendingRefresh] = React.useState(false);
+
+  function handleApplyDate() {
+    if (!parsed || !parsed.date) return;
+    const hh = parsed.startTime ? parsed.startTime.hh : 6;
+    const mm = parsed.startTime ? parsed.startTime.mm : 0;
+    race.startDate = `${parsed.date.iso}T${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}:00`;
+    if (window.getCurrentRaceId() !== 'tmr') window.saveCustomRace(race);
+    setDateApplied(true);
+    setPendingRefresh(true);
+    // deliberately NOT calling onRaceDataChanged() here -- that remounts the
+    // whole page (needed so Race Day Plan etc. pick up the new date), which
+    // would also wipe out any station-matching review still in progress in
+    // this same widget. Applying stations below can still happen first;
+    // the explicit "Refresh dashboard" button triggers the remount once,
+    // when the person is actually done with both.
+  }
+
+  function handleApplyStations() {
+    let count = 0;
+    stationRows.forEach(row => {
+      if (!row.matchedSegmentId) return;
+      const seg = segments.find(s => String(s.id) === row.matchedSegmentId);
+      if (!seg) return;
+      if (row.cutoffHH !== null && row.cutoffHH !== undefined && row.cutoffHH !== '') {
+        const hh = Number(row.cutoffHH), mm = Number(row.cutoffMM) || 0;
+        const h12 = hh % 12 === 0 ? 12 : hh % 12;
+        const period = hh < 12 ? 'am' : 'pm';
+        seg.cutoffClock = `${h12}:${String(mm).padStart(2,'0')}${period}`;
+      }
+      seg.amenities = { ...seg.amenities, dropBag: !!row.dropBag, crew: !!row.crew };
+      seg.pacer = !!row.pacer;
+      count++;
+    });
+    if (window.getCurrentRaceId() !== 'tmr') window.saveCustomRace(race);
+    setStationsMessage(`Applied to ${count} segment${count === 1 ? '' : 's'}.`);
+    setPendingRefresh(true);
+  }
+
+  const inputStyle = {
+    background:'var(--bg-raised)', border:'1px solid var(--line)', borderRadius:6,
+    color:'var(--ink)', fontSize:12.5, padding:'4px 6px', fontFamily:'var(--body)',
+  };
+
+  return (
+    <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
+      <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:10, letterSpacing:'0.08em', textTransform:'uppercase'}}>
+        Import Race Info
+      </div>
+      <div style={{fontSize:12, color:'var(--ink-faint)', marginBottom:14, lineHeight:1.5}}>
+        Paste text copied from the race's official website (aid station tables, start info, rules). This is best-effort
+        pattern matching, not guaranteed &mdash; review everything below before applying, nothing is saved automatically.
+      </div>
+      <textarea
+        value={pastedText} onChange={e => setPastedText(e.target.value)}
+        placeholder="Paste race website text here&hellip;"
+        style={{ width:'100%', minHeight:120, background:'var(--bg-raised)', border:'1px solid var(--line)', borderRadius:8,
+          color:'var(--ink)', fontSize:13, padding:10, fontFamily:'var(--body)', resize:'vertical' }}
+      />
+      <button onClick={handleExtract} disabled={!pastedText.trim()} style={{
+        marginTop:10, padding:'9px 16px', borderRadius:8, border:'none',
+        background: pastedText.trim() ? 'var(--climb)' : 'var(--bg-raised)',
+        color: pastedText.trim() ? '#12151A' : 'var(--ink-faint)',
+        fontWeight:600, fontSize:13, cursor: pastedText.trim() ? 'pointer' : 'not-allowed',
+      }}>Extract</button>
+
+      {parsed && (
+        <div style={{marginTop:20}}>
+          {/* Date + start time */}
+          <div style={{background:'var(--bg-raised)', borderRadius:10, padding:'12px 14px', marginBottom:16}}>
+            <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginBottom:6}}>Race date &amp; start time</div>
+            {parsed.date ? (
+              <div style={{display:'flex', alignItems:'center', gap:12, flexWrap:'wrap'}}>
+                <span style={{fontSize:13, color:'var(--ink)'}}>
+                  Found: <strong>{parsed.date.matchedText}</strong>
+                  {parsed.startTime && <> at <strong>{parsed.startTime.matchedText}</strong></>}
+                </span>
+                <button onClick={handleApplyDate} style={{
+                  padding:'6px 12px', borderRadius:6, border:'1px solid var(--climb)',
+                  background: dateApplied ? 'var(--climb)' : 'transparent', color: dateApplied ? '#12151A' : 'var(--climb)',
+                  fontSize:12, fontWeight:600, cursor:'pointer',
+                }}>{dateApplied ? 'Applied \u2713' : 'Apply to this race'}</button>
+              </div>
+            ) : (
+              <span style={{fontSize:13, color:'var(--ink-faint)'}}>No date found in the pasted text.</span>
+            )}
+          </div>
+
+          {/* Aid stations */}
+          <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginBottom:8}}>
+            Detected aid station mentions ({stationRows.length})
+          </div>
+          {stationRows.length === 0 && <div style={{fontSize:13, color:'var(--ink-faint)', marginBottom:12}}>No mile-marker mentions found in the pasted text.</div>}
+          {stationRows.map(row => (
+            <div key={row.key} style={{background:'var(--bg-raised)', borderRadius:10, padding:'10px 14px', marginBottom:8}}>
+              <div style={{fontSize:10.5, color:'var(--ink-faint)', marginBottom:6, fontFamily:'var(--mono)'}} title={row.rawLine}>
+                &ldquo;{row.rawLine.length > 70 ? row.rawLine.slice(0, 70) + '\u2026' : row.rawLine}&rdquo;
+              </div>
+              <div style={{display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', marginBottom:8}}>
+                <input value={row.name} onChange={e => updateRow(row.key, { name: e.target.value })} placeholder="Name" style={{...inputStyle, width:130}} />
+                <span style={{fontSize:11, color:'var(--ink-faint)'}}>mi</span>
+                <input type="number" value={row.mile} onChange={e => updateRow(row.key, { mile: parseFloat(e.target.value) })} style={{...inputStyle, width:60}} />
+                <span style={{fontSize:11, color:'var(--ink-faint)'}}>cutoff</span>
+                <input type="number" min="0" max="23" value={row.cutoffHH ?? ''} onChange={e => updateRow(row.key, { cutoffHH: e.target.value === '' ? null : parseInt(e.target.value) })} placeholder="HH" style={{...inputStyle, width:44}} />
+                <span>:</span>
+                <input type="number" min="0" max="59" value={row.cutoffMM ?? ''} onChange={e => updateRow(row.key, { cutoffMM: e.target.value === '' ? null : parseInt(e.target.value) })} placeholder="MM" style={{...inputStyle, width:44}} />
+                <span style={{fontSize:10, color:'var(--ink-faint)'}}>(24hr)</span>
+              </div>
+              <div style={{display:'flex', gap:14, flexWrap:'wrap', alignItems:'center', marginBottom:8, fontSize:12, color:'var(--ink-dim)'}}>
+                <label style={{display:'flex', alignItems:'center', gap:5, cursor:'pointer'}}>
+                  <input type="checkbox" checked={row.dropBag} onChange={e => updateRow(row.key, { dropBag: e.target.checked })} /> Drop bag
+                </label>
+                <label style={{display:'flex', alignItems:'center', gap:5, cursor:'pointer'}}>
+                  <input type="checkbox" checked={row.crew} onChange={e => updateRow(row.key, { crew: e.target.checked })} /> Crew
+                </label>
+                <label style={{display:'flex', alignItems:'center', gap:5, cursor:'pointer'}}>
+                  <input type="checkbox" checked={row.pacer} onChange={e => updateRow(row.key, { pacer: e.target.checked })} /> Pacer
+                </label>
+              </div>
+              <div style={{display:'flex', alignItems:'center', gap:8}}>
+                <span style={{fontSize:11, color:'var(--ink-faint)'}}>Matches:</span>
+                <select value={row.matchedSegmentId} onChange={e => updateRow(row.key, { matchedSegmentId: e.target.value })} style={{...inputStyle, flex:1}}>
+                  <option value="">Don't apply this one</option>
+                  {segments.map(seg => <option key={seg.id} value={seg.id}>{seg.from} &rarr; {seg.to} (mi {seg.miE})</option>)}
+                </select>
+              </div>
+            </div>
+          ))}
+          {stationRows.length > 0 && (
+            <div style={{display:'flex', alignItems:'center', gap:12, marginTop:8}}>
+              <button onClick={handleApplyStations} style={{
+                padding:'9px 16px', borderRadius:8, border:'none', background:'var(--climb)', color:'#12151A',
+                fontWeight:600, fontSize:13, cursor:'pointer',
+              }}>Apply matched stations</button>
+              {stationsMessage && <span style={{fontSize:12, color:'var(--climb)'}}>{stationsMessage}</span>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {pendingRefresh && (
+        <div style={{marginTop:16, padding:'12px 14px', background:'var(--climb)15', border:'1px solid var(--climb)', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap'}}>
+          <span style={{fontSize:12.5, color:'var(--ink)'}}>Changes applied. Refresh to see them reflected across the whole dashboard.</span>
+          <button onClick={() => { if (onRaceDataChanged) onRaceDataChanged(); }} style={{
+            padding:'7px 14px', borderRadius:8, border:'none', background:'var(--climb)', color:'#12151A',
+            fontWeight:600, fontSize:12.5, cursor:'pointer', whiteSpace:'nowrap',
+          }}>Refresh dashboard</button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataChanged }) {
   // Race starts 6:00am Saturday Aug 22, 2026, Mountain Time (MDT, UTC-6 in August)
   const activeRace = window.RACES[window.getCurrentRaceId()];
   const countdown = useCountdown(activeRace.startDate);
@@ -765,6 +964,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
       <div style={{order: pageSectionOrder.indexOf('courseProfile')}}>
       <CourseProfileChart />
       <PaceTargetsWidget />
+      <RaceInfoImportWidget onRaceDataChanged={onRaceDataChanged} />
       </div>
 
       <div style={{order: pageSectionOrder.indexOf('raceInsights')}}>
