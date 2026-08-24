@@ -1,4 +1,4 @@
-const baseSegments = [
+const TMR_BASE_SEGMENTS = [
   {
     id: 1, from: "Start", to: "Bridal Veil #1", miS: 0, miE: 4, dist: 4, distReal: 4.52,
     avgGrade: "6.5", maxClimb: "+11.3", maxDescent: "-0.6",

@@ -14,7 +14,7 @@ function GradeExplorerView() {
     Math.round(samples.filter(s => s.grade < 0).length / 10 * 10) / 10, [samples]);
   const flatMiles = React.useMemo(() =>
     Math.round(samples.filter(s => s.grade === 0).length / 10 * 10) / 10, [samples]);
-  const officialTotalMi = 63.5; // official course distance, for the headline
+  const officialTotalMi = window.RACES[window.getCurrentRaceId()].distance;
   const sampleCoverageMi = samples.length / 10; // what the samples actually cover -- percentages below are relative to this, not the official total, since 0.1mi bin edges at each of the 10 segment boundaries don't perfectly tile the full distance
 
   const displaySamples = React.useMemo(() => {

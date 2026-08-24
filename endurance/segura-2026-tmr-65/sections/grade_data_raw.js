@@ -1,4 +1,4 @@
-const gradeSegments = [
+const TMR_GRADE_SEGMENTS = [
   {
     id: 1, from: "Start", to: "Bridal Veil #1", miS: 0, miE: 4,
     clock: "6:00am", color: "#E8943A", netDir: "climb",

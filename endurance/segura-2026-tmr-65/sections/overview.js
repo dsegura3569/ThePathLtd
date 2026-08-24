@@ -34,9 +34,13 @@ function aqiLabel(aqi) {
   return { label: 'Very unhealthy', color: '#C0392B' };
 }
 
-// Start line coordinates (Town Park, Telluride) -- same point used for the
-// GPX-derived course data elsewhere on the dashboard.
-const START_LAT = 37.93508, START_LON = -107.80772;
+// Start line coordinates -- read fresh from whichever race is currently
+// active each time this is called, not cached at script-load time, since
+// switching races remounts components rather than reloading the page.
+function getStartCoords() {
+  const r = window.RACES[window.getCurrentRaceId()];
+  return { lat: r.startLat, lon: r.startLon };
+}
 
 function useLiveWeather() {
   const [state, setState] = React.useState({ status: 'loading' });
@@ -44,6 +48,7 @@ function useLiveWeather() {
     let cancelled = false;
     async function load() {
       try {
+        const { lat: START_LAT, lon: START_LON } = getStartCoords();
         const [wxRes, aqRes] = await Promise.all([
           fetch(`https://api.open-meteo.com/v1/forecast?latitude=${START_LAT}&longitude=${START_LON}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FDenver`),
           fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${START_LAT}&longitude=${START_LON}&current=us_aqi&timezone=America%2FDenver`),
@@ -79,7 +84,8 @@ function useRaceDayForecast() {
     let cancelled = false;
     async function load() {
       try {
-        const raceDate = '2026-08-22';
+        const { lat: START_LAT, lon: START_LON } = getStartCoords();
+        const raceDate = window.RACES[window.getCurrentRaceId()].startDate.slice(0, 10);
         const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${START_LAT}&longitude=${START_LON}&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m&start_date=${raceDate}&end_date=${raceDate}&temperature_unit=fahrenheit&timezone=America%2FDenver`);
         if (!res.ok) throw new Error('bad response');
         const data = await res.json();
@@ -132,7 +138,12 @@ function RaceDayForecastWidget() {
   return (
     <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
       <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:16, letterSpacing:'0.08em', textTransform:'uppercase'}}>
-        Race Day Forecast &mdash; Sat, Aug 22
+        Race Day Forecast{(() => {
+          const r = window.RACES[window.getCurrentRaceId()];
+          if (!r.startDate) return ' \u2014 date not set';
+          const d = new Date(r.startDate);
+          return ` \u2014 ${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+        })()}
       </div>
       {f.status === 'ok' ? (
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(130px, 1fr))', gap:1, background:'var(--line)'}}>
@@ -146,7 +157,9 @@ function RaceDayForecastWidget() {
         </div>
       ) : (
         <div style={{fontSize:13, color:'var(--ink-faint)'}}>
-          {f.status === 'loading' ? 'Loading forecast\u2026' : 'Forecast unavailable \u2014 Aug 22 may be outside the current forecast window (usually ~15-16 days out), or the request failed.'}
+          {f.status === 'loading' ? 'Loading forecast\u2026'
+            : !window.RACES[window.getCurrentRaceId()].startDate ? 'Set a race date on Overview to see a forecast.'
+            : 'Forecast unavailable \u2014 the race date may be outside the current forecast window (usually ~15-16 days out), or the request failed.'}
         </div>
       )}
     </section>
@@ -313,7 +326,7 @@ function PaceTargetsWidget() {
         Set once here &mdash; every segment, the Pack List, and the Race Day Plan all update from these same numbers.
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16 }}>
-        <TargetStepper label="Target finish time" value={targetHours} setValue={setTargetHours} min={12} max={32} step={0.5} unit="hr" note="32hr official cutoff" />
+        <TargetStepper label="Target finish time" value={targetHours} setValue={setTargetHours} min={12} max={window.RACES[window.getCurrentRaceId()].cutoffHours} step={0.5} unit="hr" note={`${window.RACES[window.getCurrentRaceId()].cutoffHours}hr official cutoff`} />
         <TargetStepper label="Target carb intake" value={targetCarb} setValue={setTargetCarb} min={50} max={120} step={5} unit="g/hr" />
         <TargetStepper label="Target salt intake" value={targetSodium} setValue={setTargetSodium} min={400} max={1200} step={50} unit="mg/hr" />
       </div>
@@ -323,17 +336,23 @@ function PaceTargetsWidget() {
 
 function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
   // Race starts 6:00am Saturday Aug 22, 2026, Mountain Time (MDT, UTC-6 in August)
-  const countdown = useCountdown('2026-08-22T06:00:00-06:00');
+  const activeRace = window.RACES[window.getCurrentRaceId()];
+  const countdown = useCountdown(activeRace.startDate);
   const weather = useLiveWeather();
 
+  const courseSamples = React.useMemo(() => buildFullCourseSamples(), [activeRace]);
+  const courseStats = React.useMemo(() => computeElevationStats(courseSamples), [courseSamples]);
+  const dropBagSegs = baseSegments.filter(s => /Drop Bag #/i.test(s.to));
+  const avgAltitude = Math.round(courseSamples.reduce((a, s) => a + s.elev, 0) / courseSamples.length);
+
   const staticStats = [
-    { key: 'distance', label: 'Distance', value: '63.5', unit: 'mi' },
-    { key: 'vert', label: 'Vert gain', value: '25,385', unit: 'ft' },
-    { key: 'aid', label: 'Aid stations', value: '9', unit: '' },
-    { key: 'bags', label: 'Drop bags', value: '3', unit: '', sub: 'Mi 17, 35, 56' },
-    { key: 'range', label: 'Elevation range', value: '8,750–13,500', unit: 'ft' },
-    { key: 'avgalt', label: 'Avg altitude', value: '11,255', unit: 'ft' },
-    { key: 'cutoff', label: 'Cutoff', value: '32', unit: 'hr' },
+    { key: 'distance', label: 'Distance', value: activeRace.distance.toFixed(1), unit: 'mi' },
+    { key: 'vert', label: 'Vert gain', value: activeRace.vertGain.toLocaleString(), unit: 'ft' },
+    { key: 'aid', label: 'Aid stations', value: `${baseSegments.length - 1}`, unit: '' },
+    { key: 'bags', label: 'Drop bags', value: `${dropBagSegs.length}`, unit: '', sub: dropBagSegs.length ? `Mi ${dropBagSegs.map(s => s.miE).join(', ')}` : undefined },
+    { key: 'range', label: 'Elevation range', value: `${courseStats.min.toLocaleString()}\u2013${courseStats.max.toLocaleString()}`, unit: 'ft' },
+    { key: 'avgalt', label: 'Avg altitude', value: avgAltitude.toLocaleString(), unit: 'ft' },
+    { key: 'cutoff', label: 'Cutoff', value: `${activeRace.cutoffHours}`, unit: 'hr' },
   ];
 
   const weatherStats = React.useMemo(() => {
@@ -570,14 +589,14 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle }) {
     <div>
       <section style={{padding:'20px 0 24px', borderBottom:'1px solid var(--line)'}}>
         <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--climb)', letterSpacing:'0.08em', marginBottom:10}}>
-          TELLURIDE MOUNTAIN RUN &middot; SAT, AUG 22, 2026 &middot; 6:00 AM START
+          {activeRace.name.toUpperCase()} &middot; {activeRace.startLabel.toUpperCase()}
         </div>
         <div style={{display:'flex', alignItems:'center', gap:16, flexWrap:'wrap'}}>
           <h1 style={{
             fontFamily:'var(--display)', fontWeight:700, fontSize:'clamp(18px, 2.6vw, 24px)',
             lineHeight:1.2, letterSpacing:'-0.01em', margin:0, whiteSpace:'nowrap',
           }}>
-            63.5mi &middot; <span style={{color:'var(--climb)'}}>25,385ft</span> of climbing &middot; one race day.
+            {activeRace.distance.toFixed(1)}mi &middot; <span style={{color:'var(--climb)'}}>{activeRace.vertGain.toLocaleString()}ft</span> of climbing &middot; one race day.
           </h1>
           <button onClick={()=>goTo('raceplan')} style={{
             background:'var(--climb)', color:'#12151A', border:'none', borderRadius:8,
