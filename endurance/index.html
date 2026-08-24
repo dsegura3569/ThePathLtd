@@ -78,6 +78,15 @@
     font-family:var(--font-mono); font-size:0.85rem; color:var(--ink-soft);
     white-space:nowrap;
   }
+  .race-countdown{
+    font-family:var(--font-mono); font-size:1.5rem; font-weight:700;
+    color:var(--endurance-color); white-space:nowrap; margin-top:0.4rem;
+    letter-spacing:0.01em;
+  }
+  .race-countdown .unit{
+    font-size:0.75rem; font-weight:500; color:var(--ink-soft); margin-right:0.7rem;
+  }
+  .race-countdown .unit:last-child{ margin-right:0; }
   .race-location{ font-size:0.95rem; margin-bottom:1rem; }
   .race-stats{
     display:flex; gap:1.75rem; flex-wrap:wrap;
@@ -99,10 +108,13 @@
   </div>
 
   <div class="race-list" id="race-list">
-    <a class="race-card" href="/endurance/segura-2026-tmr-65/?race=tmr">
+    <a class="race-card" href="/endurance/segura-2026-tmr-65/?race=tmr" data-start-date="2026-08-22T06:00:00-06:00">
       <div class="race-card-top">
         <h2>Telluride Mountain Run — 65 Mile</h2>
-        <span class="race-date">Sat, Aug 22, 2026</span>
+        <div style="text-align:right;">
+          <span class="race-date">Sat, Aug 22, 2026</span>
+          <div class="race-countdown" data-countdown></div>
+        </div>
       </div>
       <p class="race-location">Telluride, Colorado</p>
       <div class="race-stats">
@@ -130,9 +142,19 @@
 
     const list = document.getElementById('race-list');
     customRaces.forEach(race => {
-      const dateLabel = race.startDate
-        ? new Date(race.startDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
-        : 'Date not set';
+      // Parsed directly from the string as literal text rather than through
+      // a Date object -- new Date(startDate) converts to the viewer's own
+      // browser timezone, which can shift the displayed date/time when the
+      // stored string carries an explicit offset (matches the fix already
+      // applied in the dashboard itself for the same reason).
+      let dateLabel = 'Date not set';
+      if (race.startDate) {
+        const m = race.startDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m) {
+          const d = new Date(parseInt(m[1],10), parseInt(m[2],10) - 1, parseInt(m[3],10));
+          dateLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        }
+      }
       const gainLabel = typeof race.vertGain === 'number' ? `${race.vertGain.toLocaleString()} ft` : '—';
       const distLabel = typeof race.distance === 'number' ? `${race.distance} mi` : '—';
       const cutoffLabel = race.cutoffHours ? `${race.cutoffHours}h` : '—';
@@ -140,11 +162,15 @@
       const card = document.createElement('a');
       card.className = 'race-card';
       card.href = `/endurance/segura-2026-tmr-65/?race=${encodeURIComponent(race.id)}`;
+      if (race.startDate) card.setAttribute('data-start-date', race.startDate);
       card.innerHTML = `
         <button class="race-card-delete" aria-label="Delete ${escapeHtml(race.name)}" title="Delete this race">&#128465;</button>
         <div class="race-card-top">
           <h2>${escapeHtml(race.name)}</h2>
-          <span class="race-date">${escapeHtml(dateLabel)}</span>
+          <div style="text-align:right;">
+            <span class="race-date">${escapeHtml(dateLabel)}</span>
+            <div class="race-countdown" data-countdown></div>
+          </div>
         </div>
         <p class="race-location">Uploaded course</p>
         <div class="race-stats">
@@ -187,6 +213,24 @@
     div.textContent = String(str);
     return div.innerHTML;
   }
+
+  function updateCountdowns() {
+    document.querySelectorAll('.race-card[data-start-date]').forEach(card => {
+      const el = card.querySelector('[data-countdown]');
+      if (!el) return;
+      const target = new Date(card.getAttribute('data-start-date')).getTime();
+      const diff = target - Date.now();
+      if (diff <= 0) { el.textContent = ''; return; }
+      const totalSeconds = Math.floor(diff / 1000);
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      el.innerHTML = `${days}<span class="unit">d</span>${String(hours).padStart(2,'0')}<span class="unit">h</span>${String(minutes).padStart(2,'0')}<span class="unit">m</span>${String(seconds).padStart(2,'0')}<span class="unit">s</span>`;
+    });
+  }
+  updateCountdowns();
+  setInterval(updateCountdowns, 1000);
 </script>
 </body>
 </html>
