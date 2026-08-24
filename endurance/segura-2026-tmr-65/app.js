@@ -73,9 +73,9 @@ function AddRaceModal({ onClose, onRaceAdded }) {
     onRaceAdded(id);
   }
 
-  return (
+  return ReactDOM.createPortal(
     <div style={{
-      position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:1000,
+      position:'fixed', inset:0, background:'var(--bg)', zIndex:9999,
       display:'flex', alignItems:'center', justifyContent:'center', padding:20,
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
@@ -142,7 +142,8 @@ function AddRaceModal({ onClose, onRaceAdded }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
