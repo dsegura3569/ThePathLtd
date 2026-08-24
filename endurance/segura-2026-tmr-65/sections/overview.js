@@ -316,11 +316,22 @@ function CourseProfileChart() {
 }
 
 function PaceTargetsWidget() {
-  const { targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium } = React.useContext(window.TargetHoursContext);
+  const {
+    targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium,
+    targetWaterHr, setTargetWaterHr, vestCapacity, setVestCapacity, bladderCapacity, setBladderCapacity, beltCapacity, setBeltCapacity,
+  } = React.useContext(window.TargetHoursContext);
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
   return (
     <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
-      <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:16, letterSpacing:'0.08em', textTransform:'uppercase'}}>
-        Pace &amp; Nutrition Targets
+      <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:16}}>
+        <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase', flex:1}}>
+          Pace &amp; Nutrition Targets
+        </div>
+        <button onClick={() => setShowAdvanced(v => !v)} aria-label="Water and carrying setup" title="Water and carrying setup" style={{
+          width:30, height:30, borderRadius:8, border:'1px solid var(--line)',
+          background: showAdvanced ? 'var(--climb)' : 'var(--bg-raised)', color: showAdvanced ? '#12151A' : 'var(--ink-faint)', cursor:'pointer',
+          display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
+        }}>&#9881;&#65039;</button>
       </div>
       <div style={{fontSize:12, color:'var(--ink-faint)', marginBottom:16}}>
         Set once here &mdash; every segment, the Pack List, and the Race Day Plan all update from these same numbers.
@@ -330,6 +341,23 @@ function PaceTargetsWidget() {
         <TargetStepper label="Target carb intake" value={targetCarb} setValue={setTargetCarb} min={50} max={120} step={5} unit="g/hr" />
         <TargetStepper label="Target salt intake" value={targetSodium} setValue={setTargetSodium} min={400} max={1200} step={50} unit="mg/hr" />
       </div>
+
+      {showAdvanced && (
+        <div style={{marginTop:24, paddingTop:20, borderTop:'1px solid var(--line)'}}>
+          <div style={{fontSize:12, color:'var(--ink-faint)', marginBottom:16}}>
+            Water intake and carrying setup &mdash; also feeds every segment's vessel plan (which flask/bladder holds what).
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16, marginBottom: 20 }}>
+            <TargetStepper label="Target water intake" value={targetWaterHr} setValue={setTargetWaterHr} min={200} max={1200} step={50} unit="ml/hr" />
+          </div>
+          <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginBottom:12}}>Carrying setup</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16 }}>
+            <TargetStepper label="Vest flask (each)" value={vestCapacity} setValue={setVestCapacity} min={150} max={750} step={50} unit="ml" note="you carry 2" />
+            <TargetStepper label="Bladder" value={bladderCapacity} setValue={setBladderCapacity} min={500} max={3000} step={100} unit="ml" />
+            <TargetStepper label="Belt flask" value={beltCapacity} setValue={setBeltCapacity} min={0} max={1000} step={50} unit="ml" note="only used if a segment needs more than flasks+bladder combined" />
+          </div>
+        </div>
+      )}
     </section>
   );
 }

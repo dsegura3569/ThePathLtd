@@ -13,6 +13,21 @@ const GEL_RATES = [2, 3, 2, 3, 2, 2, 1, 1, 3, 2];   // gels/hr, terrain-based (2
 const BASE_CARB_TARGETS = [80, 80, 80, 80, 80, 80, 65, 60, 80, 75];
 const BASE_CARB_HR = 80;
 const BASE_SODIUM_HR = 700;
+const BASE_WATER_HR = 500; // matches roughly the average of WATER_BANDS
+
+// These four baseline arrays were hand-tailored to TMR's exact 10 segments
+// (terrain, altitude, time-of-day). For any other race -- a different
+// segment count from an uploaded GPX -- indexing past position 9 would
+// silently return undefined and propagate as NaN through the whole
+// nutrition plan. safeBaselineArray only uses the tailored array when the
+// segment count actually matches; otherwise it falls back to a flat array
+// (every segment gets the same base rate) sized correctly, which is the
+// honest option anyway since we have no terrain-appropriate reason to vary
+// an arbitrary uploaded course's per-segment nutrition the way TMR's was.
+function safeBaselineArray(templateArray, length, flatDefault) {
+  if (length === templateArray.length) return templateArray;
+  return Array(length).fill(flatDefault);
+}
 
 const SCOOP_G = 27, CARB_PER_SCOOP = 25, NA_PER_SCOOP = 310, GEL_CARB = 22; // SIS GO Isotonic
 const CAP_NA = 215, CAP_NA_CAFFEINE = 190, CAP_CAFFEINE_MG = 30;
@@ -75,9 +90,13 @@ function fmtHm(h) {
   return mm ? `${hh}h${String(mm).padStart(2, '0')}m` : `${hh}h`;
 }
 
-function computeDerivedSegments(targetTotalHours, targetCarbHr = BASE_CARB_HR, targetSodiumHr = BASE_SODIUM_HR) {
+function computeDerivedSegments(targetTotalHours, targetCarbHr = BASE_CARB_HR, targetSodiumHr = BASE_SODIUM_HR, targetWaterHr = BASE_WATER_HR) {
+  const numSegments = baseSegments.length;
   const carbScale = targetCarbHr / BASE_CARB_HR;
-  const CARB_TARGETS = BASE_CARB_TARGETS.map(c => Math.round(c * carbScale));
+  const CARB_TARGETS = safeBaselineArray(BASE_CARB_TARGETS, numSegments, BASE_CARB_HR).map(c => Math.round(c * carbScale));
+  const SAFE_GEL_RATES = safeBaselineArray(GEL_RATES, numSegments, 2);
+  const waterScale = targetWaterHr / BASE_WATER_HR;
+  const SAFE_WATER_BANDS = safeBaselineArray(WATER_BANDS, numSegments, BASE_WATER_HR).map(w => Math.round(w * waterScale));
   const { hoursList, basePace } = calibratedHours(targetTotalHours);
 
   // Per-segment average grade and pace split by climbing vs descending,
@@ -138,7 +157,7 @@ function computeDerivedSegments(targetTotalHours, targetCarbHr = BASE_CARB_HR, t
     const avgPace = `${paceMm}:${String(paceSs).padStart(2, '0')}`;
     const avgMph = (s.distReal / hours).toFixed(1);
 
-    const gelsHr = GEL_RATES[i];
+    const gelsHr = SAFE_GEL_RATES[i];
     const carbHr = CARB_TARGETS[i];
     const gels = Math.round(hours * gelsHr);
     const gelCarbsTotal = gels * GEL_CARB;
@@ -148,7 +167,7 @@ function computeDerivedSegments(targetTotalHours, targetCarbHr = BASE_CARB_HR, t
     const tailwind = scoops * SCOOP_G;
 
     let conc = 0.0675;
-    const waterTarget = hours * WATER_BANDS[i];
+    const waterTarget = hours * SAFE_WATER_BANDS[i];
     let dilutedMl = tailwind > 0 ? tailwind / conc : 0;
     if (dilutedMl > waterTarget && tailwind > 0) {
       conc = 0.08;

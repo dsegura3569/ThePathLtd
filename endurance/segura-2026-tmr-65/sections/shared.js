@@ -191,12 +191,17 @@ function TargetStepper({ label, value, setValue, min, max, step, unit, note }) {
   );
 }
 
-function vesselPlan(seg) {
-  // Vessel capacities: two 500ml vest flasks, one 2000ml bladder, one 650ml belt flask.
+function vesselPlan(seg, capacities) {
+  // Vessel capacities: two vest flasks, one bladder, one belt flask. Defaults
+  // match the physical gear this was originally built around, but are
+  // user-configurable (Overview's Pace & Nutrition Targets, "Carrying setup")
+  // since someone else's vest/bladder/belt sizes will differ.
   // Tailwind-diluted mix goes in whichever vessel(s) fit the diluted volume most simply;
   // remaining plain water fills whatever's left. Shared by Race Day Plan and Segments
   // tabs so both describe the same physical gear identically.
-  const VEST = 500, BLADDER = 2000, BELT = 650;
+  const VEST = (capacities && capacities.vest) || 500;
+  const BLADDER = (capacities && capacities.bladder) || 2000;
+  const BELT = (capacities && capacities.belt) || 650;
   const diluted = seg.dilutedMl;
   const plain = seg.plainMl;
   const vessels = [];

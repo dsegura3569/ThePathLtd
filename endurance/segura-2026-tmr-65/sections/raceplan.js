@@ -37,11 +37,12 @@ function dropBagNum(seg) {
 }
 
 function RaceDayPlanView() {
-  const { targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium } = React.useContext(window.TargetHoursContext);
-  const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium), [targetHours, targetCarb, targetSodium]);
+  const { targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium, targetWaterHr, setTargetWaterHr, vestCapacity, setVestCapacity, bladderCapacity, setBladderCapacity, beltCapacity, setBeltCapacity } = React.useContext(window.TargetHoursContext);
+  const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium, targetWaterHr), [targetHours, targetCarb, targetSodium, targetWaterHr]);
   const [active, setActive] = React.useState(1);
   const seg = segments.find(s => s.id === active);
   const [showColumnPanel, setShowColumnPanel] = React.useState(false);
+  const [showAdvancedTargets, setShowAdvancedTargets] = React.useState(false);
   const [columnOrder, setColumnOrder] = React.useState(loadColumnOrder);
 
   React.useEffect(() => {
@@ -62,7 +63,7 @@ function RaceDayPlanView() {
   // Vessel breakdown now comes from the same shared vesselPlan() used by the
   // Segments tab, so both views describe the same physical flasks/bladder
   // identically instead of drifting apart.
-  const vessels = vesselPlan(seg);
+  const vessels = vesselPlan(seg, { vest: vestCapacity, bladder: bladderCapacity, belt: beltCapacity });
   const bags = popsicleBagsForVessels(vessels);
 
   const InfoRow = ({label, value}) => (
@@ -74,13 +75,44 @@ function RaceDayPlanView() {
 
   return (
     <div style={{paddingBottom:60}}>
-      <SectionHeader eyebrow="02" title="Race Day Plan" sub="Sat 6:00am start &middot; 9 aid stations, 3 drop bags (Mi 17, 35, 56)" />
+      <SectionHeader eyebrow="02" title="Race Day Plan" sub={(() => {
+        const dbSegs = segments.filter(s => dropBagNum(s));
+        const dbMiles = dbSegs.map(s => Math.round(s.miE));
+        const aidCount = segments.length - 1;
+        const race = window.RACES[window.getCurrentRaceId()];
+        const startLabel = race.startDate
+          ? new Date(race.startDate).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + ' start'
+          : 'Start time not set';
+        return `${startLabel} &middot; ${aidCount} aid station${aidCount===1?'':'s'}${dbSegs.length ? `, ${dbSegs.length} drop bag${dbSegs.length===1?'':'s'} (Mi ${dbMiles.join(', ')})` : ''}`;
+      })()} />
 
+      <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:4}}>
+        <div style={{flex:1}} />
+        <button onClick={() => setShowAdvancedTargets(v => !v)} aria-label="Water and carrying setup" title="Water and carrying setup" style={{
+          width:30, height:30, borderRadius:8, border:'1px solid var(--line)',
+          background: showAdvancedTargets ? 'var(--climb)' : 'var(--bg-raised)', color: showAdvancedTargets ? '#12151A' : 'var(--ink-faint)', cursor:'pointer',
+          display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
+        }}>&#9881;&#65039;</button>
+      </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16 }}>
-        <TargetStepper label="Target finish time" value={targetHours} setValue={setTargetHours} min={12} max={32} step={0.5} unit="hr" note="32hr official cutoff" />
+        <TargetStepper label="Target finish time" value={targetHours} setValue={setTargetHours} min={12} max={window.RACES[window.getCurrentRaceId()].cutoffHours} step={0.5} unit="hr" note={`${window.RACES[window.getCurrentRaceId()].cutoffHours}hr official cutoff`} />
         <TargetStepper label="Target carb intake" value={targetCarb} setValue={setTargetCarb} min={50} max={120} step={5} unit="g/hr" />
         <TargetStepper label="Target salt intake" value={targetSodium} setValue={setTargetSodium} min={400} max={1200} step={50} unit="mg/hr" />
       </div>
+
+      {showAdvancedTargets && (
+        <div style={{marginTop:20, paddingTop:16, borderTop:'1px solid var(--line)'}}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16, marginBottom: 20 }}>
+            <TargetStepper label="Target water intake" value={targetWaterHr} setValue={setTargetWaterHr} min={200} max={1200} step={50} unit="ml/hr" />
+          </div>
+          <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginBottom:12}}>Carrying setup</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16 }}>
+            <TargetStepper label="Vest flask (each)" value={vestCapacity} setValue={setVestCapacity} min={150} max={750} step={50} unit="ml" note="you carry 2" />
+            <TargetStepper label="Bladder" value={bladderCapacity} setValue={setBladderCapacity} min={500} max={3000} step={100} unit="ml" />
+            <TargetStepper label="Belt flask" value={beltCapacity} setValue={setBeltCapacity} min={0} max={1000} step={50} unit="ml" note="only used if a segment needs more than flasks+bladder combined" />
+          </div>
+        </div>
+      )}
 
       <div style={{marginTop:32, marginBottom:32}}>
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8}}>

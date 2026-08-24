@@ -8,6 +8,10 @@ const TargetHoursContext = React.createContext({
   targetHours: 24, setTargetHours: () => {},
   targetCarb: 80, setTargetCarb: () => {},
   targetSodium: 700, setTargetSodium: () => {},
+  targetWaterHr: 500, setTargetWaterHr: () => {},
+  vestCapacity: 500, setVestCapacity: () => {},
+  bladderCapacity: 2000, setBladderCapacity: () => {},
+  beltCapacity: 650, setBeltCapacity: () => {},
 });
 window.TargetHoursContext = TargetHoursContext;
 
@@ -254,6 +258,10 @@ function App() {
   const [targetHours, setTargetHours] = useState(24);
   const [targetCarb, setTargetCarb] = useState(80);
   const [targetSodium, setTargetSodium] = useState(700);
+  const [targetWaterHr, setTargetWaterHr] = useState(500);
+  const [vestCapacity, setVestCapacity] = useState(500);
+  const [bladderCapacity, setBladderCapacity] = useState(2000);
+  const [beltCapacity, setBeltCapacity] = useState(650);
   const [raceId, setRaceId] = useState(() => window.getCurrentRaceId());
 
   useEffect(() => { window.scrollTo(0,0); }, [active]);
@@ -285,7 +293,10 @@ function App() {
   }[active];
 
   return (
-    <TargetHoursContext.Provider value={{ targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium }}>
+    <TargetHoursContext.Provider value={{
+      targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium,
+      targetWaterHr, setTargetWaterHr, vestCapacity, setVestCapacity, bladderCapacity, setBladderCapacity, beltCapacity, setBeltCapacity,
+    }}>
       <div>
         <Nav active={active} setActive={setActive} open={open} setOpen={setOpen} onGear={handleGear} raceId={raceId} onSelectRace={handleSelectRace} />
         <main style={{maxWidth:1180, margin:'0 auto', padding:'32px 20px 0'}}>

@@ -45,8 +45,8 @@ function AmenityBadge({ label, active }) {
 }
 
 function SegmentsView() {
-  const { targetHours, targetCarb, targetSodium } = React.useContext(window.TargetHoursContext);
-  const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium), [targetHours, targetCarb, targetSodium]);
+  const { targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, bladderCapacity, beltCapacity } = React.useContext(window.TargetHoursContext);
+  const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium, targetWaterHr), [targetHours, targetCarb, targetSodium, targetWaterHr]);
   const [active, setActive] = React.useState(1);
   const gSeg = gradeSegments.find(s => s.id === active);
   const pSeg = segments.find(s => s.id === active);
@@ -65,7 +65,7 @@ function SegmentsView() {
     if (next >= 1 && next <= total) setActive(next);
   }
 
-  const vessels = vesselPlan(pSeg);
+  const vessels = vesselPlan(pSeg, { vest: vestCapacity, bladder: bladderCapacity, belt: beltCapacity });
   const timeline = buildFuelTimeline(pSeg);
 
   const marginOk = pSeg.cutoffMarginHours >= 0;
