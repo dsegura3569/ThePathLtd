@@ -59,9 +59,17 @@
     transition:border-color 0.2s ease, transform 0.2s ease;
   }
   .race-card:hover{ border-color:var(--endurance-color); transform:translateY(-2px); }
+  .race-card{ position:relative; }
+  .race-card-delete{
+    position:absolute; top:0.9rem; right:0.9rem; width:30px; height:30px;
+    border-radius:8px; border:1px solid var(--line); background:var(--sand-pale);
+    color:var(--ink-soft); cursor:pointer; display:flex; align-items:center; justify-content:center;
+    font-size:14px; transition:border-color 0.15s ease, color 0.15s ease;
+  }
+  .race-card-delete:hover{ border-color:#B23A3A; color:#B23A3A; }
   .race-card-top{
     display:flex; justify-content:space-between; align-items:baseline;
-    flex-wrap:wrap; gap:0.5rem;
+    flex-wrap:wrap; gap:0.5rem; padding-right:2.5rem;
   }
   .race-card h2{
     color:var(--endurance-color); margin-bottom:0.2rem; font-size:1.5rem;
@@ -140,6 +148,7 @@
       card.className = 'race-card';
       card.href = `/endurance/segura-2026-tmr-65/?race=${encodeURIComponent(race.id)}`;
       card.innerHTML = `
+        <button class="race-card-delete" aria-label="Delete ${escapeHtml(race.name)}" title="Delete this race">&#128465;</button>
         <div class="race-card-top">
           <h2>${escapeHtml(race.name)}</h2>
           <span class="race-date">${escapeHtml(dateLabel)}</span>
@@ -152,9 +161,33 @@
           <div><strong>${escapeHtml(cutoffLabel)}</strong>Cutoff</div>
         </div>
       `;
+      const deleteBtn = card.querySelector('.race-card-delete');
+      deleteBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!confirm(`Delete "${race.name}"? This can't be undone.`)) return;
+        deleteCustomRaceFromStorage(race.id);
+        card.remove();
+      });
       list.appendChild(card);
     });
   })();
+
+  // Mirrors deleteCustomRace() in the dashboard's races_registry.js, but kept
+  // independent here rather than loading that whole file -- it depends on
+  // TMR's large hardcoded segment data files, which this landing page has
+  // no other reason to load just for a delete button.
+  function deleteCustomRaceFromStorage(id) {
+    try {
+      const stored = JSON.parse(localStorage.getItem('tmr_command_custom_races_v1') || '[]');
+      localStorage.setItem('tmr_command_custom_races_v1', JSON.stringify(stored.filter(r => r.id !== id)));
+      // if this was the currently-selected race, clear that pointer too so
+      // the dashboard doesn't try to resume a race that no longer exists
+      if (localStorage.getItem('tmr_command_current_race_v1') === id) {
+        localStorage.removeItem('tmr_command_current_race_v1');
+      }
+    } catch (e) {}
+  }
 
   function escapeHtml(str) {
     const div = document.createElement('div');
