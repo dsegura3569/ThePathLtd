@@ -242,7 +242,7 @@ function Footer({ raceId }) {
     <footer style={{borderTop:'1px solid var(--line)', marginTop:80, padding:'32px 20px 60px'}}>
       <div style={{maxWidth:1180, margin:'0 auto', display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:12}}>
         <span style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)'}}>
-          {race.name} &middot; {race.startLabel}
+          {race.name} &middot; {window.formatRaceStartLabel(race)}
         </span>
         <span style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)'}}>
           Source: ultraPacer GPX · Strava · built for race-day execution

@@ -141,8 +141,10 @@ function RaceDayForecastWidget() {
         Race Day Forecast{(() => {
           const r = window.RACES[window.getCurrentRaceId()];
           if (!r.startDate) return ' \u2014 date not set';
-          const d = new Date(r.startDate);
-          return ` \u2014 ${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+          const m = r.startDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (!m) return ' \u2014 date not set';
+          const dateForNames = new Date(parseInt(m[1],10), parseInt(m[2],10) - 1, parseInt(m[3],10));
+          return ` \u2014 ${dateForNames.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
         })()}
       </div>
       {f.status === 'ok' ? (
@@ -372,6 +374,27 @@ function RaceInfoImportWidget({ onRaceDataChanged }) {
   const race = window.RACES[window.getCurrentRaceId()];
   const segments = race.baseSegments;
 
+  // Direct date/time inputs -- the paste-and-extract flow below is useful
+  // for bulk aid-station info, but someone who just wants to set the date
+  // and start time shouldn't have to paste anything to do it.
+  // Parsed directly from the string as literal text, not through a Date
+  // object -- new Date(race.startDate) converts to the VIEWER's browser
+  // timezone, which would show a different hour than what's actually
+  // stored whenever the string has an explicit offset (like TMR's -06:00)
+  // and the viewer isn't in that same timezone.
+  const startDateMatch = race.startDate ? race.startDate.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/) : null;
+  const [manualDate, setManualDate] = React.useState(startDateMatch ? startDateMatch[1] : '');
+  const [manualTime, setManualTime] = React.useState(startDateMatch ? startDateMatch[2] : '06:00');
+  const [manualDateSaved, setManualDateSaved] = React.useState(false);
+
+  function handleSaveManualDate() {
+    if (!manualDate) return;
+    race.startDate = `${manualDate}T${manualTime}:00`;
+    if (window.getCurrentRaceId() !== 'tmr') window.saveCustomRace(race);
+    setManualDateSaved(true);
+    setPendingRefresh(true);
+  }
+
   function handleExtract() {
     if (!pastedText.trim()) return;
     const result = window.parseRaceInfoText(pastedText);
@@ -454,6 +477,26 @@ function RaceInfoImportWidget({ onRaceDataChanged }) {
 
   return (
     <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
+      <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:10, letterSpacing:'0.08em', textTransform:'uppercase'}}>
+        Race Date &amp; Time
+      </div>
+      <div style={{display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:28}}>
+        <input type="date" value={manualDate} onChange={e => { setManualDate(e.target.value); setManualDateSaved(false); }} style={{
+          background:'var(--bg-raised)', border:'1px solid var(--line)', borderRadius:8, color:'var(--ink)',
+          fontSize:13, padding:'8px 10px', fontFamily:'var(--body)',
+        }} />
+        <input type="time" value={manualTime} onChange={e => { setManualTime(e.target.value); setManualDateSaved(false); }} style={{
+          background:'var(--bg-raised)', border:'1px solid var(--line)', borderRadius:8, color:'var(--ink)',
+          fontSize:13, padding:'8px 10px', fontFamily:'var(--body)',
+        }} />
+        <button onClick={handleSaveManualDate} disabled={!manualDate} style={{
+          padding:'8px 16px', borderRadius:8, border:'none',
+          background: manualDateSaved ? 'var(--climb)' : (manualDate ? 'var(--climb)' : 'var(--bg-raised)'),
+          color: manualDate ? '#12151A' : 'var(--ink-faint)',
+          fontWeight:600, fontSize:13, cursor: manualDate ? 'pointer' : 'not-allowed',
+        }}>{manualDateSaved ? 'Saved \u2713' : 'Save'}</button>
+      </div>
+
       <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:10, letterSpacing:'0.08em', textTransform:'uppercase'}}>
         Import Race Info
       </div>
@@ -816,7 +859,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
     <div>
       <section style={{padding:'20px 0 24px', borderBottom:'1px solid var(--line)'}}>
         <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--climb)', letterSpacing:'0.08em', marginBottom:10}}>
-          {activeRace.name.toUpperCase()} &middot; {activeRace.startLabel.toUpperCase()}
+          {activeRace.name.toUpperCase()} &middot; {window.formatRaceStartLabel(activeRace).toUpperCase()}
         </div>
         <div style={{display:'flex', alignItems:'center', gap:16, flexWrap:'wrap'}}>
           <h1 style={{

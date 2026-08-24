@@ -112,6 +112,26 @@ function computeSegmentElevationStats(segment, allSamples) {
   return { ...streaks, gain: segment.segGain, loss: segment.segLoss };
 }
 
+// Computes the "Sat, Aug 22, 2026 · 6:00 AM start" label directly from
+// startDate every time, rather than relying on a separate startLabel field
+// set once at creation -- that field going stale is exactly what happened
+// when startDate was edited later but startLabel never got recomputed.
+// Parses the date/time components as literal text rather than through a
+// timezone-converting Date object, since a race's start time is tied to
+// its own location, not the viewer's browser timezone.
+function formatRaceStartLabel(race) {
+  if (!race.startDate) return 'Date not set \u2014 add on Overview';
+  const m = race.startDate.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!m) return 'Date not set \u2014 add on Overview';
+  const y = parseInt(m[1], 10), mo = parseInt(m[2], 10), d = parseInt(m[3], 10), h = parseInt(m[4], 10), mi = parseInt(m[5], 10);
+  const dateForNames = new Date(y, mo - 1, d); // local construction only, for weekday/month names -- no timezone conversion
+  const weekday = dateForNames.toLocaleDateString('en-US', { weekday: 'short' });
+  const monthName = dateForNames.toLocaleDateString('en-US', { month: 'short' });
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const period = h < 12 ? 'AM' : 'PM';
+  return `${weekday}, ${monthName} ${d}, ${y} \u00b7 ${h12}:${String(mi).padStart(2, '0')} ${period} start`;
+}
+
 function gradeColor(g) {
   if (g >= 20) return "#7B1010";
   if (g >= 15) return "#A32D2D";
@@ -261,6 +281,7 @@ window.vesselPlan = vesselPlan;
 window.popsicleBagsForVessels = popsicleBagsForVessels;
 window.gradeColor = gradeColor;
 window.gradeLabel = gradeLabel;
+window.formatRaceStartLabel = formatRaceStartLabel;
 window.buildFullCourseSamples = buildFullCourseSamples;
 window.computeElevationStats = computeElevationStats;
 window.findSegmentForMile = findSegmentForMile;
