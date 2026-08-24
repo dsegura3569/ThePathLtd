@@ -143,7 +143,9 @@ function AddRaceModal({ onClose, onRaceAdded }) {
 }
 
 function RacePicker({ raceId, onSelectRace }) {
-  const [showModal, setShowModal] = React.useState(false);
+  const [showModal, setShowModal] = React.useState(() => {
+    try { return new URLSearchParams(window.location.search).get('addRace') === '1'; } catch (e) { return false; }
+  });
   const races = window.listRaces();
 
   return (
