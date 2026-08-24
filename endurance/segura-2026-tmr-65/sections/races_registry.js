@@ -28,6 +28,7 @@ const RACES = {
     startDate: '2026-08-22T06:00:00-06:00',
     startLabel: 'Sat, Aug 22, 2026 \u00b7 6:00 AM start',
     cutoffHours: 32,
+    resultsUrl: 'https://www.runtelluride.com/results',
     startLat: 37.93508,
     startLon: -107.80772,
     baseSegments: TMR_BASE_SEGMENTS,

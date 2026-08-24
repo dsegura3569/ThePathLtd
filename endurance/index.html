@@ -87,6 +87,12 @@
     font-size:0.75rem; font-weight:500; color:var(--ink-soft); margin-right:0.7rem;
   }
   .race-countdown .unit:last-child{ margin-right:0; }
+  .race-results-btn{
+    display:inline-block; font-family:var(--font-body); font-size:0.85rem; font-weight:600;
+    color:#12151A; background:var(--endurance-color); padding:0.45rem 0.9rem; border-radius:8px;
+    text-decoration:none; white-space:nowrap;
+  }
+  .race-results-btn:hover{ opacity:0.88; }
   .race-location{ font-size:0.95rem; margin-bottom:1rem; }
   .race-stats{
     display:flex; gap:1.75rem; flex-wrap:wrap;
@@ -108,7 +114,7 @@
   </div>
 
   <div class="race-list" id="race-list">
-    <a class="race-card" href="/endurance/segura-2026-tmr-65/?race=tmr" data-start-date="2026-08-22T06:00:00-06:00">
+    <a class="race-card" href="/endurance/segura-2026-tmr-65/?race=tmr" data-start-date="2026-08-22T06:00:00-06:00" data-results-url="https://www.runtelluride.com/results">
       <div class="race-card-top">
         <h2>Telluride Mountain Run — 65 Mile</h2>
         <div style="text-align:right;">
@@ -163,6 +169,7 @@
       card.className = 'race-card';
       card.href = `/endurance/segura-2026-tmr-65/?race=${encodeURIComponent(race.id)}`;
       if (race.startDate) card.setAttribute('data-start-date', race.startDate);
+      if (race.resultsUrl) card.setAttribute('data-results-url', race.resultsUrl);
       card.innerHTML = `
         <button class="race-card-delete" aria-label="Delete ${escapeHtml(race.name)}" title="Delete this race">&#128465;</button>
         <div class="race-card-top">
@@ -220,7 +227,16 @@
       if (!el) return;
       const target = new Date(card.getAttribute('data-start-date')).getTime();
       const diff = target - Date.now();
-      if (diff <= 0) { el.textContent = ''; return; }
+      if (diff <= 0) {
+        // race has happened -- show a results link instead of a countdown.
+        // Only render once per card (avoid re-creating the link every tick).
+        if (el.querySelector('.race-results-btn')) return;
+        const resultsUrl = card.getAttribute('data-results-url');
+        const href = resultsUrl || `https://www.google.com/search?q=${encodeURIComponent(card.querySelector('h2').textContent + ' results')}`;
+        el.innerHTML = `<a class="race-results-btn" href="${href}" target="_blank" rel="noopener noreferrer">View results &rarr;</a>`;
+        el.querySelector('.race-results-btn').addEventListener('click', e => e.stopPropagation());
+        return;
+      }
       const totalSeconds = Math.floor(diff / 1000);
       const days = Math.floor(totalSeconds / 86400);
       const hours = Math.floor((totalSeconds % 86400) / 3600);

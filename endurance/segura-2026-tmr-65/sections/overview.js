@@ -385,11 +385,15 @@ function RaceInfoImportWidget({ onRaceDataChanged }) {
   const startDateMatch = race.startDate ? race.startDate.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/) : null;
   const [manualDate, setManualDate] = React.useState(startDateMatch ? startDateMatch[1] : '');
   const [manualTime, setManualTime] = React.useState(startDateMatch ? startDateMatch[2] : '06:00');
+  const [manualCutoff, setManualCutoff] = React.useState(race.cutoffHours || '');
+  const [manualResultsUrl, setManualResultsUrl] = React.useState(race.resultsUrl || '');
   const [manualDateSaved, setManualDateSaved] = React.useState(false);
 
   function handleSaveManualDate() {
     if (!manualDate) return;
     race.startDate = `${manualDate}T${manualTime}:00`;
+    if (manualCutoff) race.cutoffHours = Number(manualCutoff);
+    race.resultsUrl = manualResultsUrl.trim() || null;
     if (window.getCurrentRaceId() !== 'tmr') window.saveCustomRace(race);
     setManualDateSaved(true);
     setPendingRefresh(true);
@@ -478,9 +482,9 @@ function RaceInfoImportWidget({ onRaceDataChanged }) {
   return (
     <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
       <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:10, letterSpacing:'0.08em', textTransform:'uppercase'}}>
-        Race Date &amp; Time
+        Race Date, Time &amp; Cutoff
       </div>
-      <div style={{display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:28}}>
+      <div style={{display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:14}}>
         <input type="date" value={manualDate} onChange={e => { setManualDate(e.target.value); setManualDateSaved(false); }} style={{
           background:'var(--bg-raised)', border:'1px solid var(--line)', borderRadius:8, color:'var(--ink)',
           fontSize:13, padding:'8px 10px', fontFamily:'var(--body)',
@@ -489,13 +493,24 @@ function RaceInfoImportWidget({ onRaceDataChanged }) {
           background:'var(--bg-raised)', border:'1px solid var(--line)', borderRadius:8, color:'var(--ink)',
           fontSize:13, padding:'8px 10px', fontFamily:'var(--body)',
         }} />
-        <button onClick={handleSaveManualDate} disabled={!manualDate} style={{
-          padding:'8px 16px', borderRadius:8, border:'none',
-          background: manualDateSaved ? 'var(--climb)' : (manualDate ? 'var(--climb)' : 'var(--bg-raised)'),
-          color: manualDate ? '#12151A' : 'var(--ink-faint)',
-          fontWeight:600, fontSize:13, cursor: manualDate ? 'pointer' : 'not-allowed',
-        }}>{manualDateSaved ? 'Saved \u2713' : 'Save'}</button>
+        <input type="number" min="0" step="0.5" value={manualCutoff} onChange={e => { setManualCutoff(e.target.value); setManualDateSaved(false); }} placeholder="Cutoff" style={{
+          background:'var(--bg-raised)', border:'1px solid var(--line)', borderRadius:8, color:'var(--ink)',
+          fontSize:13, padding:'8px 10px', fontFamily:'var(--body)', width:80,
+        }} />
+        <span style={{fontSize:12, color:'var(--ink-faint)'}}>hours</span>
       </div>
+      <div style={{display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:14}}>
+        <input type="url" value={manualResultsUrl} onChange={e => { setManualResultsUrl(e.target.value); setManualDateSaved(false); }} placeholder="Results page URL (shown once the race date has passed)" style={{
+          background:'var(--bg-raised)', border:'1px solid var(--line)', borderRadius:8, color:'var(--ink)',
+          fontSize:13, padding:'8px 10px', fontFamily:'var(--body)', flex:1, minWidth:260,
+        }} />
+      </div>
+      <button onClick={handleSaveManualDate} disabled={!manualDate} style={{
+        padding:'8px 16px', borderRadius:8, border:'none',
+        background: manualDate ? 'var(--climb)' : 'var(--bg-raised)',
+        color: manualDate ? '#12151A' : 'var(--ink-faint)',
+        fontWeight:600, fontSize:13, cursor: manualDate ? 'pointer' : 'not-allowed', marginBottom:28,
+      }}>{manualDateSaved ? 'Saved \u2713' : 'Save'}</button>
 
       <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:10, letterSpacing:'0.08em', textTransform:'uppercase'}}>
         Import Race Info
