@@ -95,8 +95,8 @@
     </div>
   </div>
 
-  <div class="race-list">
-    <a class="race-card" href="/endurance/segura-2026-tmr-65/">
+  <div class="race-list" id="race-list">
+    <a class="race-card" href="/endurance/segura-2026-tmr-65/?race=tmr">
       <div class="race-card-top">
         <h2>Telluride Mountain Run — 65 Mile</h2>
         <span class="race-date">Sat, Aug 22, 2026</span>
@@ -115,5 +115,52 @@
 
   <p style="margin-top:1.5rem;">Have a course in mind? <a href="/endurance/segura-2026-tmr-65/?addRace=1" style="color:var(--endurance-color); font-weight:600;">Upload a GPX to get started &rarr;</a></p>
 </div>
+<script>
+  // Custom (GPX-uploaded) races live in the same origin's localStorage the
+  // dashboard itself writes to -- read the same key here and append a card
+  // per race, so this list reflects reality instead of staying frozen at
+  // just TMR.
+  (function renderCustomRaceCards() {
+    let customRaces = [];
+    try {
+      customRaces = JSON.parse(localStorage.getItem('tmr_command_custom_races_v1') || '[]');
+    } catch (e) { return; }
+    if (!customRaces.length) return;
+
+    const list = document.getElementById('race-list');
+    customRaces.forEach(race => {
+      const dateLabel = race.startDate
+        ? new Date(race.startDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+        : 'Date not set';
+      const gainLabel = typeof race.vertGain === 'number' ? `${race.vertGain.toLocaleString()} ft` : '—';
+      const distLabel = typeof race.distance === 'number' ? `${race.distance} mi` : '—';
+      const cutoffLabel = race.cutoffHours ? `${race.cutoffHours}h` : '—';
+
+      const card = document.createElement('a');
+      card.className = 'race-card';
+      card.href = `/endurance/segura-2026-tmr-65/?race=${encodeURIComponent(race.id)}`;
+      card.innerHTML = `
+        <div class="race-card-top">
+          <h2>${escapeHtml(race.name)}</h2>
+          <span class="race-date">${escapeHtml(dateLabel)}</span>
+        </div>
+        <p class="race-location">Uploaded course</p>
+        <div class="race-stats">
+          <div><strong>${escapeHtml(distLabel)}</strong>Distance</div>
+          <div><strong>${escapeHtml(gainLabel)}</strong>Vert Gain</div>
+          <div><strong>—</strong>Terrain</div>
+          <div><strong>${escapeHtml(cutoffLabel)}</strong>Cutoff</div>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+  })();
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+  }
+</script>
 </body>
 </html>

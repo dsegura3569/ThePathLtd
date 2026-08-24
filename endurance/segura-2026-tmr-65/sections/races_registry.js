@@ -51,6 +51,14 @@ const CUSTOM_RACES_KEY = 'tmr_command_custom_races_v1';
 
 function getStoredRaceId() {
   try {
+    // A ?race=<id> link (e.g. from the endurance landing page's race list)
+    // always wins over whatever was last selected -- someone clicking a
+    // specific race card expects to land on THAT race, not wherever they
+    // left off last time.
+    const urlRace = new URLSearchParams(window.location.search).get('race');
+    if (urlRace && RACES[urlRace]) return urlRace;
+  } catch (e) {}
+  try {
     const saved = localStorage.getItem(CURRENT_RACE_KEY);
     if (saved && RACES[saved]) return saved;
   } catch (e) {}
