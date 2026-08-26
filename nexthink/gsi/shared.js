@@ -44,6 +44,26 @@ function nexthinkCheckKey(accountKey, dayNum, itemIndex, subIndex) {
   return `nexthink_check_${accountKey}_d${dayNum}_i${itemIndex}${subIndex !== undefined ? '_s' + subIndex : ''}`;
 }
 
+// Every checkbox key a given day's items (and sub-items) would use --
+// shared by the day card (to check if it's fully done) and the plan view
+// (to find the next incomplete day), so both stay in sync off one source.
+function nexthinkDayCheckKeys(accountKey, d) {
+  const keys = [];
+  d.items.forEach((it, i) => {
+    keys.push(nexthinkCheckKey(accountKey, d.n, i));
+    if (it.subitems) it.subitems.forEach((sub, si) => keys.push(nexthinkCheckKey(accountKey, d.n, i, si)));
+  });
+  return keys;
+}
+
+function nexthinkIsDayComplete(accountKey, d) {
+  const keys = nexthinkDayCheckKeys(accountKey, d);
+  if (keys.length === 0) return false;
+  try {
+    return keys.every(k => localStorage.getItem(k) === '1');
+  } catch (e) { return false; }
+}
+
 function GsiCheckItem({ checkKey, text, indent }) {
   const [checked, setChecked] = React.useState(() => {
     try { return localStorage.getItem(checkKey) === '1'; } catch (e) { return false; }
@@ -52,6 +72,7 @@ function GsiCheckItem({ checkKey, text, indent }) {
     const next = !checked;
     setChecked(next);
     try { localStorage.setItem(checkKey, next ? '1' : '0'); } catch (e) {}
+    window.dispatchEvent(new Event('nexthink-check-change'));
   }
   return (
     <label style={{
@@ -71,30 +92,51 @@ function GsiCheckItem({ checkKey, text, indent }) {
 function GsiDayCard({ d, isToday, accountKey }) {
   if (d.items.length === 0) return null;
   const isDraft = d.n >= window.GSI_DRAFT_STARTS_DAY;
+  const [complete, setComplete] = React.useState(() => nexthinkIsDayComplete(accountKey, d));
+  const [collapsed, setCollapsed] = React.useState(() => nexthinkIsDayComplete(accountKey, d));
+
+  React.useEffect(() => {
+    function recompute() {
+      const done = nexthinkIsDayComplete(accountKey, d);
+      setComplete(done);
+      // auto-collapse the moment it becomes complete, but don't fight
+      // a manual re-expand -- only auto-collapse on the transition INTO
+      // complete, not every time this effect re-runs
+      setCollapsed(prevCollapsed => done && !complete ? true : prevCollapsed);
+    }
+    window.addEventListener('nexthink-check-change', recompute);
+    return () => window.removeEventListener('nexthink-check-change', recompute);
+  }, [complete]);
+
   return (
-    <div style={{
-      display:'flex', gap:18, padding:'14px 16px', borderRadius:6,
-      background: isToday ? 'var(--accent-wash)' : 'var(--paper-card)',
-      border: `1px ${isDraft ? 'dashed' : 'solid'} ${isToday ? 'var(--accent)' : 'var(--line)'}`,
-      marginBottom:9
-    }}>
+    <div id={`gsi-day-${d.n}`} style={{
+      display:'flex', gap:18, padding: collapsed ? '10px 16px' : '14px 16px', borderRadius:6,
+      background: isToday ? 'var(--accent-wash)' : complete ? 'var(--accent-wash)' : 'var(--paper-card)',
+      border: `1px ${isDraft ? 'dashed' : 'solid'} ${isToday ? 'var(--accent)' : complete ? '#2F7D5A66' : 'var(--line)'}`,
+      marginBottom:9, cursor: complete ? 'pointer' : 'default',
+    }} onClick={complete ? () => setCollapsed(v => !v) : undefined}>
       <div style={{minWidth:52}}>
         <div style={{fontFamily:'var(--mono)', fontSize:9.5, color:'var(--ink-faint)', letterSpacing:'0.05em'}}>DAY</div>
         <div style={{fontFamily:'var(--display)', fontSize:21, fontWeight:800, color: isToday ? 'var(--accent)' : 'var(--ink)'}}>{d.n}</div>
         <div style={{fontFamily:'var(--mono)', fontSize:10, color:'var(--ink-faint)', marginTop:1}}>{d.date}</div>
       </div>
       <div style={{flex:1}}>
-        {d.tag && <div style={{marginBottom:6}}><GsiChip tone={isDraft ? 'draft' : 'accent'}>{d.tag}</GsiChip></div>}
-        <div>
-          {d.items.map((it, i) => (
-            <div key={i}>
-              <GsiCheckItem checkKey={nexthinkCheckKey(accountKey, d.n, i)} text={it.text.replace('[DRAFT] ', '')} />
-              {it.subitems && it.subitems.map((sub, si) => (
-                <GsiCheckItem key={si} checkKey={nexthinkCheckKey(accountKey, d.n, i, si)} text={sub} indent />
-              ))}
-            </div>
-          ))}
+        <div style={{display:'flex', alignItems:'center', gap:8, marginBottom: collapsed ? 0 : 6}}>
+          {d.tag && <GsiChip tone={isDraft ? 'draft' : 'accent'}>{d.tag}</GsiChip>}
+          {complete && <GsiChip tone="confirmed">&#10003; Done{collapsed ? ' \u2014 tap to expand' : ''}</GsiChip>}
         </div>
+        {!collapsed && (
+          <div>
+            {d.items.map((it, i) => (
+              <div key={i}>
+                <GsiCheckItem checkKey={nexthinkCheckKey(accountKey, d.n, i)} text={it.text.replace('[DRAFT] ', '')} />
+                {it.subitems && it.subitems.map((sub, si) => (
+                  <GsiCheckItem key={si} checkKey={nexthinkCheckKey(accountKey, d.n, i, si)} text={sub} indent />
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -103,6 +145,7 @@ function GsiDayCard({ d, isToday, accountKey }) {
 function GsiPlanView({ accountKey }) {
   const days = window.GSI_DAYS
     .map(d => ({...d, items: d.items.filter(it => it.t === 'shared' || it.t === accountKey).map(it=>it)}))
+    .filter(d => d.items.length > 0);
   const weeks = Array.from({length: 12}, (_, i) => i + 1);
   const today = new Date();
   const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
@@ -111,13 +154,42 @@ function GsiPlanView({ accountKey }) {
     const year = months[parts[1]] <= 1 ? 2027 : 2026; // Jan/Feb entries roll into the next year
     return new Date(year, months[parts[1]], parseInt(parts[2],10));
   }
+
+  const [, forceTick] = React.useState(0);
+  React.useEffect(() => {
+    function recompute() { forceTick(v => v + 1); }
+    window.addEventListener('nexthink-check-change', recompute);
+    return () => window.removeEventListener('nexthink-check-change', recompute);
+  }, []);
+
+  const nextIncomplete = days.find(d => !nexthinkIsDayComplete(accountKey, d));
+  const allComplete = !nextIncomplete;
+
+  function jumpToNext() {
+    if (!nextIncomplete) return;
+    const el = document.getElementById(`gsi-day-${nextIncomplete.n}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
   return (
     <div>
-      <div style={{background:'var(--paper-card)', border:'1px dashed var(--line)', borderRadius:6, padding:'12px 15px', marginBottom:22, fontSize:12.5, color:'var(--ink-faint)'}}>
+      <div style={{background:'var(--paper-card)', border:'1px dashed var(--line)', borderRadius:6, padding:'12px 15px', marginBottom:14, fontSize:12.5, color:'var(--ink-faint)'}}>
         Days 1&ndash;30 are the real onboarding plan. Days 31&ndash;90 (marked <GsiChip tone="draft">draft</GsiChip>) are a template continuation using standard milestones &mdash; not verified, edit freely as the real specifics firm up.
       </div>
+
+      <div style={{marginBottom:22}}>
+        {allComplete ? (
+          <div style={{fontSize:13, color:'#2F7D5A', fontWeight:600}}>&#10003; Everything on this plan is checked off.</div>
+        ) : (
+          <button onClick={jumpToNext} style={{
+            fontFamily:'var(--mono)', fontSize:12, fontWeight:600, padding:'8px 14px', borderRadius:6,
+            border:'1px solid var(--accent)66', background:'var(--accent-wash)', color:'var(--accent)', cursor:'pointer',
+          }}>&darr; Jump to Day {nextIncomplete.n} (next incomplete)</button>
+        )}
+      </div>
+
       {weeks.map(w=>{
-        const weekDays = days.filter(d=>d.week===w && d.items.length>0);
+        const weekDays = days.filter(d=>d.week===w);
         if (weekDays.length===0) return null;
         return (
           <div key={w} style={{marginBottom:24}}>
