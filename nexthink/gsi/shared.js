@@ -40,18 +40,22 @@ function GsiFolderTab({ code, name, statusLabel }) {
   );
 }
 
-function nexthinkCheckKey(accountKey, dayNum, itemIndex, subIndex) {
-  return `nexthink_check_${accountKey}_d${dayNum}_i${itemIndex}${subIndex !== undefined ? '_s' + subIndex : ''}`;
+function nexthinkCheckKey(accountKey, dayId, itemIndex, subIndex) {
+  return `nexthink_check_${accountKey}_d${dayId}_i${itemIndex}${subIndex !== undefined ? '_s' + subIndex : ''}`;
 }
 
 // Every checkbox key a given day's items (and sub-items) would use --
 // shared by the day card (to check if it's fully done) and the plan view
 // (to find the next incomplete day), so both stay in sync off one source.
+// Keyed on d.id (a permanent, stable identifier) rather than d.n (the
+// user-facing "Day N" label, which now reflects true calendar days elapsed
+// and can change if the plan's dates are ever adjusted) -- so renumbering
+// the display never orphans anyone's already-checked progress.
 function nexthinkDayCheckKeys(accountKey, d) {
   const keys = [];
   d.items.forEach((it, i) => {
-    keys.push(nexthinkCheckKey(accountKey, d.n, i));
-    if (it.subitems) it.subitems.forEach((sub, si) => keys.push(nexthinkCheckKey(accountKey, d.n, i, si)));
+    keys.push(nexthinkCheckKey(accountKey, d.id, i));
+    if (it.subitems) it.subitems.forEach((sub, si) => keys.push(nexthinkCheckKey(accountKey, d.id, i, si)));
   });
   return keys;
 }
@@ -93,7 +97,7 @@ function GsiCheckItem({ checkKey, text, indent }) {
 
 function GsiDayCard({ d, isToday, accountKey }) {
   if (d.items.length === 0) return null;
-  const isDraft = d.n >= window.GSI_DRAFT_STARTS_DAY;
+  const isDraft = d.id >= window.GSI_DRAFT_STARTS_DAY;
   const [complete, setComplete] = React.useState(() => nexthinkIsDayComplete(accountKey, d));
   const [collapsed, setCollapsed] = React.useState(() => nexthinkIsDayComplete(accountKey, d));
 
@@ -111,7 +115,7 @@ function GsiDayCard({ d, isToday, accountKey }) {
   }, [complete]);
 
   return (
-    <div id={`gsi-day-${d.n}`} style={{
+    <div id={`gsi-day-${d.id}`} style={{
       display:'flex', gap:18, padding: collapsed ? '10px 16px' : '14px 16px', borderRadius:6,
       background: isToday ? 'var(--accent-wash)' : complete ? 'var(--accent-wash)' : 'var(--paper-card)',
       border: `1px ${isDraft ? 'dashed' : 'solid'} ${isToday ? 'var(--accent)' : complete ? '#2F7D5A66' : 'var(--line)'}`,
@@ -131,9 +135,9 @@ function GsiDayCard({ d, isToday, accountKey }) {
           <div>
             {d.items.map((it, i) => (
               <div key={i}>
-                <GsiCheckItem checkKey={nexthinkCheckKey(accountKey, d.n, i)} text={it.text.replace('[DRAFT] ', '')} />
+                <GsiCheckItem checkKey={nexthinkCheckKey(accountKey, d.id, i)} text={it.text.replace('[DRAFT] ', '')} />
                 {it.subitems && it.subitems.map((sub, si) => (
-                  <GsiCheckItem key={si} checkKey={nexthinkCheckKey(accountKey, d.n, i, si)} text={sub} indent />
+                  <GsiCheckItem key={si} checkKey={nexthinkCheckKey(accountKey, d.id, i, si)} text={sub} indent />
                 ))}
               </div>
             ))}
@@ -169,7 +173,7 @@ function GsiPlanView({ accountKey }) {
 
   function jumpToNext() {
     if (!nextIncomplete) return;
-    const el = document.getElementById(`gsi-day-${nextIncomplete.n}`);
+    const el = document.getElementById(`gsi-day-${nextIncomplete.id}`);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
@@ -199,7 +203,7 @@ function GsiPlanView({ accountKey }) {
             <div style={{marginTop:10}}>
               {weekDays.map(d=>{
                 const isToday = parseDay(d.date).toDateString() === today.toDateString();
-                return <GsiDayCard key={d.n} d={d} isToday={isToday} accountKey={accountKey} />;
+                return <GsiDayCard key={d.id} d={d} isToday={isToday} accountKey={accountKey} />;
               })}
             </div>
           </div>
