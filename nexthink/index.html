@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nexthink GSI Files — Dustin Segura</title>
+<meta name="description" content="Account files for the Nexthink GSI/MSP role: Unisys and Stefanini." />
+<meta name="robots" content="noindex, nofollow" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.8/babel.min.js"></script>
+<style>
+  :root{
+    /* Nexthink official public brand guide (design.nexthink.com) */
+    --nx-blue: #3194F7;
+    --nx-blue-dark: #1046A8;
+    --nx-ink: #0B1441;
+    --nx-teal: #00B1A9;
+    --nx-bg: #EEF3F7;
+    --nx-black: #221F20;
+    --font: 'Nunito Sans', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--nx-bg);color:var(--nx-black);font-family:var(--font);}
+  #root{min-height:100vh;}
+  .band{background:var(--nx-ink);color:#fff;padding:10px 0;font-size:12.5px;letter-spacing:0.04em;}
+  .band .wrap{max-width:760px;margin:0 auto;padding:0 1.25rem;}
+  .wrap{max-width:760px;margin:0 auto;padding:3.5rem 1.25rem;}
+  h1{font-family:var(--font);font-weight:800;font-size:clamp(30px,5vw,42px);margin:0 0 10px;color:var(--nx-ink);letter-spacing:-0.01em;}
+  p.lede{color:#3B4A57;font-size:15px;max-width:58ch;margin:0 0 32px;}
+  .files{display:grid;gap:14px;grid-template-columns:1fr 1fr;}
+  @media (max-width:560px){.files{grid-template-columns:1fr;}}
+  .file{
+    display:block;text-decoration:none;color:var(--nx-black);
+    background:#fff;border-radius:14px;padding:24px 22px;
+    box-shadow:0 1px 2px rgba(11,20,65,0.06);
+    border:1px solid rgba(11,20,65,0.08);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .file:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(11,20,65,0.12);}
+  .swatch{width:34px;height:34px;border-radius:9px;margin-bottom:14px;}
+  .u .swatch{background:linear-gradient(135deg,#00E28B,#007173);}
+  .s .swatch{background:linear-gradient(135deg,#3194F7,#1046A8);}
+  .code{font-size:11.5px;font-weight:700;letter-spacing:0.08em;color:var(--nx-blue-dark);margin-bottom:4px;text-transform:uppercase;}
+  .name{font-family:var(--font);font-weight:800;font-size:21px;}
+  .foot{margin-top:36px;font-size:12.5px;color:#5B6B78;}
+  .lock-link{margin-top:20px;font-size:12px;}
+  .lock-link a{color:#5B6B78;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react" src="./gate.js"></script>
+<script type="text/babel" data-presets="react" src="./lock_screen.js"></script>
+<script type="text/babel" data-presets="react">
+function Hub() {
+  return (
+    <React.Fragment>
+      <div className="band"><div className="wrap">NEXTHINK &middot; DELIGHT PEOPLE AT WORK</div></div>
+      <div className="wrap">
+        <h1>GSI Onboarding</h1>
+        <p className="lede">Account files for Unisys and Stefanini, built from the Michael McCrum onboarding calls. Each account follows its own brand, this hub follows Nexthink's.</p>
+        <div className="files">
+          <a className="file u" href="gsi/unisys/">
+            <div className="swatch"></div>
+            <div className="code">Account File</div>
+            <div className="name">Unisys</div>
+          </a>
+          <a className="file s" href="gsi/stefanini/">
+            <div className="swatch"></div>
+            <div className="code">Account File</div>
+            <div className="name">Stefanini</div>
+          </a>
+        </div>
+        <div className="foot">Colors and type here follow Nexthink's public brand guidelines (design.nexthink.com). Proxima Nova is Nexthink's actual corporate typeface; Nunito Sans stands in here since Proxima Nova is a licensed font.</div>
+        <div className="lock-link"><a href="#" onClick={(e) => { e.preventDefault(); window.NexthinkGate.lock(); window.location.reload(); }}>Lock this section</a></div>
+      </div>
+    </React.Fragment>
+  );
+}
+function App() {
+  return (
+    <window.NexthinkGated accentColor="var(--nx-blue-dark)" displayFont="'Nunito Sans', sans-serif" bodyFont="'Nunito Sans', sans-serif" monoFont="monospace">
+      <Hub />
+    </window.NexthinkGated>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

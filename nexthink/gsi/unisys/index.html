@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>ACCT-001 &middot; Unisys — GSI Account File</title>
+<meta name="description" content="Unisys account file: onboarding plan and verified stakeholder directory." />
+<meta name="robots" content="noindex, nofollow" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.8/babel.min.js"></script>
+<style>
+  :root{
+    /* Unisys 2022 Landor rebrand palette */
+    --paper: #FFFFFF;
+    --paper-card: #F5FAF9;
+    --ink: #003134;
+    --ink-dim: #3D5457;
+    --ink-faint: #7C8F91;
+    --line: rgba(0,49,52,0.14);
+    --accent: #007173;
+    --accent-bright: #00E28B;
+    --accent-wash: rgba(0,226,139,0.10);
+    --display: 'Sora', sans-serif;
+    --body: 'Manrope', sans-serif;
+    --mono: 'Roboto Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;}
+  #root{min-height:100vh;}
+  a{color:inherit;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react" src="../../gate.js"></script>
+<script type="text/babel" data-presets="react" src="../../lock_screen.js"></script>
+<script type="text/babel" data-presets="react" src="../data.js"></script>
+<script type="text/babel" data-presets="react" src="../shared.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState } = React;
+
+function Page(){
+  const [tab, setTab] = useState('plan');
+  return (
+    <div style={{maxWidth:880, margin:'0 auto', padding:'3rem 1.25rem 5rem'}}>
+      <div style={{marginBottom:6}}><GsiEyebrow color="var(--accent)">GSI ACCOUNT FILE</GsiEyebrow></div>
+      <GsiFolderTab code="ACCT-001 · UNISYS" name="Unisys" statusLabel="Experience Breakthroughs" />
+      <p style={{color:'var(--ink-dim)', fontSize:14, maxWidth:'64ch', margin:'14px 0 26px'}}>
+        15-year Nexthink partner, stalled at roughly 10 joint accounts. Onboarding plan and verified stakeholder
+        directory below, built from the Michael McCrum onboarding calls.
+      </p>
+
+      <div style={{display:'flex', gap:24, flexWrap:'wrap', marginBottom:30, borderTop:'1px solid var(--line)', borderBottom:'1px solid var(--line)', padding:'12px 0'}}>
+        <GsiStat label="Start" value="Oct 1" sub="Thursday" />
+        <GsiStat label="Experience '26" value="Oct 5-7" sub="Orlando" />
+        <GsiStat label="Ramp Ends" value="Dec 31" sub="Guaranteed pay" />
+        <GsiStat label="Quota Starts" value="Jan 1" sub="Real number live" />
+      </div>
+
+      <div style={{display:'inline-flex', border:'1px solid var(--line)', borderRadius:6, padding:3, marginBottom:26, background:'var(--paper-card)'}}>
+        {[['plan','30/60/90 Plan'],['stakeholders','Stakeholders']].map(([key,label])=>(
+          <button key={key} onClick={()=>setTab(key)} style={{
+            fontFamily:'var(--mono)', fontSize:12, fontWeight:600, letterSpacing:'0.03em',
+            padding:'7px 15px', borderRadius:4, border:'none', cursor:'pointer',
+            background: tab===key ? 'var(--accent-bright)' : 'transparent',
+            color: tab===key ? 'var(--ink)' : 'var(--ink-faint)'
+          }}>{label}</button>
+        ))}
+      </div>
+
+      {tab==='plan' ? <GsiPlanView accountKey="unisys"/> : <GsiStakeholderView accountKey="unisys"/>}
+
+      <div style={{marginTop:40, paddingTop:16, borderTop:'1px solid var(--line)', fontSize:11.5, color:'var(--ink-faint)'}}>
+        <a href="../../" style={{textDecoration:'underline'}}>&larr; Nexthink onboarding hub</a>
+        &nbsp;&middot;&nbsp;
+        <a href="../stefanini/" style={{textDecoration:'underline'}}>View ACCT-002 Stefanini &rarr;</a>
+        &nbsp;&middot;&nbsp;
+        <a href="#" onClick={(e) => { e.preventDefault(); window.NexthinkGate.lock(); window.location.href = '../../'; }} style={{textDecoration:'underline'}}>Lock this section</a>
+        <div style={{marginTop:10}}>Palette sourced from Unisys's 2022 Landor rebrand (dark teal, vibrant mint green).</div>
+      </div>
+    </div>
+  );
+}
+function App() {
+  return (
+    <window.NexthinkGated accentColor="var(--accent)" displayFont="'Sora', sans-serif" bodyFont="'Manrope', sans-serif" monoFont="'Roboto Mono', monospace">
+      <Page />
+    </window.NexthinkGated>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
