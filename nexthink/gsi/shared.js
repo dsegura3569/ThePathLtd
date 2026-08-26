@@ -75,10 +75,12 @@ function GsiCheckItem({ checkKey, text, indent }) {
     window.dispatchEvent(new Event('nexthink-check-change'));
   }
   return (
-    <label style={{
-      display:'flex', alignItems:'flex-start', gap:9, cursor:'pointer',
-      marginLeft: indent ? 26 : 0, marginBottom:6, fontSize: indent ? 12.5 : 13.5,
-    }}>
+    <label
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        display:'flex', alignItems:'flex-start', gap:9, cursor:'pointer',
+        marginLeft: indent ? 26 : 0, marginBottom:6, fontSize: indent ? 12.5 : 13.5,
+      }}>
       <input type="checkbox" checked={checked} onChange={toggle} style={{ marginTop:3, flexShrink:0, cursor:'pointer' }} />
       <span style={{
         color: checked ? 'var(--ink-faint)' : 'var(--ink-dim)',
