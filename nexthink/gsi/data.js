@@ -21,11 +21,11 @@ window.GSI_DAYS = [
     {t:'shared', text:"Get whatever Paul left behind: notes, CRM records, open deal status"},
     {t:'unisys', text:'Confirm Experience logistics and review the stakeholder directory before the room fills up'}]},
   {n:3, date:'Mon Oct 5', week:1, tag:'Experience Day 1', items:[
-    {t:'unisys', text:'Meet Joel Raper (CCO) and Morgan McCoy (SVP Global Sales & Alliances) in person'},
+    {t:'unisys', text:'Meet Joel Raper and Morgan McCoy in person', subitems:['Joel Raper (CCO)', 'Morgan McCoy (SVP Global Sales & Alliances)']},
     {t:'unisys', text:'Use the room to start putting faces to names'}]},
   {n:4, date:'Tue Oct 6', week:1, tag:'Experience Day 2', items:[
-    {t:'unisys', text:'Meet Patrycja Sobera (GM, Digital Workplace Solutions) and Chris Arrasmith (COO)'},
-    {t:'unisys', text:'Meet John Backey and Kim from the Dell/Unisys relationship, confirm Tim Rashkin and the CTO/architecture lead in person'},
+    {t:'unisys', text:'Meet Patrycja Sobera and Chris Arrasmith', subitems:['Patrycja Sobera (GM, Digital Workplace Solutions)', 'Chris Arrasmith (COO)']},
+    {t:'unisys', text:'Meet the Dell/Unisys relationship contacts and confirm the architecture lead', subitems:['John Backey (Dell/Unisys relationship)', 'Kim (Dell/Unisys relationship)', 'Tim Rashkin', 'CTO / solution-architecture lead']},
     {t:'unisys', text:'Represent well, this is the first big visible moment for the account'}]},
   {n:5, date:'Wed Oct 7', week:1, tag:'Experience Day 3', items:[
     {t:'unisys', text:'Wrap the event, collect follow-ups and action items from every conversation'},

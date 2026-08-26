@@ -40,7 +40,35 @@ function GsiFolderTab({ code, name, statusLabel }) {
   );
 }
 
-function GsiDayCard({ d, isToday }) {
+function nexthinkCheckKey(accountKey, dayNum, itemIndex, subIndex) {
+  return `nexthink_check_${accountKey}_d${dayNum}_i${itemIndex}${subIndex !== undefined ? '_s' + subIndex : ''}`;
+}
+
+function GsiCheckItem({ checkKey, text, indent }) {
+  const [checked, setChecked] = React.useState(() => {
+    try { return localStorage.getItem(checkKey) === '1'; } catch (e) { return false; }
+  });
+  function toggle() {
+    const next = !checked;
+    setChecked(next);
+    try { localStorage.setItem(checkKey, next ? '1' : '0'); } catch (e) {}
+  }
+  return (
+    <label style={{
+      display:'flex', alignItems:'flex-start', gap:9, cursor:'pointer',
+      marginLeft: indent ? 26 : 0, marginBottom:6, fontSize: indent ? 12.5 : 13.5,
+    }}>
+      <input type="checkbox" checked={checked} onChange={toggle} style={{ marginTop:3, flexShrink:0, cursor:'pointer' }} />
+      <span style={{
+        color: checked ? 'var(--ink-faint)' : 'var(--ink-dim)',
+        textDecoration: checked ? 'line-through' : 'none',
+        lineHeight:1.5,
+      }}>{text}</span>
+    </label>
+  );
+}
+
+function GsiDayCard({ d, isToday, accountKey }) {
   if (d.items.length === 0) return null;
   const isDraft = d.n >= window.GSI_DRAFT_STARTS_DAY;
   return (
@@ -57,9 +85,16 @@ function GsiDayCard({ d, isToday }) {
       </div>
       <div style={{flex:1}}>
         {d.tag && <div style={{marginBottom:6}}><GsiChip tone={isDraft ? 'draft' : 'accent'}>{d.tag}</GsiChip></div>}
-        <ul style={{margin:0, paddingLeft:17, color:'var(--ink-dim)', fontSize:13.5, lineHeight:1.7}}>
-          {d.items.map((it,i)=>(<li key={i}>{it.text.replace('[DRAFT] ', '')}</li>))}
-        </ul>
+        <div>
+          {d.items.map((it, i) => (
+            <div key={i}>
+              <GsiCheckItem checkKey={nexthinkCheckKey(accountKey, d.n, i)} text={it.text.replace('[DRAFT] ', '')} />
+              {it.subitems && it.subitems.map((sub, si) => (
+                <GsiCheckItem key={si} checkKey={nexthinkCheckKey(accountKey, d.n, i, si)} text={sub} indent />
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -90,7 +125,7 @@ function GsiPlanView({ accountKey }) {
             <div style={{marginTop:10}}>
               {weekDays.map(d=>{
                 const isToday = parseDay(d.date).toDateString() === today.toDateString();
-                return <GsiDayCard key={d.n} d={d} isToday={isToday} />;
+                return <GsiDayCard key={d.n} d={d} isToday={isToday} accountKey={accountKey} />;
               })}
             </div>
           </div>
