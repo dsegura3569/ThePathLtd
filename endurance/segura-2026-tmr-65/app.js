@@ -219,6 +219,12 @@ function Nav({ active, setActive, open, setOpen, onGear, raceId, onSelectRace })
           overflowY:'auto', padding:'8px 20px 40px',
         }}>
           <div style={{maxWidth:1180, margin:'0 auto'}}>
+            <a href="/endurance/" style={{
+              display:'flex', alignItems:'center', gap:8, width:'100%', textAlign:'left',
+              padding:'14px 4px', textDecoration:'none', color:'var(--ink-faint)',
+              borderBottom:'1px solid var(--line)', marginBottom:4,
+              fontFamily:'var(--mono)', fontSize:13,
+            }}>&larr; All Races</a>
             {SECTIONS.map(s => (
               <button key={s.id} onClick={()=>{ setActive(s.id); setOpen(false); }} style={{
                 display:'flex', alignItems:'baseline', gap:16, width:'100%', textAlign:'left',
