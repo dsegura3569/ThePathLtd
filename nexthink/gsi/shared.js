@@ -148,6 +148,50 @@ function GsiDayCard({ d, isToday, accountKey }) {
   );
 }
 
+function nexthinkPeriodProgress(accountKey, days, startDay, endDay) {
+  const periodDays = days.filter(d => d.n >= startDay && d.n <= endDay);
+  let total = 0, checked = 0;
+  periodDays.forEach(d => {
+    const keys = nexthinkDayCheckKeys(accountKey, d);
+    total += keys.length;
+    try {
+      checked += keys.filter(k => localStorage.getItem(k) === '1').length;
+    } catch (e) {}
+  });
+  return { total, checked, firstDay: periodDays[0] || null };
+}
+
+function GsiPeriodCard({ label, startDay, endDay, accountKey, days }) {
+  const { total, checked, firstDay } = nexthinkPeriodProgress(accountKey, days, startDay, endDay);
+  const pct = total > 0 ? Math.round((checked / total) * 100) : 0;
+  const complete = total > 0 && checked === total;
+
+  function jump() {
+    if (!firstDay) return;
+    const el = document.getElementById(`gsi-day-${firstDay.id}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  if (total === 0) return null;
+
+  return (
+    <button onClick={jump} style={{
+      textAlign:'left', background:'var(--paper-card)', border:`1px solid ${complete ? '#2F7D5A66' : 'var(--line)'}`,
+      borderRadius:8, padding:'14px 16px', cursor:'pointer', flex:'1 1 180px', minWidth:160,
+    }}>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:8}}>
+        <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', textTransform:'uppercase', letterSpacing:'0.05em'}}>{label}</div>
+        {complete && <span style={{fontSize:11, color:'#2F7D5A'}}>&#10003;</span>}
+      </div>
+      <div style={{height:7, borderRadius:4, background:'var(--line)', overflow:'hidden', marginBottom:8}}>
+        <div style={{height:'100%', width:`${pct}%`, background: complete ? '#2F7D5A' : 'var(--accent)', borderRadius:4, transition:'width 0.2s ease'}} />
+      </div>
+      <div style={{fontFamily:'var(--display)', fontSize:15, fontWeight:700, color:'var(--ink)'}}>{checked} / {total}</div>
+      <div style={{fontSize:11, color:'var(--ink-faint)'}}>{pct}% done</div>
+    </button>
+  );
+}
+
 function GsiPlanView({ accountKey }) {
   const days = window.GSI_DAYS
     .map(d => ({...d, items: d.items.filter(it => it.t === 'shared' || it.t === accountKey).map(it=>it)}))
@@ -181,6 +225,12 @@ function GsiPlanView({ accountKey }) {
     <div>
       <div style={{background:'var(--paper-card)', border:'1px dashed var(--line)', borderRadius:6, padding:'12px 15px', marginBottom:14, fontSize:12.5, color:'var(--ink-faint)'}}>
         Days 1&ndash;30 are the real onboarding plan. Days 31&ndash;90 (marked <GsiChip tone="draft">draft</GsiChip>) are a template continuation using standard milestones &mdash; not verified, edit freely as the real specifics firm up.
+      </div>
+
+      <div style={{display:'flex', gap:12, flexWrap:'wrap', marginBottom:22}}>
+        <GsiPeriodCard label="Days 1-30" startDay={1} endDay={30} accountKey={accountKey} days={days} />
+        <GsiPeriodCard label="Days 31-60" startDay={31} endDay={60} accountKey={accountKey} days={days} />
+        <GsiPeriodCard label="Days 61-90" startDay={61} endDay={90} accountKey={accountKey} days={days} />
       </div>
 
       <div style={{marginBottom:22}}>
