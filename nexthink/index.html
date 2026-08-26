@@ -21,6 +21,15 @@
     --nx-bg: #EEF3F7;
     --nx-black: #221F20;
     --font: 'Nunito Sans', sans-serif;
+    /* generic aliases the shared GSI components (shared.js) expect */
+    --accent: #1046A8;
+    --paper-card: #ffffff;
+    --line: rgba(11,20,65,0.13);
+    --ink: #0B1441;
+    --ink-dim: #3B4A57;
+    --ink-faint: #7C8C99;
+    --display: 'Nunito Sans', sans-serif;
+    --mono: 'Roboto Mono', monospace;
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--nx-bg);color:var(--nx-black);font-family:var(--font);}
@@ -54,6 +63,8 @@
 <div id="root"></div>
 <script type="text/babel" data-presets="react" src="./gate.js"></script>
 <script type="text/babel" data-presets="react" src="./lock_screen.js"></script>
+<script type="text/babel" data-presets="react" src="./gsi/data.js"></script>
+<script type="text/babel" data-presets="react" src="./gsi/shared.js"></script>
 <script type="text/babel" data-presets="react">
 function Hub() {
   return (
@@ -74,6 +85,14 @@ function Hub() {
             <div className="name">Stefanini</div>
           </a>
         </div>
+
+        <div style={{marginTop:40}}>
+          <GsiEyebrow color="var(--nx-blue-dark)">Nexthink Stakeholders</GsiEyebrow>
+          <div style={{marginTop:12}}>
+            <GsiStakeholderView accountKey="nexthink" />
+          </div>
+        </div>
+
         <div className="lock-link"><a href="#" onClick={(e) => { e.preventDefault(); window.NexthinkGate.lock(); window.location.reload(); }}>Lock this section</a></div>
       </div>
     </React.Fragment>

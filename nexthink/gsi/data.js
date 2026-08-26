@@ -169,6 +169,20 @@ window.GSI_WEEK_LABELS = {
 };
 
 window.GSI_STAKEHOLDERS = {
+  nexthink: {
+    confirmed: [
+      {name:'Michael McCrum', title:'Global Sales Director, GSI & MSP, Nexthink', linkedin:'https://uk.linkedin.com/in/michael-mccrum-02251517', note:'Your sponsor/hiring manager. Nexthink lifer in the MSP business: ran Global MSP sales 2016-2021, left for UiPath, came back in 2023, promoted to Global Sales Director in January 2025.'},
+      {name:'Steve Little', title:"SVP Global MSP's, Channel & Alliances, Nexthink", linkedin:'https://uk.linkedin.com/in/stevenlittle100', note:"Michael's boss. Long-tenured Nexthink channel strategist, been in MSP/channel leadership roles at Nexthink since 2012."},
+      {name:'Matt Jacques', title:'Senior Director, MSP Technical Services, Nexthink', note:'Previously ran Partner Success for Global MSP (2024-2025), came from Atos before that -- has lived inside a GSI delivery organization himself.'},
+      {name:'Ian Bancroft', title:'Chief Revenue Officer, Nexthink', note:'CRO since 2023. Previously SVP & CRO at Secureworks, and before that a decade-plus at HPE across global account and services sales leadership.'},
+    ],
+    pending: [
+      {name:'Megan', title:'GSI/MSP marketing', note:'Last name not yet confirmed. Point of contact for marketing support on both the Unisys and Stefanini accounts.'},
+      {name:'Tampa-based technical PSM', title:'Partner Service Manager', note:'Name not given on the call, incoming into the role -- confirm in person.'},
+      {name:'UK-based regional lead', title:'Runs the European side of the Unisys relationship', note:'Name not given on the call -- confirm in person or via Michael.'},
+      {name:"Field-alignment counterpart in Ian's org", title:'Unnamed on the call', note:"Referenced as the person to walk account plans past for field alignment -- confirm name directly with Michael."},
+    ]
+  },
   unisys: {
     confirmed: [
       {name:'Joel Raper', title:'Senior Vice President & Chief Commercial Officer, Unisys', linkedin:'https://www.linkedin.com/in/joel-raper-5020063/', note:"Oversees sales and client management as Unisys's go-to-market leader. One of the two SVPs expected at Experience."},
