@@ -161,7 +161,7 @@ function RaceDayForecastWidget() {
         <div style={{fontSize:13, color:'var(--ink-faint)'}}>
           {f.status === 'loading' ? 'Loading forecast\u2026'
             : !window.RACES[window.getCurrentRaceId()].startDate ? 'Set a race date on Overview to see a forecast.'
-            : 'Forecast unavailable \u2014 the race date may be outside the current forecast window (usually ~15-16 days out), or the request failed.'}
+            : 'Race date outside the 15-16 day forecast window.'}
         </div>
       )}
     </section>
@@ -334,9 +334,6 @@ function PaceTargetsWidget() {
           background: showAdvanced ? 'var(--climb)' : 'var(--bg-raised)', color: showAdvanced ? '#12151A' : 'var(--ink-faint)', cursor:'pointer',
           display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
         }}>&#9881;&#65039;</button>
-      </div>
-      <div style={{fontSize:12, color:'var(--ink-faint)', marginBottom:16}}>
-        Set once here &mdash; every segment, the Pack List, and the Race Day Plan all update from these same numbers.
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16 }}>
         <TargetStepper label="Target finish time" value={targetHours} setValue={setTargetHours} min={12} max={window.RACES[window.getCurrentRaceId()].cutoffHours} step={0.5} unit="hr" note={`${window.RACES[window.getCurrentRaceId()].cutoffHours}hr official cutoff`} />
@@ -881,7 +878,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
             fontFamily:'var(--display)', fontWeight:700, fontSize:'clamp(18px, 2.6vw, 24px)',
             lineHeight:1.2, letterSpacing:'-0.01em', margin:0, whiteSpace:'nowrap',
           }}>
-            {activeRace.distance.toFixed(1)}mi &middot; <span style={{color:'var(--climb)'}}>{activeRace.vertGain.toLocaleString()}ft</span> of climbing &middot; one race day.
+            <span style={{color:'var(--climb)'}}>{activeRace.distance.toFixed(1)}mi</span> &middot; <span style={{color:'var(--climb)'}}>{activeRace.vertGain.toLocaleString()}ft</span> of climbing &middot; one race day.
           </h1>
           <button onClick={()=>goTo('raceplan')} style={{
             background:'var(--climb)', color:'#12151A', border:'none', borderRadius:8,
@@ -933,9 +930,9 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
             Countdown to Start
           </div>
           <div style={{display:'flex', gap:28, flexWrap:'wrap', marginBottom:0}}>
-            {[['days','Days'],['hours','Hours'],['minutes','Min'],['seconds','Sec']].map(([key,label]) => (
+            {[['days','Days','var(--climb)'],['hours','Hours','var(--descent)'],['minutes','Min','var(--db)'],['seconds','Sec','var(--ok)']].map(([key,label,color]) => (
               <div key={key}>
-                <div style={{fontFamily:'var(--display)', fontSize:32, fontWeight:700, color:'var(--climb)'}}>
+                <div style={{fontFamily:'var(--display)', fontSize:32, fontWeight:700, color:color}}>
                   {String(countdown[key]).padStart(2,'0')}
                 </div>
                 <div style={{fontFamily:'var(--mono)', fontSize:10, color:'var(--ink-faint)', textTransform:'uppercase', letterSpacing:'0.05em'}}>{label}</div>
