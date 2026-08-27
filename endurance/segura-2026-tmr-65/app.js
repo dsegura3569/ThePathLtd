@@ -35,6 +35,8 @@ function AddRaceModal({ onClose, onRaceAdded }) {
   const [parsed, setParsed] = React.useState(null);
   const [raceName, setRaceName] = React.useState('');
   const [cutoffHours, setCutoffHours] = React.useState(24);
+  const [manualDate, setManualDate] = React.useState('');
+  const [manualTime, setManualTime] = React.useState('06:00');
   const [errorMsg, setErrorMsg] = React.useState('');
   const fileInputRef = React.useRef(null);
 
@@ -63,7 +65,8 @@ function AddRaceModal({ onClose, onRaceAdded }) {
     const raceConfig = {
       id, name: raceName.trim(), shortName: raceName.trim().slice(0, 20),
       distance: parsed.totalDistance, vertGain: parsed.totalGain,
-      startDate: null, startLabel: 'Date not set \u2014 add on Overview',
+      startDate: manualDate ? `${manualDate}T${manualTime}:00` : null,
+      startLabel: 'Date not set \u2014 add on Overview',
       cutoffHours: Number(cutoffHours) || 24,
       startLat: parsed.startLat, startLon: parsed.startLon,
       baseSegments: parsed.baseSegments, gradeSegments: parsed.gradeSegments,
@@ -133,6 +136,17 @@ function AddRaceModal({ onClose, onRaceAdded }) {
               width:'100%', marginTop:6, marginBottom:18, padding:'9px 10px', borderRadius:8, border:'1px solid var(--line)',
               background:'var(--bg-raised)', color:'var(--ink)', fontSize:14,
             }} />
+            <label style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase'}}>Race date &amp; start time (optional &mdash; can also set this later on Overview)</label>
+            <div style={{display:'flex', gap:8, marginTop:6, marginBottom:18}}>
+              <input type="date" value={manualDate} onChange={e => setManualDate(e.target.value)} style={{
+                flex:1, padding:'9px 10px', borderRadius:8, border:'1px solid var(--line)',
+                background:'var(--bg-raised)', color:'var(--ink)', fontSize:14,
+              }} />
+              <input type="time" value={manualTime} onChange={e => setManualTime(e.target.value)} style={{
+                padding:'9px 10px', borderRadius:8, border:'1px solid var(--line)',
+                background:'var(--bg-raised)', color:'var(--ink)', fontSize:14,
+              }} />
+            </div>
             <button onClick={confirmAdd} disabled={!raceName.trim()} style={{
               width:'100%', padding:'12px', borderRadius:10, border:'none',
               background: raceName.trim() ? 'var(--climb)' : 'var(--bg-raised)',

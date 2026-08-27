@@ -924,7 +924,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
       <div style={{display:'flex', flexDirection:'column'}}>
 
       <div style={{order: pageSectionOrder.indexOf('countdown')}}>
-      {countdown && (
+      {countdown ? (
         <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
           <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:16, letterSpacing:'0.08em', textTransform:'uppercase'}}>
             Countdown to Start
@@ -939,6 +939,20 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
               </div>
             ))}
           </div>
+        </section>
+      ) : activeRace.startDate && (
+        <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
+          <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:16, letterSpacing:'0.08em', textTransform:'uppercase'}}>
+            Race Day Has Passed
+          </div>
+          <a
+            href={activeRace.resultsUrl || `https://www.google.com/search?q=${encodeURIComponent(activeRace.name + ' results')}`}
+            target="_blank" rel="noopener noreferrer"
+            style={{
+              display:'inline-block', padding:'12px 20px', borderRadius:10, background:'var(--climb)',
+              color:'#12151A', fontWeight:600, fontSize:14, textDecoration:'none',
+            }}
+          >View results &rarr;</a>
         </section>
       )}
       </div>
