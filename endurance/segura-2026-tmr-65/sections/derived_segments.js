@@ -145,6 +145,7 @@ function computeDerivedSegments(targetTotalHours, targetCarbHr = BASE_CARB_HR, t
     if (r.endClock > windowStart && r.startClock < windowEnd) caffeineSegIdx.add(i);
   });
 
+  let dropBagCounter = 0;
   return baseSegments.map((s, i) => {
     const hours = hoursList[i];
     const { startClock, endClock } = clockRanges[i];
@@ -202,8 +203,16 @@ function computeDerivedSegments(targetTotalHours, targetCarbHr = BASE_CARB_HR, t
     const waterMlTotal = Math.round(dilutedMl + plainMl);
     const waterMlPerHr = Math.round(waterMlTotal / hours);
 
+    // Sequential drop bag number (1, 2, 3...) assigned in course order to
+    // whichever segments are actually flagged amenities.dropBag=true for
+    // THIS race -- not derived from the segment's name text, which was a
+    // TMR-specific pattern ("Drop Bag #1" literally in the name) that
+    // never matched any other race's real segment names.
+    const dropBagNum = s.amenities && s.amenities.dropBag ? ++dropBagCounter : null;
+
     return {
       ...s,
+      dropBagNum,
       hours, clockS, clockE, time, avgPace, avgMph,
       tailwind: Math.round(tailwind), waterMl: waterMlTotal, waterMlPerHr,
       dilutedMl: Math.round(dilutedMl), plainMl: Math.round(plainMl), tailwindConc: conc,

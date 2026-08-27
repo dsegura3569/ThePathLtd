@@ -361,6 +361,54 @@ function PaceTargetsWidget() {
   );
 }
 
+function DropBagConfigWidget({ onRaceDataChanged }) {
+  const race = window.RACES[window.getCurrentRaceId()];
+  const segments = race.baseSegments;
+  const [checks, setChecks] = React.useState(() => segments.map(s => !!(s.amenities && s.amenities.dropBag)));
+  const [saved, setSaved] = React.useState(false);
+
+  const hasAny = checks.some(Boolean);
+
+  function toggle(i) {
+    setChecks(prev => prev.map((v, idx) => idx === i ? !v : v));
+    setSaved(false);
+  }
+
+  function handleSave() {
+    segments.forEach((s, i) => {
+      s.amenities = { ...s.amenities, dropBag: checks[i] };
+    });
+    if (window.getCurrentRaceId() !== 'tmr') window.saveCustomRace(race);
+    setSaved(true);
+    if (onRaceDataChanged) onRaceDataChanged();
+  }
+
+  return (
+    <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
+      <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:10, letterSpacing:'0.08em', textTransform:'uppercase'}}>
+        Drop Bag Locations
+      </div>
+      {!hasAny && (
+        <div style={{background:'var(--bg-raised)', border:'1px solid var(--climb)66', borderRadius:10, padding:'12px 14px', marginBottom:14, fontSize:12.5, color:'var(--ink-dim)'}}>
+          No drop bag locations set for this race &mdash; a GPX file can't tell us where they are. If this race uses drop bags, check the aid stations below where you'll have one waiting.
+        </div>
+      )}
+      <div style={{marginBottom:14}}>
+        {segments.map((s, i) => (
+          <label key={s.id} style={{display:'flex', alignItems:'center', gap:9, padding:'6px 0', fontSize:13, color:'var(--ink-dim)', cursor:'pointer'}}>
+            <input type="checkbox" checked={checks[i]} onChange={() => toggle(i)} />
+            <span>{s.to} <span style={{color:'var(--ink-faint)', fontFamily:'var(--mono)', fontSize:11}}>(mi {s.miE})</span></span>
+          </label>
+        ))}
+      </div>
+      <button onClick={handleSave} style={{
+        padding:'9px 16px', borderRadius:8, border:'none', background:'var(--climb)', color:'#12151A',
+        fontWeight:600, fontSize:13, cursor:'pointer',
+      }}>{saved ? 'Saved \u2713' : 'Save drop bag locations'}</button>
+    </section>
+  );
+}
+
 function RaceInfoImportWidget({ onRaceDataChanged }) {
   const [pastedText, setPastedText] = React.useState('');
   const [parsed, setParsed] = React.useState(null);
@@ -1033,6 +1081,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
       <div style={{order: pageSectionOrder.indexOf('courseProfile')}}>
       <CourseProfileChart />
       <PaceTargetsWidget />
+      <DropBagConfigWidget onRaceDataChanged={onRaceDataChanged} />
       <RaceInfoImportWidget onRaceDataChanged={onRaceDataChanged} />
       </div>
 

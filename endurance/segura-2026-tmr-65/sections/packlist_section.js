@@ -1,15 +1,33 @@
-// Packing points map onto the real drop-bag pickup structure: the vest is
-// packed at the start and carries you to DB1, each drop bag then carries
-// you to the next one.
-const PACK_POINTS = [
-  { key: 'vest', label: 'Vest (pack before start)', segRange: [1, 3] },
-  { key: 'db1', label: 'Drop Bag #1 — Mile 17 (Oak St)', segRange: [4, 6] },
-  { key: 'db2', label: 'Drop Bag #2 — Mile 35 (Bridal Veil)', segRange: [7, 9] },
-  { key: 'db3', label: 'Drop Bag #3 — Mile 56 (Ophir)', segRange: [10, 10] },
-];
+// Packing points map onto the real drop-bag pickup structure: whatever you
+// start with carries you to the first drop bag, each drop bag then carries
+// you to the next one (or to the finish, if it's the last one). Built
+// dynamically from each race's own segments (via their dropBagNum, set in
+// derived_segments.js from amenities.dropBag) rather than hardcoded --
+// every race has a different course and different drop bag locations.
+function buildPackPoints(segments) {
+  const firstId = segments[0].id;
+  const lastId = segments[segments.length - 1].id;
+  const dropBagSegs = segments.filter(s => s.dropBagNum).sort((a, b) => a.dropBagNum - b.dropBagNum);
 
-function buildPackingData(segments) {
-  return PACK_POINTS.map(point => {
+  if (dropBagSegs.length === 0) {
+    return [{ key: 'vest', label: 'Vest / pack (no drop bags for this race)', segRange: [firstId, lastId] }];
+  }
+
+  const points = [{ key: 'vest', label: 'Vest (pack before start)', segRange: [firstId, dropBagSegs[0].id] }];
+  dropBagSegs.forEach((dbSeg, i) => {
+    const rangeStart = dbSeg.id + 1;
+    const rangeEnd = i + 1 < dropBagSegs.length ? dropBagSegs[i + 1].id : lastId;
+    points.push({
+      key: `db${dbSeg.dropBagNum}`,
+      label: `Drop Bag #${dbSeg.dropBagNum} \u2014 Mile ${dbSeg.miE} (${dbSeg.to.split(' (')[0]})`,
+      segRange: [rangeStart, rangeEnd],
+    });
+  });
+  return points;
+}
+
+function buildPackingData(segments, vesselCapacities) {
+  return buildPackPoints(segments).map(point => {
     const segs = segments.filter(s => s.id >= point.segRange[0] && s.id <= point.segRange[1]);
 
     const gelsTotal = segs.reduce((sum, s) => sum + s.gels, 0);
@@ -17,7 +35,7 @@ function buildPackingData(segments) {
 
     const tailwindBags = [];
     segs.forEach(s => {
-      const vessels = vesselPlan(s);
+      const vessels = vesselPlan(s, vesselCapacities);
       const bags = popsicleBagsForVessels(vessels);
       bags.forEach(b => tailwindBags.push({ seg: s.id, grams: b.grams, vessel: b.vessel }));
     });
@@ -104,9 +122,9 @@ function PackCard({ point }) {
 }
 
 function PackListView() {
-  const { targetHours, targetCarb, targetSodium, targetWaterHr } = React.useContext(window.TargetHoursContext);
+  const { targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, bladderCapacity, beltCapacity } = React.useContext(window.TargetHoursContext);
   const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium, targetWaterHr), [targetHours, targetCarb, targetSodium, targetWaterHr]);
-  const packing = React.useMemo(() => buildPackingData(segments), [segments]);
+  const packing = React.useMemo(() => buildPackingData(segments, { vest: vestCapacity, bladder: bladderCapacity, belt: beltCapacity }), [segments, vestCapacity, bladderCapacity, beltCapacity]);
 
   const grandGels = packing.reduce((s, p) => s + p.gelsTotal, 0);
   const grandTailwind = packing.reduce((s, p) => s + p.tailwindTotal, 0);

@@ -32,8 +32,7 @@ function loadColumnOrder() {
 }
 
 function dropBagNum(seg) {
-  const m = seg.to.match(/Drop Bag #(\d+)/i);
-  return m ? m[1] : null;
+  return seg.dropBagNum || null;
 }
 
 function RaceDayPlanView() {
