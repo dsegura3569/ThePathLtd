@@ -258,18 +258,42 @@ function Footer({ raceId }) {
   );
 }
 
+// Race targets (finish time, nutrition, vessel capacities) are meant to be
+// specific to each race -- a 65-mile mountain race and a flat 50k need very
+// different numbers -- so they're saved per race id, not globally. Also
+// clamped against that race's own official cutoff: a target finish time
+// longer than the cutoff itself was possible before this fix (confirmed via
+// screenshot: showed 24hr target against a 15hr cutoff), since the
+// hardcoded default of 24 was never checked against whatever race was
+// actually loaded.
+const TARGETS_KEY_PREFIX = 'tmr_command_targets_v1_';
+
+function loadTargetsForRace(id) {
+  const race = window.RACES[id];
+  const cutoff = (race && race.cutoffHours) || 24;
+  const defaults = {
+    targetHours: Math.min(24, cutoff), targetCarb: 80, targetSodium: 700, targetWaterHr: 500,
+    vestCapacity: 500, bladderCapacity: 2000, beltCapacity: 650,
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem(TARGETS_KEY_PREFIX + id) || 'null');
+    if (saved) return { ...defaults, ...saved, targetHours: Math.min(saved.targetHours ?? defaults.targetHours, cutoff) };
+  } catch (e) {}
+  return defaults;
+}
+
 function App() {
   const [active, setActive] = useState('overview');
   const [open, setOpen] = useState(false);
   const [openCardPanel, setOpenCardPanel] = useState(false);
-  const [targetHours, setTargetHours] = useState(24);
-  const [targetCarb, setTargetCarb] = useState(80);
-  const [targetSodium, setTargetSodium] = useState(700);
-  const [targetWaterHr, setTargetWaterHr] = useState(500);
-  const [vestCapacity, setVestCapacity] = useState(500);
-  const [bladderCapacity, setBladderCapacity] = useState(2000);
-  const [beltCapacity, setBeltCapacity] = useState(650);
   const [raceId, setRaceId] = useState(() => window.getCurrentRaceId());
+  const [targetHours, setTargetHours] = useState(() => loadTargetsForRace(raceId).targetHours);
+  const [targetCarb, setTargetCarb] = useState(() => loadTargetsForRace(raceId).targetCarb);
+  const [targetSodium, setTargetSodium] = useState(() => loadTargetsForRace(raceId).targetSodium);
+  const [targetWaterHr, setTargetWaterHr] = useState(() => loadTargetsForRace(raceId).targetWaterHr);
+  const [vestCapacity, setVestCapacity] = useState(() => loadTargetsForRace(raceId).vestCapacity);
+  const [bladderCapacity, setBladderCapacity] = useState(() => loadTargetsForRace(raceId).bladderCapacity);
+  const [beltCapacity, setBeltCapacity] = useState(() => loadTargetsForRace(raceId).beltCapacity);
   // Bumped whenever race data is edited in place (e.g. applying parsed race
   // info) so the active page remounts and picks up fresh data, the same way
   // switching races does -- switching raceId alone wouldn't detect an edit
@@ -278,6 +302,26 @@ function App() {
 
   useEffect(() => { window.scrollTo(0,0); }, [active]);
 
+  // Persist targets for the current race whenever any of them change.
+  useEffect(() => {
+    try {
+      localStorage.setItem(TARGETS_KEY_PREFIX + raceId, JSON.stringify({
+        targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, bladderCapacity, beltCapacity,
+      }));
+    } catch (e) {}
+  }, [targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, bladderCapacity, beltCapacity, raceId]);
+
+  // If the current race's own cutoff gets edited down below the current
+  // target (e.g. via the Race Date/Time/Cutoff widget or Import Race Info),
+  // re-clamp immediately rather than silently leaving an impossible target
+  // in place until the person happens to touch the stepper themselves.
+  useEffect(() => {
+    const race = window.RACES[raceId];
+    if (race && race.cutoffHours && targetHours > race.cutoffHours) {
+      setTargetHours(race.cutoffHours);
+    }
+  }, [raceDataVersion, raceId]);
+
   function handleGear() {
     if (active !== 'overview') { setActive('overview'); setOpenCardPanel(true); }
     else { setOpenCardPanel(v => !v); }
@@ -285,7 +329,15 @@ function App() {
 
   function handleSelectRace(id) {
     if (window.selectRace(id)) {
+      const loaded = loadTargetsForRace(id);
       setRaceId(id);
+      setTargetHours(loaded.targetHours);
+      setTargetCarb(loaded.targetCarb);
+      setTargetSodium(loaded.targetSodium);
+      setTargetWaterHr(loaded.targetWaterHr);
+      setVestCapacity(loaded.vestCapacity);
+      setBladderCapacity(loaded.bladderCapacity);
+      setBeltCapacity(loaded.beltCapacity);
       setActive('overview'); // land on Overview -- the previously active page may not exist/make sense for a different race
     }
   }
