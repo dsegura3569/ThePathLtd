@@ -195,8 +195,23 @@ function RacePicker({ raceId, onSelectRace }) {
   );
 }
 
+function getHiddenCardIds() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('tmr_overview_card_state_v1'));
+    if (saved && typeof saved === 'object') {
+      return Object.keys(saved).filter(id => saved[id] === 'hidden');
+    }
+  } catch (e) {}
+  return [];
+}
+
 function Nav({ active, setActive, open, setOpen, onGear, raceId, onSelectRace }) {
   const race = window.RACES[raceId];
+  // Only 'overview' is always shown -- every other section corresponds to a
+  // Race Insights card on Overview, so if that card's been hidden there (via
+  // the manage-sections gear), it shouldn't still show up as a nav option.
+  const hiddenCardIds = getHiddenCardIds();
+  const visibleSections = SECTIONS.filter(s => s.id === 'overview' || !hiddenCardIds.includes(s.id));
   return (
     <React.Fragment>
       <header style={{
@@ -235,11 +250,11 @@ function Nav({ active, setActive, open, setOpen, onGear, raceId, onSelectRace })
           <div style={{maxWidth:1180, margin:'0 auto'}}>
             <a href="/endurance/" style={{
               display:'flex', alignItems:'center', gap:8, width:'100%', textAlign:'left',
-              padding:'14px 4px', textDecoration:'none', color:'var(--ink-faint)',
+              padding:'18px 4px', textDecoration:'none', color:'var(--descent)',
               borderBottom:'1px solid var(--line)', marginBottom:4,
-              fontFamily:'var(--mono)', fontSize:13,
+              fontFamily:'var(--display)', fontSize:22, fontWeight:600,
             }}>&larr; All Races</a>
-            {SECTIONS.map(s => (
+            {visibleSections.map(s => (
               <button key={s.id} onClick={()=>{ setActive(s.id); setOpen(false); }} style={{
                 display:'flex', alignItems:'baseline', gap:16, width:'100%', textAlign:'left',
                 background:'none', border:'none', borderBottom:'1px solid var(--line)',
