@@ -2,15 +2,18 @@ function GradeProfileView() {
   const [active, setActive] = React.useState(1);
   const [hovered, setHovered] = React.useState(null);
   const seg = gradeSegments.find(s => s.id === active);
+  const activeRace = window.RACES[window.getCurrentRaceId()];
 
   const allGrades = seg.data.map(d => d.grade);
   const maxAbs = Math.max(...allGrades.map(Math.abs), 25);
   const chartH = 200;
   const zeroY = chartH * 0.5;
 
+  const totalTrackpoints = gradeSegments.reduce((sum, s) => sum + s.data.length, 0);
+
   return (
     <div style={{paddingBottom:60}}>
-      <SectionHeader eyebrow="03" title="Grade Profile" sub="63 miles &middot; 23,320 ft gain &middot; ultraPacer GPX &middot; 0.1-mile resolution &middot; tap any bar for detail" />
+      <SectionHeader eyebrow="03" title="Grade Profile" sub={`${activeRace.distance} miles \u00b7 ${activeRace.vertGain.toLocaleString()} ft gain \u00b7 ultraPacer GPX \u00b7 0.1-mile resolution \u00b7 tap any bar for detail`} />
 
       <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 8, marginBottom: 20 }}>
         {gradeSegments.map(s => (
@@ -18,13 +21,13 @@ function GradeProfileView() {
             padding: "6px 10px", borderRadius: 8, flexShrink: 0,
             border: `1.5px solid ${active === s.id ? s.color : "var(--line)"}`,
             background: active === s.id ? s.color + "20" : "var(--bg-card)",
-            cursor: "pointer", textAlign: "left", minWidth: 90,
+            cursor: "pointer", textAlign: "left", minWidth: 130,
           }}>
             <div style={{ fontSize: 9, fontWeight: 700, color: active === s.id ? s.color : "var(--ink-faint)" }}>
               {s.netDir === "climb" ? "\u25B2" : "\u25BC"} Mi {s.miS}&ndash;{s.miE}
             </div>
-            <div style={{ fontSize: 9, color: "var(--ink-dim)", marginTop: 1, lineHeight: 1.3 }}>
-              {s.from.split(" ")[0]}&rarr;{s.to.split(" ")[0]}
+            <div style={{ fontSize: 9, color: "var(--ink-dim)", marginTop: 1, lineHeight: 1.3, whiteSpace: "nowrap" }}>
+              {s.from}&rarr;{s.to}
             </div>
             <div style={{ fontSize: 9, color: "var(--ink-faint)", marginTop: 1 }}>{s.clock}</div>
           </button>
@@ -147,7 +150,7 @@ function GradeProfileView() {
       </div>
 
       <div style={{ marginTop: 12, fontSize: 11, color: "var(--ink-faint)" }}>
-        Source: ultraPacer GPX &middot; 3,295 trackpoints &middot; 23,320 ft verified total gain
+        Source: ultraPacer GPX &middot; {totalTrackpoints.toLocaleString()} trackpoints &middot; {activeRace.vertGain.toLocaleString()} ft verified total gain
       </div>
     </div>
   );
