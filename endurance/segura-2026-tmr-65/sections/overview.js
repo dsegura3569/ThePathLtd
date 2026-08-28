@@ -813,6 +813,11 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
   React.useEffect(() => {
     if (externalCardPanelOpen !== undefined) setShowPageLayoutPanel(externalCardPanelOpen);
   }, [externalCardPanelOpen]);
+
+  // Race Config (Drop Bag Locations, Race Date/Time/Cutoff, Import Race Info) --
+  // tucked behind its own gear toggle instead of always showing inline, since
+  // it's one-time setup rather than something checked on every visit.
+  const [showRaceConfigPanel, setShowRaceConfigPanel] = React.useState(false);
   const [showAddForm, setShowAddForm] = React.useState(false);
   const [editingCardId, setEditingCardId] = React.useState(null);
   const [newCardTitle, setNewCardTitle] = React.useState('');
@@ -1081,8 +1086,26 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
       <div style={{order: pageSectionOrder.indexOf('courseProfile')}}>
       <CourseProfileChart />
       <PaceTargetsWidget />
-      <DropBagConfigWidget onRaceDataChanged={onRaceDataChanged} />
-      <RaceInfoImportWidget onRaceDataChanged={onRaceDataChanged} />
+
+      <section style={{padding: showRaceConfigPanel ? '20px 0 0' : '20px 0', borderBottom: showRaceConfigPanel ? 'none' : '1px solid var(--line)'}}>
+        <div style={{display:'flex', alignItems:'center', gap:8}}>
+          <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase', flex:1}}>
+            Race Config
+          </div>
+          <button onClick={() => setShowRaceConfigPanel(v => !v)} aria-label="Race config" title="Drop bag locations, race date/time/cutoff, import race info" style={{
+            background:'none', border:'1px solid var(--line)', borderRadius:6, width:28, height:28,
+            color: showRaceConfigPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
+          }}>⚙️</button>
+        </div>
+      </section>
+
+      {showRaceConfigPanel && (
+        <>
+          <DropBagConfigWidget onRaceDataChanged={onRaceDataChanged} />
+          <RaceInfoImportWidget onRaceDataChanged={onRaceDataChanged} />
+        </>
+      )}
       </div>
 
       <div style={{order: pageSectionOrder.indexOf('raceInsights')}}>
