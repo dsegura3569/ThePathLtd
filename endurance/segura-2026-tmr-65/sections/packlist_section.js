@@ -223,47 +223,40 @@ function PackListView() {
     <div style={{ paddingBottom: 60 }}>
       <SectionHeader eyebrow="01" title="Pack List" sub={`Everything to portion and label before Saturday &middot; ${targetHours}hr target (adjust on Race Day Plan)`} />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 20, background: 'var(--bg-raised)', borderRadius: 10, padding: '10px 14px' }}>
-        <span style={{ fontSize: 12.5, color: 'var(--ink-dim)', flex: 1, minWidth: 180 }}>
-          Gels &harr; Tailwind &mdash; shifts the same carb target between the two, doesn't change total carbs/hr.
-        </span>
-        <button onClick={() => setGelRateShift(v => Math.round((v - 0.5) * 10) / 10)} style={{
-          width: 28, height: 28, borderRadius: 8, border: '1px solid var(--line)', background: 'var(--bg-card)', color: 'var(--ink)', cursor: 'pointer', fontSize: 14,
-        }}>&minus;</button>
-        <span style={{ fontSize: 13, fontFamily: 'var(--display)', fontWeight: 600, color: 'var(--climb)', minWidth: 90, textAlign: 'center' }}>
-          {gelRateShift > 0 ? `+${gelRateShift} gel/hr` : gelRateShift < 0 ? `${gelRateShift} gel/hr` : 'no shift'}
-        </span>
-        <button onClick={() => setGelRateShift(v => Math.round((v + 0.5) * 10) / 10)} style={{
-          width: 28, height: 28, borderRadius: 8, border: '1px solid var(--line)', background: 'var(--bg-card)', color: 'var(--ink)', cursor: 'pointer', fontSize: 14,
-        }}>+</button>
-        {gelRateShift !== 0 && (
-          <button onClick={() => setGelRateShift(0)} style={{ fontSize: 11, color: 'var(--ink-faint)', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}>reset</button>
-        )}
-      </div>
-
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8, marginBottom: 24 }}>
-        <StatBox label="Gels" value={grandGels} sub={
+        <StatBox label="Gels" value={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button onClick={() => setGelRateShift(v => Math.round(v - 1))} style={{
+              width: 20, height: 20, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--bg-card)', color: 'var(--ink)', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: 0,
+            }}>&minus;</button>
+            <span>{grandGels}</span>
+            <button onClick={() => setGelRateShift(v => Math.round(v + 1))} style={{
+              width: 20, height: 20, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--bg-card)', color: 'var(--ink)', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: 0,
+            }}>+</button>
+          </div>
+        } sub={
           <React.Fragment>
             <div>{gelCarbs}g carbs (22g/gel)</div>
-            <div>{totalCarbs}g combined w/ tailwind</div>
+            {grandGels > 0 && grandTailwind > 0 && <div>{totalCarbs}g combined w/ tailwind</div>}
+            {gelRateShift !== 0 && <div>{gelRateShift > 0 ? `+${gelRateShift}` : gelRateShift}/hr shift &middot; <span onClick={() => setGelRateShift(0)} style={{ textDecoration: 'underline', cursor: 'pointer' }}>reset</span></div>}
           </React.Fragment>
         } />
         <StatBox label="Tailwind" value={`${grandTailwind}g`} sub={
           <React.Fragment>
             <div>{tailwindCarbs}g carbs from tailwind</div>
-            <div>{totalCarbs}g combined w/ gels</div>
+            {grandGels > 0 && grandTailwind > 0 && <div>{totalCarbs}g combined w/ gels</div>}
           </React.Fragment>
         } />
         <StatBox label="Salt caps" value={grandSaltOrig} sub={
           <React.Fragment>
             <div>{grandSaltOrig * CAP_NA}mg sodium (215mg/cap)</div>
-            <div>{totalSodium}mg combined w/ +caf</div>
+            {grandSaltOrig > 0 && grandSaltCaf > 0 && <div>{totalSodium}mg combined w/ +caf</div>}
           </React.Fragment>
         } />
         <StatBox label="Salt +caf" value={grandSaltCaf} sub={
           <React.Fragment>
             <div>{grandSaltCaf * CAP_NA_CAFFEINE}mg sodium (190mg/cap)</div>
-            <div>{totalSodium}mg combined w/ caps</div>
+            {grandSaltOrig > 0 && grandSaltCaf > 0 && <div>{totalSodium}mg combined w/ caps</div>}
           </React.Fragment>
         } />
         <StatBox label="Water" value={`${(totalWaterMl/1000).toFixed(1)}L`} sub="whole race" color="#4A9FE8" />
@@ -273,9 +266,6 @@ function PackListView() {
       <div style={{ background: 'var(--bg-raised)', borderRadius: 10, padding: '14px 16px', marginBottom: 24 }}>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
           Additional Fuel &amp; Electrolytes
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 12 }}>
-          Anything beyond SIS GO gels + Tailwind + SaltStick &mdash; another carb mix, LMNT, etc. Logged as extra totals, not auto-scheduled per segment.
         </div>
         {customFuelItems.map(it => (
           <div key={it.id} style={{ background: 'var(--bg-card)', borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}>
