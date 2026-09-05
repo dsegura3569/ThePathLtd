@@ -26,7 +26,7 @@ function buildPackPoints(segments) {
   return points;
 }
 
-function buildPackingData(segments, vesselCapacities) {
+function buildPackingData(segments, vesselConfig) {
   return buildPackPoints(segments).map(point => {
     const segs = segments.filter(s => s.id >= point.segRange[0] && s.id <= point.segRange[1]);
 
@@ -35,7 +35,7 @@ function buildPackingData(segments, vesselCapacities) {
 
     const tailwindBags = [];
     segs.forEach(s => {
-      const vessels = vesselPlan(s, vesselCapacities);
+      const vessels = vesselPlan(s, capacitiesForSegment(s.id, vesselConfig));
       const bags = popsicleBagsForVessels(vessels);
       bags.forEach(b => tailwindBags.push({ seg: s.id, grams: b.grams, vessel: b.vessel }));
     });
@@ -122,9 +122,14 @@ function PackCard({ point }) {
 }
 
 function PackListView() {
-  const { targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, bladderCapacity, beltCapacity } = React.useContext(window.TargetHoursContext);
+  const { targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, bladderCapacity, beltCapacity,
+    vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, extraGear } = React.useContext(window.TargetHoursContext);
   const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium, targetWaterHr), [targetHours, targetCarb, targetSodium, targetWaterHr]);
-  const packing = React.useMemo(() => buildPackingData(segments, { vest: vestCapacity, bladder: bladderCapacity, belt: beltCapacity }), [segments, vestCapacity, bladderCapacity, beltCapacity]);
+  const vesselConfig = {
+    vestCapacity, vestEnabled, bladderCapacity, bladderEnabled, beltCapacity, beltEnabled,
+    handheldCapacity, handheldEnabled, vesselRanges,
+  };
+  const packing = React.useMemo(() => buildPackingData(segments, vesselConfig), [segments, vestCapacity, bladderCapacity, beltCapacity, vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges]);
 
   const grandGels = packing.reduce((s, p) => s + p.gelsTotal, 0);
   const grandTailwind = packing.reduce((s, p) => s + p.tailwindTotal, 0);
@@ -138,6 +143,63 @@ function PackListView() {
   const totalSodium = grandSaltOrig * CAP_NA + grandSaltCaf * CAP_NA_CAFFEINE;
   const totalCalories = Math.round(totalCarbs * 4); // 4 kcal/g carb, matches both SIS GO and Tailwind label ratios
   const totalWaterMl = segments.reduce((a, s) => a + s.waterMl, 0);
+
+  // --- Gear summary: vessels + extra gear, with pickup/dropoff labels and
+  // live dawn/cold suggestions where the person asked for a forecast check. ---
+  const race = window.RACES[window.getCurrentRaceId()];
+  const raceSegments = race.baseSegments;
+  const forecast = window.useRaceDayForecast();
+  let raceStartDecHour = null;
+  if (race.startDate) {
+    const m = race.startDate.match(/T(\d{2}):(\d{2})/);
+    if (m) raceStartDecHour = parseInt(m[1], 10) + parseInt(m[2], 10) / 60;
+  }
+
+  function pointLabel(segmentId, kind) {
+    if (kind === 'pickup') {
+      if (segmentId == null) return 'Start';
+      const prevSeg = raceSegments.find(s => s.id === segmentId - 1);
+      return prevSeg ? prevSeg.to : 'Start';
+    }
+    if (segmentId == null) return 'Finish';
+    const seg = raceSegments.find(s => s.id === segmentId);
+    return seg ? seg.to : 'Finish';
+  }
+
+  function arrivalHoursForPickup(pickupSegmentId) {
+    if (pickupSegmentId == null) return 0;
+    const prevSeg = segments.find(s => s.id === pickupSegmentId - 1);
+    return prevSeg ? prevSeg.modeledArrivalHours : 0;
+  }
+
+  function gearSuggestion(g) {
+    if (g.suggestType === 'dawn') {
+      if (forecast.status !== 'ok' || raceStartDecHour == null) return null;
+      const m = forecast.sunrise.match(/(\d+):(\d+)(am|pm)/i);
+      if (!m) return null;
+      let h = parseInt(m[1], 10) % 12; if (m[3].toLowerCase() === 'pm') h += 12;
+      const sunriseDec = h + parseInt(m[2], 10) / 60;
+      return raceStartDecHour < sunriseDec
+        ? { suggested: true, note: `start is before sunrise (${forecast.sunrise})` }
+        : { suggested: false, note: `sunrise is ${forecast.sunrise}, before your start` };
+    }
+    if (g.suggestType === 'cold') {
+      if (forecast.status !== 'ok' || raceStartDecHour == null || !forecast.tempAtDecimalHour) return null;
+      const temp = forecast.tempAtDecimalHour(raceStartDecHour + arrivalHoursForPickup(g.pickupSegmentId));
+      if (temp == null) return null;
+      return temp < g.tempThreshold
+        ? { suggested: true, note: `~${Math.round(temp)}\u00b0F forecasted at pickup` }
+        : { suggested: false, note: `~${Math.round(temp)}\u00b0F forecasted at pickup, above ${g.tempThreshold}\u00b0F` };
+    }
+    return null;
+  }
+
+  const vesselRows = [
+    { key: 'vest', label: 'Vest flasks (x2)', enabled: vestEnabled, capacity: vestCapacity, range: vesselRanges.vest },
+    { key: 'bladder', label: 'Bladder', enabled: bladderEnabled, capacity: bladderCapacity, range: vesselRanges.bladder },
+    { key: 'belt', label: 'Belt flask', enabled: beltEnabled, capacity: beltCapacity, range: vesselRanges.belt },
+    { key: 'handheld', label: 'Handheld', enabled: handheldEnabled, capacity: handheldCapacity, range: vesselRanges.handheld },
+  ].filter(v => v.enabled);
 
   return (
     <div style={{ paddingBottom: 60 }}>
@@ -171,6 +233,44 @@ function PackListView() {
         <StatBox label="Water" value={`${(totalWaterMl/1000).toFixed(1)}L`} sub="whole race" color="#4A9FE8" />
         <StatBox label="Calories" value={totalCalories} sub="whole race" />
       </div>
+
+      {(vesselRows.length > 0 || extraGear.length > 0) && (
+        <div style={{ background: 'var(--bg-raised)', borderRadius: 10, padding: '14px 16px', marginBottom: 24 }}>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
+            Gear
+          </div>
+          {vesselRows.map(v => {
+            const fromLabel = v.range && v.range.from != null ? pointLabel(v.range.from, 'pickup') : null;
+            const toLabel = v.range && v.range.to != null ? pointLabel(v.range.to, 'dropoff') : null;
+            return (
+              <div key={v.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '6px 0', borderTop: '1px solid var(--line)', fontSize: 13 }}>
+                <span style={{ color: 'var(--ink)' }}>{v.label} <span style={{ color: 'var(--ink-faint)', fontSize: 11 }}>({v.capacity}ml)</span></span>
+                <span style={{ color: 'var(--ink-faint)', fontSize: 11.5, textAlign: 'right' }}>
+                  {fromLabel || toLabel ? `${fromLabel ? `from ${fromLabel}` : 'whole race'}${toLabel ? ` \u2192 ${toLabel}` : ''}` : 'whole race'}
+                </span>
+              </div>
+            );
+          })}
+          {extraGear.map(g => {
+            const sugg = gearSuggestion(g);
+            return (
+              <div key={g.id} style={{ padding: '6px 0', borderTop: '1px solid var(--line)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 13 }}>
+                  <span style={{ color: 'var(--ink)' }}>{g.name || 'Untitled item'}</span>
+                  <span style={{ color: 'var(--ink-faint)', fontSize: 11.5, textAlign: 'right' }}>
+                    {pointLabel(g.pickupSegmentId, 'pickup')} &rarr; {pointLabel(g.dropoffSegmentId, 'dropoff')}
+                  </span>
+                </div>
+                {sugg && (
+                  <div style={{ fontSize: 11, marginTop: 2, color: sugg.suggested ? 'var(--climb)' : 'var(--ink-faint)' }}>
+                    {sugg.suggested ? '\u2713 Suggested' : 'Not needed'} &mdash; {sugg.note}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {packing.map(point => <PackCard key={point.key} point={point} />)}
 
