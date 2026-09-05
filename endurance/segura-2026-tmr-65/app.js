@@ -30,6 +30,16 @@ const TargetHoursContext = React.createContext({
   // is { id, name, pickupSegmentId (null = start), dropoffSegmentId (null =
   // finish), suggestType: 'none'|'dawn'|'cold', tempThreshold }.
   extraGear: [], setExtraGear: () => {},
+  // "Gels <-> Tailwind" quick-convert: extra (or fewer) gels/hr shifted onto
+  // gels, with tailwind automatically absorbing the rest of the fixed carb
+  // target. See derived_segments.js.
+  gelRateShift: 0, setGelRateShift: () => {},
+  // Freeform additional fuel/electrolyte products beyond the built-in SIS GO
+  // gel + Tailwind + SaltStick model (e.g. LMNT, a different carb mix) --
+  // each is { id, name, carbG, sodiumMg, caffeineMg, servings } and is
+  // logged/totaled alongside the auto-computed plan rather than woven into
+  // its per-segment math.
+  customFuelItems: [], setCustomFuelItems: () => {},
 });
 window.TargetHoursContext = TargetHoursContext;
 
@@ -328,6 +338,8 @@ function loadTargetsForRace(id) {
       belt: { from: null, to: null }, handheld: { from: null, to: null },
     },
     extraGear: [],
+    gelRateShift: 0,
+    customFuelItems: [],
   };
   try {
     const saved = JSON.parse(localStorage.getItem(TARGETS_KEY_PREFIX + id) || 'null');
@@ -355,6 +367,8 @@ function App() {
   const [handheldEnabled, setHandheldEnabled] = useState(() => loadTargetsForRace(raceId).handheldEnabled);
   const [vesselRanges, setVesselRanges] = useState(() => loadTargetsForRace(raceId).vesselRanges);
   const [extraGear, setExtraGear] = useState(() => loadTargetsForRace(raceId).extraGear);
+  const [gelRateShift, setGelRateShift] = useState(() => loadTargetsForRace(raceId).gelRateShift);
+  const [customFuelItems, setCustomFuelItems] = useState(() => loadTargetsForRace(raceId).customFuelItems);
   // Bumped whenever race data is edited in place (e.g. applying parsed race
   // info) so the active page remounts and picks up fresh data, the same way
   // switching races does -- switching raceId alone wouldn't detect an edit
@@ -369,10 +383,12 @@ function App() {
       localStorage.setItem(TARGETS_KEY_PREFIX + raceId, JSON.stringify({
         targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, bladderCapacity, beltCapacity,
         vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, extraGear,
+        gelRateShift, customFuelItems,
       }));
     } catch (e) {}
   }, [targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, bladderCapacity, beltCapacity,
-      vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, extraGear, raceId]);
+      vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, extraGear,
+      gelRateShift, customFuelItems, raceId]);
 
   // If the current race's own cutoff gets edited down below the current
   // target (e.g. via the Race Date/Time/Cutoff widget or Import Race Info),
@@ -408,6 +424,8 @@ function App() {
       setHandheldEnabled(loaded.handheldEnabled);
       setVesselRanges(loaded.vesselRanges);
       setExtraGear(loaded.extraGear);
+      setGelRateShift(loaded.gelRateShift);
+      setCustomFuelItems(loaded.customFuelItems);
       setActive('overview'); // land on Overview -- the previously active page may not exist/make sense for a different race
     }
   }
@@ -433,6 +451,7 @@ function App() {
       vestEnabled, setVestEnabled, bladderEnabled, setBladderEnabled, beltEnabled, setBeltEnabled,
       handheldCapacity, setHandheldCapacity, handheldEnabled, setHandheldEnabled,
       vesselRanges, setVesselRanges, extraGear, setExtraGear,
+      gelRateShift, setGelRateShift, customFuelItems, setCustomFuelItems,
     }}>
       <div>
         <Nav active={active} setActive={setActive} open={open} setOpen={setOpen} onGear={handleGear} raceId={raceId} onSelectRace={handleSelectRace} />
