@@ -123,8 +123,9 @@ function PackCard({ point }) {
 
 function PackListView() {
   const { targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, bladderCapacity, beltCapacity,
-    vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, extraGear } = React.useContext(window.TargetHoursContext);
-  const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium, targetWaterHr), [targetHours, targetCarb, targetSodium, targetWaterHr]);
+    vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, extraGear,
+    gelRateShift, setGelRateShift, customFuelItems, setCustomFuelItems } = React.useContext(window.TargetHoursContext);
+  const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium, targetWaterHr, gelRateShift), [targetHours, targetCarb, targetSodium, targetWaterHr, gelRateShift]);
   const vesselConfig = {
     vestCapacity, vestEnabled, bladderCapacity, bladderEnabled, beltCapacity, beltEnabled,
     handheldCapacity, handheldEnabled, vesselRanges,
@@ -143,6 +144,23 @@ function PackListView() {
   const totalSodium = grandSaltOrig * CAP_NA + grandSaltCaf * CAP_NA_CAFFEINE;
   const totalCalories = Math.round(totalCarbs * 4); // 4 kcal/g carb, matches both SIS GO and Tailwind label ratios
   const totalWaterMl = segments.reduce((a, s) => a + s.waterMl, 0);
+
+  function addFuelItem() {
+    setCustomFuelItems(prev => [...prev, { id: Date.now(), name: '', carbG: 0, sodiumMg: 0, caffeineMg: 0, servings: 1 }]);
+  }
+  function updateFuelItem(id, patch) {
+    setCustomFuelItems(prev => prev.map(it => it.id === id ? { ...it, ...patch } : it));
+  }
+  function removeFuelItem(id) {
+    setCustomFuelItems(prev => prev.filter(it => it.id !== id));
+  }
+  const customCarbTotal = customFuelItems.reduce((a, it) => a + it.carbG * it.servings, 0);
+  const customSodiumTotal = customFuelItems.reduce((a, it) => a + it.sodiumMg * it.servings, 0);
+  const customCaffeineTotal = customFuelItems.reduce((a, it) => a + it.caffeineMg * it.servings, 0);
+  const combinedCarbs = totalCarbs + customCarbTotal;
+  const combinedSodium = totalSodium + customSodiumTotal;
+  const combinedCalories = totalCalories + Math.round(customCarbTotal * 4);
+  const fuelSelectStyle = { background:'var(--bg-raised)', border:'1px solid var(--line)', borderRadius:6, color:'var(--ink)', fontSize:12, padding:'5px 6px' };
 
   // --- Gear summary: vessels + extra gear, with pickup/dropoff labels and
   // live dawn/cold suggestions where the person asked for a forecast check. ---
@@ -205,6 +223,24 @@ function PackListView() {
     <div style={{ paddingBottom: 60 }}>
       <SectionHeader eyebrow="01" title="Pack List" sub={`Everything to portion and label before Saturday &middot; ${targetHours}hr target (adjust on Race Day Plan)`} />
 
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 20, background: 'var(--bg-raised)', borderRadius: 10, padding: '10px 14px' }}>
+        <span style={{ fontSize: 12.5, color: 'var(--ink-dim)', flex: 1, minWidth: 180 }}>
+          Gels &harr; Tailwind &mdash; shifts the same carb target between the two, doesn't change total carbs/hr.
+        </span>
+        <button onClick={() => setGelRateShift(v => Math.round((v - 0.5) * 10) / 10)} style={{
+          width: 28, height: 28, borderRadius: 8, border: '1px solid var(--line)', background: 'var(--bg-card)', color: 'var(--ink)', cursor: 'pointer', fontSize: 14,
+        }}>&minus;</button>
+        <span style={{ fontSize: 13, fontFamily: 'var(--display)', fontWeight: 600, color: 'var(--climb)', minWidth: 90, textAlign: 'center' }}>
+          {gelRateShift > 0 ? `+${gelRateShift} gel/hr` : gelRateShift < 0 ? `${gelRateShift} gel/hr` : 'no shift'}
+        </span>
+        <button onClick={() => setGelRateShift(v => Math.round((v + 0.5) * 10) / 10)} style={{
+          width: 28, height: 28, borderRadius: 8, border: '1px solid var(--line)', background: 'var(--bg-card)', color: 'var(--ink)', cursor: 'pointer', fontSize: 14,
+        }}>+</button>
+        {gelRateShift !== 0 && (
+          <button onClick={() => setGelRateShift(0)} style={{ fontSize: 11, color: 'var(--ink-faint)', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}>reset</button>
+        )}
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8, marginBottom: 24 }}>
         <StatBox label="Gels" value={grandGels} sub={
           <React.Fragment>
@@ -231,7 +267,46 @@ function PackListView() {
           </React.Fragment>
         } />
         <StatBox label="Water" value={`${(totalWaterMl/1000).toFixed(1)}L`} sub="whole race" color="#4A9FE8" />
-        <StatBox label="Calories" value={totalCalories} sub="whole race" />
+        <StatBox label="Calories" value={combinedCalories} sub={customFuelItems.length ? `${totalCalories} from plan + ${Math.round(customCarbTotal*4)} custom` : 'whole race'} />
+      </div>
+
+      <div style={{ background: 'var(--bg-raised)', borderRadius: 10, padding: '14px 16px', marginBottom: 24 }}>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
+          Additional Fuel &amp; Electrolytes
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 12 }}>
+          Anything beyond SIS GO gels + Tailwind + SaltStick &mdash; another carb mix, LMNT, etc. Logged as extra totals, not auto-scheduled per segment.
+        </div>
+        {customFuelItems.map(it => (
+          <div key={it.id} style={{ background: 'var(--bg-card)', borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
+              <input value={it.name} onChange={e => updateFuelItem(it.id, { name: e.target.value })} placeholder="Product name (e.g. LMNT)" style={{ ...fuelSelectStyle, flex: 1, minWidth: 140 }} />
+              <button onClick={() => removeFuelItem(it.id)} aria-label="Remove item" style={{
+                width: 26, height: 26, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--bg-raised)', color: 'var(--ink-faint)', cursor: 'pointer', fontSize: 13,
+              }}>&#10005;</button>
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', fontSize: 12, color: 'var(--ink-dim)' }}>
+              <span>Carb/serving</span>
+              <input type="number" value={it.carbG} onChange={e => updateFuelItem(it.id, { carbG: parseFloat(e.target.value) || 0 })} style={{ ...fuelSelectStyle, width: 56 }} /><span>g</span>
+              <span>Sodium/serving</span>
+              <input type="number" value={it.sodiumMg} onChange={e => updateFuelItem(it.id, { sodiumMg: parseFloat(e.target.value) || 0 })} style={{ ...fuelSelectStyle, width: 64 }} /><span>mg</span>
+              <span>Caffeine/serving</span>
+              <input type="number" value={it.caffeineMg} onChange={e => updateFuelItem(it.id, { caffeineMg: parseFloat(e.target.value) || 0 })} style={{ ...fuelSelectStyle, width: 56 }} /><span>mg</span>
+              <span>Servings</span>
+              <input type="number" min="0" value={it.servings} onChange={e => updateFuelItem(it.id, { servings: parseFloat(e.target.value) || 0 })} style={{ ...fuelSelectStyle, width: 48 }} />
+            </div>
+          </div>
+        ))}
+        <button onClick={addFuelItem} style={{
+          padding: '8px 14px', borderRadius: 8, border: '1px dashed var(--line)', background: 'none',
+          color: 'var(--climb)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+        }}>+ Add fuel/electrolyte item</button>
+        {customFuelItems.length > 0 && (
+          <div style={{ fontSize: 12, color: 'var(--ink-dim)', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)' }}>
+            Adds {customCarbTotal}g carbs, {customSodiumTotal}mg sodium{customCaffeineTotal > 0 ? `, ${customCaffeineTotal}mg caffeine` : ''} to the totals above
+            (combined: {combinedCarbs}g carbs, {combinedSodium}mg sodium).
+          </div>
+        )}
       </div>
 
       {(vesselRows.length > 0 || extraGear.length > 0) && (
