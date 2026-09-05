@@ -164,8 +164,8 @@ function RaceDayForecastWidget() {
     return `${h12}:${String(mins).padStart(2, '0')}${period}`;
   }
 
-  const startTemp = startDecHour !== null ? f.tempAtDecimalHour(startDecHour) : null;
-  const finishTemp = finishDecHour !== null ? f.tempAtDecimalHour(finishDecHour) : null;
+  const startTemp = (startDecHour !== null && typeof f.tempAtDecimalHour === 'function') ? f.tempAtDecimalHour(startDecHour) : null;
+  const finishTemp = (finishDecHour !== null && typeof f.tempAtDecimalHour === 'function') ? f.tempAtDecimalHour(finishDecHour) : null;
   // Color start/finish by which is actually warmer, matching the Low
   // (blue)/High (orange) convention above -- rather than hardcoding start=
   // orange/finish=blue by position, which showed a cooler start in orange
