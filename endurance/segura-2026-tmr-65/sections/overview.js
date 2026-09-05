@@ -164,19 +164,35 @@ function RaceDayForecastWidget() {
     return `${h12}:${String(mins).padStart(2, '0')}${period}`;
   }
 
+  const startTemp = startDecHour !== null ? f.tempAtDecimalHour(startDecHour) : null;
+  const finishTemp = finishDecHour !== null ? f.tempAtDecimalHour(finishDecHour) : null;
+  // Color start/finish by which is actually warmer, matching the Low
+  // (blue)/High (orange) convention above -- rather than hardcoding start=
+  // orange/finish=blue by position, which showed a cooler start in orange
+  // and a warmer finish in blue: backwards from what those colors mean
+  // everywhere else on this card.
+  let startColor = 'var(--ink)', finishColor = 'var(--ink)';
+  if (startTemp != null && finishTemp != null && startTemp !== finishTemp) {
+    startColor = startTemp > finishTemp ? 'var(--climb)' : '#4A9FE8';
+    finishColor = finishTemp > startTemp ? 'var(--climb)' : '#4A9FE8';
+  }
+
   const blocks = f.status === 'ok'
     ? [
         { label: 'Low', value: `${f.low}°F`, sub: f.lowTime, color: '#4A9FE8' },
         { label: 'High', value: `${f.high}°F`, sub: f.highTime, color: 'var(--climb)' },
-        { label: 'Sunrise', value: f.sunrise, sub: null, color: 'var(--climb)' },
-        { label: 'Sunset', value: f.sunset, sub: null, color: '#4A9FE8' },
+        // Sunrise/Sunset are time-of-day markers, not temperatures -- kept
+        // neutral rather than reusing the warm/cool palette, since morning
+        // isn't reliably "the warm one" the way High actually is.
+        { label: 'Sunrise', value: f.sunrise, sub: null, color: 'var(--ink)' },
+        { label: 'Sunset', value: f.sunset, sub: null, color: 'var(--ink)' },
         ...(startDecHour !== null ? [{
-          label: 'At start', value: (() => { const t = f.tempAtDecimalHour(startDecHour); return t == null ? '\u2014' : `${Math.round(t)}\u00b0F`; })(),
-          sub: fmtDecHour(startDecHour), color: 'var(--climb)',
+          label: 'At start', value: startTemp == null ? '\u2014' : `${Math.round(startTemp)}\u00b0F`,
+          sub: fmtDecHour(startDecHour), color: startColor,
         }] : []),
         ...(finishDecHour !== null ? [{
-          label: 'At finish', value: (() => { const t = f.tempAtDecimalHour(finishDecHour); return t == null ? '\u2014' : `${Math.round(t)}\u00b0F`; })(),
-          sub: `${fmtDecHour(finishDecHour)} \u00b7 ${targetHours}hr target`, color: '#4A9FE8',
+          label: 'At finish', value: finishTemp == null ? '\u2014' : `${Math.round(finishTemp)}\u00b0F`,
+          sub: `${fmtDecHour(finishDecHour)} \u00b7 ${targetHours}hr target`, color: finishColor,
         }] : []),
       ]
     : null;
