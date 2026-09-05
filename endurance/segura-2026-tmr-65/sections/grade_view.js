@@ -40,7 +40,7 @@ function GradeProfileView() {
             Seg {seg.id}: {seg.from} &rarr; {seg.to}
           </div>
           <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 2 }}>
-            {seg.miE - seg.miS} miles &middot; {seg.clock} &middot; {seg.data[0].elev.toLocaleString()}&rarr;{seg.data[seg.data.length-1].elev.toLocaleString()} ft
+            {seg.distReal != null ? seg.distReal : Math.round((seg.miE - seg.miS) * 100) / 100} miles{seg.clock ? <> &middot; {seg.clock}</> : null} &middot; {seg.data[0].elev.toLocaleString()}&rarr;{seg.data[seg.data.length-1].elev.toLocaleString()} ft
           </div>
         </div>
         <div style={{ fontSize: 11, padding: "4px 10px", borderRadius: 20, background: seg.color + "20", color: seg.color, fontWeight: 700 }}>
