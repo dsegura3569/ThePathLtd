@@ -36,7 +36,12 @@ function dropBagNum(seg) {
 }
 
 function RaceDayPlanView() {
-  const { targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium, targetWaterHr, setTargetWaterHr, vestCapacity, setVestCapacity, bladderCapacity, setBladderCapacity, beltCapacity, setBeltCapacity } = React.useContext(window.TargetHoursContext);
+  const { targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium, targetWaterHr, setTargetWaterHr, vestCapacity, setVestCapacity, bladderCapacity, setBladderCapacity, beltCapacity, setBeltCapacity,
+    vestEnabled, setVestEnabled, bladderEnabled, setBladderEnabled, beltEnabled, setBeltEnabled, handheldCapacity, setHandheldCapacity, handheldEnabled, setHandheldEnabled, vesselRanges, setVesselRanges } = React.useContext(window.TargetHoursContext);
+  const raceSegments = window.RACES[window.getCurrentRaceId()].baseSegments;
+  function setRangeFor(key) {
+    return (next) => setVesselRanges(prev => ({ ...prev, [key]: next }));
+  }
   const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium, targetWaterHr), [targetHours, targetCarb, targetSodium, targetWaterHr]);
   const [active, setActive] = React.useState(1);
   const seg = segments.find(s => s.id === active);
@@ -62,7 +67,10 @@ function RaceDayPlanView() {
   // Vessel breakdown now comes from the same shared vesselPlan() used by the
   // Segments tab, so both views describe the same physical flasks/bladder
   // identically instead of drifting apart.
-  const vessels = vesselPlan(seg, { vest: vestCapacity, bladder: bladderCapacity, belt: beltCapacity });
+  const vessels = vesselPlan(seg, capacitiesForSegment(seg.id, {
+    vestCapacity, vestEnabled, bladderCapacity, bladderEnabled, beltCapacity, beltEnabled,
+    handheldCapacity, handheldEnabled, vesselRanges,
+  }));
   const bags = popsicleBagsForVessels(vessels);
 
   const InfoRow = ({label, value}) => (
@@ -94,7 +102,7 @@ function RaceDayPlanView() {
         }}>&#9881;&#65039;</button>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16 }}>
-        <TargetStepper label="Target finish time" value={targetHours} setValue={setTargetHours} min={12} max={window.RACES[window.getCurrentRaceId()].cutoffHours} step={0.5} unit="hr" note={`${window.RACES[window.getCurrentRaceId()].cutoffHours}hr official cutoff`} />
+        <TargetStepper label="Target finish time" value={targetHours} setValue={setTargetHours} min={1} max={window.RACES[window.getCurrentRaceId()].cutoffHours} step={0.5} unit="hr" note={`${window.RACES[window.getCurrentRaceId()].cutoffHours}hr official cutoff`} />
         <TargetStepper label="Target carb intake" value={targetCarb} setValue={setTargetCarb} min={50} max={120} step={5} unit="g/hr" />
         <TargetStepper label="Target salt intake" value={targetSodium} setValue={setTargetSodium} min={400} max={1200} step={50} unit="mg/hr" />
       </div>
@@ -104,11 +112,17 @@ function RaceDayPlanView() {
           <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16, marginBottom: 20 }}>
             <TargetStepper label="Target water intake" value={targetWaterHr} setValue={setTargetWaterHr} min={200} max={1200} step={50} unit="ml/hr" />
           </div>
-          <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginBottom:12}}>Carrying setup</div>
+          <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginBottom:6}}>Carrying setup</div>
+          <div style={{fontSize:11.5, color:'var(--ink-faint)', marginBottom:14}}>Uncheck anything you're not carrying &mdash; not everyone runs with a full vest. If a race has more than one leg, set where you pick up or drop each piece.</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16 }}>
-            <TargetStepper label="Vest flask (each)" value={vestCapacity} setValue={setVestCapacity} min={150} max={750} step={50} unit="ml" note="you carry 2" />
-            <TargetStepper label="Bladder" value={bladderCapacity} setValue={setBladderCapacity} min={500} max={3000} step={100} unit="ml" />
-            <TargetStepper label="Belt flask" value={beltCapacity} setValue={setBeltCapacity} min={0} max={1000} step={50} unit="ml" note="only used if a segment needs more than flasks+bladder combined" />
+            <VesselToggleStepper label="Vest flask (each)" enabled={vestEnabled} setEnabled={setVestEnabled} value={vestCapacity} setValue={setVestCapacity} min={150} max={750} step={50} unit="ml" note="you carry 2"
+              segments={raceSegments} range={vesselRanges.vest} setRange={setRangeFor('vest')} />
+            <VesselToggleStepper label="Bladder" enabled={bladderEnabled} setEnabled={setBladderEnabled} value={bladderCapacity} setValue={setBladderCapacity} min={500} max={3000} step={100} unit="ml"
+              segments={raceSegments} range={vesselRanges.bladder} setRange={setRangeFor('bladder')} />
+            <VesselToggleStepper label="Belt flask" enabled={beltEnabled} setEnabled={setBeltEnabled} value={beltCapacity} setValue={setBeltCapacity} min={100} max={1000} step={50} unit="ml"
+              segments={raceSegments} range={vesselRanges.belt} setRange={setRangeFor('belt')} />
+            <VesselToggleStepper label="Handheld" enabled={handheldEnabled} setEnabled={setHandheldEnabled} value={handheldCapacity} setValue={setHandheldCapacity} min={150} max={750} step={50} unit="ml"
+              segments={raceSegments} range={vesselRanges.handheld} setRange={setRangeFor('handheld')} />
           </div>
         </div>
       )}
