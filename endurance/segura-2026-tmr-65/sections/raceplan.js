@@ -37,12 +37,13 @@ function dropBagNum(seg) {
 
 function RaceDayPlanView() {
   const { targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium, targetWaterHr, setTargetWaterHr, vestCapacity, setVestCapacity, bladderCapacity, setBladderCapacity, beltCapacity, setBeltCapacity,
-    vestEnabled, setVestEnabled, bladderEnabled, setBladderEnabled, beltEnabled, setBeltEnabled, handheldCapacity, setHandheldCapacity, handheldEnabled, setHandheldEnabled, vesselRanges, setVesselRanges } = React.useContext(window.TargetHoursContext);
+    vestEnabled, setVestEnabled, bladderEnabled, setBladderEnabled, beltEnabled, setBeltEnabled, handheldCapacity, setHandheldCapacity, handheldEnabled, setHandheldEnabled, vesselRanges, setVesselRanges,
+    gelRateShift, setGelRateShift } = React.useContext(window.TargetHoursContext);
   const raceSegments = window.RACES[window.getCurrentRaceId()].baseSegments;
   function setRangeFor(key) {
     return (next) => setVesselRanges(prev => ({ ...prev, [key]: next }));
   }
-  const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium, targetWaterHr), [targetHours, targetCarb, targetSodium, targetWaterHr]);
+  const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium, targetWaterHr, gelRateShift), [targetHours, targetCarb, targetSodium, targetWaterHr, gelRateShift]);
   const [active, setActive] = React.useState(1);
   const seg = segments.find(s => s.id === active);
   const [showColumnPanel, setShowColumnPanel] = React.useState(false);
