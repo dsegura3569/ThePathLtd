@@ -96,25 +96,31 @@ function RaceDayPlanView() {
 
       <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:4}}>
         <div style={{flex:1}} />
-        <button onClick={() => setShowAdvancedTargets(v => !v)} aria-label="Water and carrying setup" title="Water and carrying setup" style={{
+        <button onClick={() => setShowAdvancedTargets(v => !v)} aria-label="Edit targets, gear, and nutrition" title="Edit targets, gear, and nutrition" style={{
           width:30, height:30, borderRadius:8, border:'1px solid var(--line)',
           background: showAdvancedTargets ? 'var(--climb)' : 'var(--bg-raised)', color: showAdvancedTargets ? '#12151A' : 'var(--ink-faint)', cursor:'pointer',
           display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
         }}>&#9881;&#65039;</button>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16 }}>
-        <TargetStepper label="Target finish time" value={targetHours} setValue={setTargetHours} min={1} max={window.RACES[window.getCurrentRaceId()].cutoffHours} step={0.5} unit="hr" note={`${window.RACES[window.getCurrentRaceId()].cutoffHours}hr official cutoff`} />
-        <TargetStepper label="Target carb intake" value={targetCarb} setValue={setTargetCarb} min={50} max={120} step={5} unit="g/hr" />
-        <TargetStepper label="Target salt intake" value={targetSodium} setValue={setTargetSodium} min={400} max={1200} step={50} unit="mg/hr" />
-      </div>
+
+      {!showAdvancedTargets && (
+        <div style={{fontSize:13, color:'var(--ink-dim)'}}>
+          {targetHours}hr finish target &middot; {targetCarb}g carb/hr &middot; {targetSodium}mg salt/hr
+        </div>
+      )}
 
       {showAdvancedTargets && (
-        <div style={{marginTop:20, paddingTop:16, borderTop:'1px solid var(--line)'}}>
+        <div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16, marginBottom: 20 }}>
+            <TargetStepper label="Target finish time" value={targetHours} setValue={setTargetHours} min={1} max={window.RACES[window.getCurrentRaceId()].cutoffHours} step={0.5} unit="hr" note={`${window.RACES[window.getCurrentRaceId()].cutoffHours}hr official cutoff`} />
+            <TargetStepper label="Target carb intake" value={targetCarb} setValue={setTargetCarb} min={50} max={120} step={5} unit="g/hr" />
+            <TargetStepper label="Target salt intake" value={targetSodium} setValue={setTargetSodium} min={400} max={1200} step={50} unit="mg/hr" />
+          </div>
+          <div style={{marginTop:20, paddingTop:16, borderTop:'1px solid var(--line)'}}>
           <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16, marginBottom: 20 }}>
             <TargetStepper label="Target water intake" value={targetWaterHr} setValue={setTargetWaterHr} min={200} max={1200} step={50} unit="ml/hr" />
           </div>
-          <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginBottom:6}}>Carrying setup</div>
-          <div style={{fontSize:11.5, color:'var(--ink-faint)', marginBottom:14}}>Uncheck anything you're not carrying &mdash; not everyone runs with a full vest. If a race has more than one leg, set where you pick up or drop each piece.</div>
+          <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginBottom:12}}>Carrying setup</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16 }}>
             <VesselToggleStepper label="Vest flask (each)" enabled={vestEnabled} setEnabled={setVestEnabled} value={vestCapacity} setValue={setVestCapacity} min={150} max={750} step={50} unit="ml" note="you carry 2"
               segments={raceSegments} range={vesselRanges.vest} setRange={setRangeFor('vest')} />
@@ -124,6 +130,7 @@ function RaceDayPlanView() {
               segments={raceSegments} range={vesselRanges.belt} setRange={setRangeFor('belt')} />
             <VesselToggleStepper label="Handheld" enabled={handheldEnabled} setEnabled={setHandheldEnabled} value={handheldCapacity} setValue={setHandheldCapacity} min={150} max={750} step={50} unit="ml"
               segments={raceSegments} range={vesselRanges.handheld} setRange={setRangeFor('handheld')} />
+          </div>
           </div>
         </div>
       )}
