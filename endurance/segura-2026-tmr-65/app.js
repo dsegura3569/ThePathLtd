@@ -58,8 +58,8 @@ const SECTIONS = [
   { id: 'hillreps', label: 'Hill Reps', eyebrow: '10' },
 ];
 
-function AddRaceModal({ onClose, onRaceAdded }) {
-  const [step, setStep] = React.useState('upload'); // upload | naming | error
+function AddRaceModal({ onClose, onRaceSelected }) {
+  const [step, setStep] = React.useState('upload'); // upload | naming | dropbags | target | gear | nutrition | done | error
   const [parsed, setParsed] = React.useState(null);
   const [raceName, setRaceName] = React.useState('');
   const [cutoffHours, setCutoffHours] = React.useState(24);
@@ -67,6 +67,16 @@ function AddRaceModal({ onClose, onRaceAdded }) {
   const [manualTime, setManualTime] = React.useState('06:00');
   const [errorMsg, setErrorMsg] = React.useState('');
   const fileInputRef = React.useRef(null);
+  const ctx = React.useContext(window.TargetHoursContext);
+
+  // Steps after "naming" configure the newly-created race's actual target
+  // state (finish time, gear, nutrition) through the same context every
+  // other page reads from -- this wizard is just a guided, linear way to
+  // fill in the handful of things a GPX can never tell us, instead of
+  // leaving them scattered across gear-icon panels for the person to find
+  // on their own.
+  const WIZARD_STEPS = ['naming', 'dropbags', 'target', 'gear', 'nutrition', 'done'];
+  const stepIndex = WIZARD_STEPS.indexOf(step);
 
   function handleFile(e) {
     const file = e.target.files[0];
@@ -101,8 +111,39 @@ function AddRaceModal({ onClose, onRaceAdded }) {
     };
     window.saveCustomRace(raceConfig);
     window.selectRace(id);
-    onRaceAdded(id);
+    onRaceSelected(id);
+    setStep('dropbags');
   }
+
+  const raceSegments = window.RACES[window.getCurrentRaceId()] ? window.RACES[window.getCurrentRaceId()].baseSegments : [];
+  const [dropRows, setDropRows] = React.useState(null);
+  React.useEffect(() => {
+    if (step === 'dropbags' && raceSegments.length && !dropRows) {
+      setDropRows(raceSegments.map(s => ({
+        dropBag: !!(s.amenities && s.amenities.dropBag),
+        crew: !!(s.amenities && s.amenities.crew),
+        pacer: !!s.pacer,
+      })));
+    }
+  }, [step]);
+  function saveDropRows() {
+    const race = window.RACES[window.getCurrentRaceId()];
+    raceSegments.forEach((s, i) => {
+      s.amenities = { ...s.amenities, dropBag: dropRows[i].dropBag, crew: dropRows[i].crew };
+      s.pacer = dropRows[i].pacer;
+    });
+    if (window.getCurrentRaceId() !== 'tmr') window.saveCustomRace(race);
+    setStep('target');
+  }
+
+  const WizardHeader = () => (
+    <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:16}}>
+      <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', flex:1}}>Step {stepIndex} of {WIZARD_STEPS.length - 1}</div>
+      <button onClick={onClose} style={{background:'none', border:'none', color:'var(--ink-faint)', fontSize:18, cursor:'pointer'}}>&#10005;</button>
+    </div>
+  );
+  const skipStyle = { fontSize:12, color:'var(--ink-faint)', background:'none', border:'none', textDecoration:'underline', cursor:'pointer', padding:0 };
+  const nextBtnStyle = { width:'100%', padding:'12px', borderRadius:10, border:'none', background:'var(--climb)', color:'#12151A', fontWeight:600, fontSize:14, cursor:'pointer' };
 
   return ReactDOM.createPortal(
     <div style={{
@@ -113,17 +154,19 @@ function AddRaceModal({ onClose, onRaceAdded }) {
         background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:14,
         padding:24, maxWidth:440, width:'100%', maxHeight:'85vh', overflowY:'auto',
       }}>
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16}}>
-          <div style={{fontFamily:'var(--display)', fontWeight:700, fontSize:18, color:'var(--ink)'}}>Add a race</div>
-          <button onClick={onClose} style={{background:'none', border:'none', color:'var(--ink-faint)', fontSize:18, cursor:'pointer'}}>&#10005;</button>
-        </div>
+        {(step === 'upload' || step === 'error') && (
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16}}>
+            <div style={{fontFamily:'var(--display)', fontWeight:700, fontSize:18, color:'var(--ink)'}}>Add a race</div>
+            <button onClick={onClose} style={{background:'none', border:'none', color:'var(--ink-faint)', fontSize:18, cursor:'pointer'}}>&#10005;</button>
+          </div>
+        )}
 
         {step === 'upload' && (
           <div>
             <p style={{fontSize:13, color:'var(--ink-dim)', lineHeight:1.6, marginBottom:16}}>
               Upload a GPX file of the course. This gives you the elevation profile, distances, and grade data
               automatically. Official cutoff times, drop bag contents, and gear notes aren't in a GPX file, so
-              you'll fill those in afterward on Overview.
+              you'll fill those in next.
             </p>
             <input ref={fileInputRef} type="file" accept=".gpx" onChange={handleFile} style={{display:'none'}} />
             <button onClick={() => fileInputRef.current.click()} style={{
@@ -145,6 +188,10 @@ function AddRaceModal({ onClose, onRaceAdded }) {
 
         {step === 'naming' && parsed && (
           <div>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16}}>
+              <div style={{fontFamily:'var(--display)', fontWeight:700, fontSize:18, color:'var(--ink)'}}>Add a race</div>
+              <button onClick={onClose} style={{background:'none', border:'none', color:'var(--ink-faint)', fontSize:18, cursor:'pointer'}}>&#10005;</button>
+            </div>
             <div style={{background:'var(--bg-raised)', borderRadius:10, padding:'12px 14px', marginBottom:16, fontSize:13, color:'var(--ink-dim)'}}>
               <div style={{color:'var(--climb)', fontWeight:600, marginBottom:6}}>Parsed successfully</div>
               <div>{parsed.totalDistance}mi &middot; {parsed.totalGain.toLocaleString()}ft gain &middot; {parsed.totalLoss.toLocaleString()}ft loss</div>
@@ -164,7 +211,7 @@ function AddRaceModal({ onClose, onRaceAdded }) {
               width:'100%', marginTop:6, marginBottom:18, padding:'9px 10px', borderRadius:8, border:'1px solid var(--line)',
               background:'var(--bg-raised)', color:'var(--ink)', fontSize:14,
             }} />
-            <label style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase'}}>Race date &amp; start time (optional &mdash; can also set this later on Overview)</label>
+            <label style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase'}}>Race date &amp; start time</label>
             <div style={{display:'flex', gap:8, marginTop:6, marginBottom:18}}>
               <input type="date" value={manualDate} onChange={e => setManualDate(e.target.value)} style={{
                 flex:1, padding:'9px 10px', borderRadius:8, border:'1px solid var(--line)',
@@ -180,7 +227,105 @@ function AddRaceModal({ onClose, onRaceAdded }) {
               background: raceName.trim() ? 'var(--climb)' : 'var(--bg-raised)',
               color: raceName.trim() ? '#12151A' : 'var(--ink-faint)',
               fontWeight:600, fontSize:14, cursor: raceName.trim() ? 'pointer' : 'not-allowed',
-            }}>Add race &amp; switch to it</button>
+            }}>Continue</button>
+          </div>
+        )}
+
+        {step === 'dropbags' && (
+          <div>
+            <WizardHeader />
+            <div style={{fontFamily:'var(--display)', fontWeight:700, fontSize:17, color:'var(--ink)', marginBottom:4}}>Drop bags, crew &amp; pacers</div>
+            <div style={{fontSize:12.5, color:'var(--ink-faint)', marginBottom:14}}>Which aid stations apply? Skip if none of this applies yet.</div>
+            {dropRows && raceSegments.map((s, i) => (
+              <div key={s.id} style={{display:'flex', alignItems:'center', flexWrap:'wrap', gap:12, padding:'8px 0', borderBottom:'1px solid var(--line)'}}>
+                <span style={{fontSize:13, color:'var(--ink)', flex:1, minWidth:120}}>{s.to} <span style={{color:'var(--ink-faint)', fontFamily:'var(--mono)', fontSize:11}}>(mi {s.miE})</span></span>
+                {['dropBag','crew','pacer'].map(field => (
+                  <label key={field} style={{display:'flex', alignItems:'center', gap:5, fontSize:12, color:'var(--ink-dim)', cursor:'pointer'}}>
+                    <input type="checkbox" checked={dropRows[i][field]} onChange={() => setDropRows(prev => prev.map((r,idx) => idx===i ? {...r,[field]:!r[field]} : r))} />
+                    {field === 'dropBag' ? 'Drop bag' : field === 'crew' ? 'Crew' : 'Pacer'}
+                  </label>
+                ))}
+              </div>
+            ))}
+            <div style={{display:'flex', gap:16, alignItems:'center', marginTop:18}}>
+              <button onClick={saveDropRows} style={{...nextBtnStyle, flex:1}}>Continue</button>
+              <button onClick={() => setStep('target')} style={skipStyle}>Skip</button>
+            </div>
+          </div>
+        )}
+
+        {step === 'target' && (
+          <div>
+            <WizardHeader />
+            <div style={{fontFamily:'var(--display)', fontWeight:700, fontSize:17, color:'var(--ink)', marginBottom:4}}>Target finish time</div>
+            <div style={{fontSize:12.5, color:'var(--ink-faint)', marginBottom:16}}>Drives pacing, cutoff margins, and every fuel/water number in the plan.</div>
+            <window.TargetStepper label="Target finish time" value={ctx.targetHours} setValue={ctx.setTargetHours} min={1} max={cutoffHours} step={0.5} unit="hr" note={`${cutoffHours}hr official cutoff`} />
+            <div style={{display:'flex', gap:16, alignItems:'center', marginTop:22}}>
+              <button onClick={() => setStep('gear')} style={{...nextBtnStyle, flex:1}}>Continue</button>
+            </div>
+          </div>
+        )}
+
+        {step === 'gear' && (
+          <div>
+            <WizardHeader />
+            <div style={{fontFamily:'var(--display)', fontWeight:700, fontSize:17, color:'var(--ink)', marginBottom:4}}>Gear</div>
+            <div style={{fontSize:12.5, color:'var(--ink-faint)', marginBottom:16}}>Uncheck anything you're not carrying.</div>
+            <div style={{display:'flex', flexDirection:'column', gap:16}}>
+              <window.VesselToggleStepper label="Vest flask (each)" enabled={ctx.vestEnabled} setEnabled={ctx.setVestEnabled} value={ctx.vestCapacity} setValue={ctx.setVestCapacity} min={150} max={750} step={50} unit="ml" note="you carry 2" />
+              <window.VesselToggleStepper label="Bladder" enabled={ctx.bladderEnabled} setEnabled={ctx.setBladderEnabled} value={ctx.bladderCapacity} setValue={ctx.setBladderCapacity} min={500} max={3000} step={100} unit="ml" />
+              <window.VesselToggleStepper label="Belt flask" enabled={ctx.beltEnabled} setEnabled={ctx.setBeltEnabled} value={ctx.beltCapacity} setValue={ctx.setBeltCapacity} min={100} max={1000} step={50} unit="ml" />
+              <window.VesselToggleStepper label="Handheld" enabled={ctx.handheldEnabled} setEnabled={ctx.setHandheldEnabled} value={ctx.handheldCapacity} setValue={ctx.setHandheldCapacity} min={150} max={750} step={50} unit="ml" />
+            </div>
+            <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginTop:22, marginBottom:10}}>Other gear</div>
+            <div style={{display:'flex', flexWrap:'wrap', gap:8}}>
+              {[
+                { name: 'Poles', suggestType: 'none' },
+                { name: 'Waist Lamp', suggestType: 'dawn' },
+                { name: 'Head Lamp', suggestType: 'dawn' },
+              ].map(p => {
+                const active = ctx.extraGear.some(g => g.name === p.name);
+                return (
+                  <button key={p.name} onClick={() => {
+                    if (active) ctx.setExtraGear(prev => prev.filter(g => g.name !== p.name));
+                    else ctx.setExtraGear(prev => [...prev, { id: Date.now(), name: p.name, pickupSegmentId: null, dropoffSegmentId: null, suggestType: p.suggestType, tempThreshold: 40 }]);
+                  }} style={{
+                    padding:'6px 12px', borderRadius:20, border:'1px solid var(--line)',
+                    background: active ? 'var(--climb)' : 'var(--bg-raised)', color: active ? '#12151A' : 'var(--ink-dim)',
+                    fontSize:12, fontWeight: active ? 600 : 400, cursor:'pointer',
+                  }}>{active ? '\u2713 ' : '+ '}{p.name}</button>
+                );
+              })}
+            </div>
+            <div style={{display:'flex', gap:16, alignItems:'center', marginTop:22}}>
+              <button onClick={() => setStep('nutrition')} style={{...nextBtnStyle, flex:1}}>Continue</button>
+            </div>
+          </div>
+        )}
+
+        {step === 'nutrition' && (
+          <div>
+            <WizardHeader />
+            <div style={{fontFamily:'var(--display)', fontWeight:700, fontSize:17, color:'var(--ink)', marginBottom:4}}>Nutrition &amp; fuel</div>
+            <div style={{fontSize:12.5, color:'var(--ink-faint)', marginBottom:16}}>Hourly targets -- fine-tune the gel/tailwind split and add other products later on Pack List.</div>
+            <div style={{display:'flex', flexDirection:'column', gap:16}}>
+              <window.TargetStepper label="Target carb intake" value={ctx.targetCarb} setValue={ctx.setTargetCarb} min={50} max={120} step={5} unit="g/hr" />
+              <window.TargetStepper label="Target salt intake" value={ctx.targetSodium} setValue={ctx.setTargetSodium} min={400} max={1200} step={50} unit="mg/hr" />
+              <window.TargetStepper label="Target water intake" value={ctx.targetWaterHr} setValue={ctx.setTargetWaterHr} min={200} max={1200} step={50} unit="ml/hr" />
+            </div>
+            <div style={{display:'flex', gap:16, alignItems:'center', marginTop:22}}>
+              <button onClick={() => setStep('done')} style={{...nextBtnStyle, flex:1}}>Continue</button>
+            </div>
+          </div>
+        )}
+
+        {step === 'done' && (
+          <div>
+            <div style={{fontFamily:'var(--display)', fontWeight:700, fontSize:19, color:'var(--ink)', marginBottom:8}}>Race is ready</div>
+            <p style={{fontSize:13, color:'var(--ink-dim)', lineHeight:1.6, marginBottom:20}}>
+              Everything's set. You can revisit any of this later from the gear icons on the Command Center.
+            </p>
+            <button onClick={onClose} style={nextBtnStyle}>Go to Command Center</button>
           </div>
         )}
       </div>
@@ -194,6 +339,23 @@ function RacePicker({ raceId, onSelectRace }) {
     try { return new URLSearchParams(window.location.search).get('addRace') === '1'; } catch (e) { return false; }
   });
   const races = window.listRaces();
+
+  // The "Add a race" modal can be opened via a ?addRace=1 link so it's
+  // ready on first paint. Nothing ever stripped that param back out of the
+  // URL afterward, so it stuck around in the address bar and reopened the
+  // upload prompt on every future refresh -- close it here whenever the
+  // modal is dismissed, by whichever path (X, successful upload, or the
+  // toggle button), so a plain refresh lands on the normal dashboard again.
+  function closeModal() {
+    setShowModal(false);
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('addRace')) {
+        url.searchParams.delete('addRace');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch (e) {}
+  }
 
   return (
     <div style={{display:'flex', alignItems:'center', gap:8}}>
@@ -215,8 +377,8 @@ function RacePicker({ raceId, onSelectRace }) {
       }}>+</button>
       {showModal && (
         <AddRaceModal
-          onClose={() => setShowModal(false)}
-          onRaceAdded={(id) => { setShowModal(false); onSelectRace(id); }}
+          onClose={closeModal}
+          onRaceSelected={(id) => { onSelectRace(id); }}
         />
       )}
     </div>
