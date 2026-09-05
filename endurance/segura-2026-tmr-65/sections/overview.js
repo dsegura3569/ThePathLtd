@@ -77,6 +77,7 @@ function useLiveWeather() {
 
 const STAT_DEFS_KEY = 'tmr_overview_stat_order_v1';
 const STAT_VISIBILITY_KEY = 'tmr_overview_stat_visibility_v1';
+const COURSE_PROFILE_STAT_ORDER_KEY = 'tmr_overview_course_profile_stat_order_v1';
 
 function useRaceDayForecast() {
   const [state, setState] = React.useState({ status: 'loading' });
@@ -105,6 +106,18 @@ function useRaceDayForecast() {
           let h12 = h % 12; if (h12 === 0) h12 = 12;
           return `${h12}:${String(m).padStart(2, '0')}${period}`;
         }
+        // Interpolates between the two bracketing hourly readings so a start/finish
+        // time that lands mid-hour (e.g. a 6:35am start) isn't just rounded to
+        // whichever hour is closest.
+        function tempAtDecimalHour(decHour) {
+          const clamped = Math.max(0, Math.min(23.999, decHour));
+          const h0 = Math.floor(clamped);
+          const h1 = Math.min(23, h0 + 1);
+          const frac = clamped - h0;
+          const t0 = hourlyTemps[h0], t1 = hourlyTemps[h1];
+          if (t0 == null || t1 == null) return null;
+          return t0 + (t1 - t0) * frac;
+        }
         setState({
           status: 'ok',
           high: Math.round(data.daily.temperature_2m_max[0]),
@@ -113,6 +126,7 @@ function useRaceDayForecast() {
           lowTime: fmtTimeStr(hourlyTimes[minIdx]),
           sunrise: fmtTimeStr(data.daily.sunrise[0]),
           sunset: fmtTimeStr(data.daily.sunset[0]),
+          tempAtDecimalHour,
         });
       } catch (e) {
         if (!cancelled) setState({ status: 'error' });
@@ -126,12 +140,44 @@ function useRaceDayForecast() {
 
 function RaceDayForecastWidget() {
   const f = useRaceDayForecast();
+  const { targetHours } = React.useContext(window.TargetHoursContext);
+  const race = window.RACES[window.getCurrentRaceId()];
+
+  // Race start hour-of-day as a decimal (e.g. 6:35am -> 6.583), read straight
+  // from the race's startDate rather than assuming a 6am default. Finish is
+  // just start + the Target Finish Time from Pace & Nutrition Targets --
+  // if that pushes past midnight the temp lookup clamps to the last hour
+  // of data we have rather than wrapping into the next day.
+  let startDecHour = null, finishDecHour = null;
+  if (race.startDate) {
+    const m = race.startDate.match(/T(\d{2}):(\d{2})/);
+    if (m) {
+      startDecHour = parseInt(m[1], 10) + parseInt(m[2], 10) / 60;
+      finishDecHour = startDecHour + targetHours;
+    }
+  }
+  function fmtDecHour(decHour) {
+    const h = Math.floor(decHour) % 24;
+    const mins = Math.round((decHour - Math.floor(decHour)) * 60);
+    const period = h < 12 ? 'am' : 'pm';
+    let h12 = h % 12; if (h12 === 0) h12 = 12;
+    return `${h12}:${String(mins).padStart(2, '0')}${period}`;
+  }
+
   const blocks = f.status === 'ok'
     ? [
         { label: 'Low', value: `${f.low}°F`, sub: f.lowTime, color: '#4A9FE8' },
         { label: 'High', value: `${f.high}°F`, sub: f.highTime, color: 'var(--climb)' },
         { label: 'Sunrise', value: f.sunrise, sub: null, color: 'var(--climb)' },
         { label: 'Sunset', value: f.sunset, sub: null, color: '#4A9FE8' },
+        ...(startDecHour !== null ? [{
+          label: 'At start', value: (() => { const t = f.tempAtDecimalHour(startDecHour); return t == null ? '\u2014' : `${Math.round(t)}\u00b0F`; })(),
+          sub: fmtDecHour(startDecHour), color: 'var(--climb)',
+        }] : []),
+        ...(finishDecHour !== null ? [{
+          label: 'At finish', value: (() => { const t = f.tempAtDecimalHour(finishDecHour); return t == null ? '\u2014' : `${Math.round(t)}\u00b0F`; })(),
+          sub: `${fmtDecHour(finishDecHour)} \u00b7 ${targetHours}hr target`, color: '#4A9FE8',
+        }] : []),
       ]
     : null;
 
@@ -173,6 +219,39 @@ function CourseProfileChart() {
   const [focusedSegment, setFocusedSegment] = React.useState(null);
   const samples = React.useMemo(() => buildFullCourseSamples(), []);
   const stats = React.useMemo(() => computeElevationStats(samples), [samples]);
+
+  // Reorderable whole-course/segment stat tiles (Gain/Loss/Max/Min/Max
+  // Climb/Max Descent) -- same up/down reorder pattern as the Course &
+  // Conditions stats above, so a person can put e.g. Gain directly above
+  // Loss and Max directly above Min if that reads better to them.
+  // Default order fills the grid column-major (assuming 3 columns, the
+  // common case) so Gain sits directly above Loss and Max directly above
+  // Min, rather than the row-major order that split those pairs diagonally.
+  const courseProfileStatKeys = ['gain', 'max', 'maxClimb', 'loss', 'min', 'maxDescent'];
+  const [showCourseProfileStatPanel, setShowCourseProfileStatPanel] = React.useState(false);
+  const [courseProfileStatOrder, setCourseProfileStatOrder] = React.useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(COURSE_PROFILE_STAT_ORDER_KEY));
+      if (Array.isArray(saved) && saved.every(k => courseProfileStatKeys.includes(k)) &&
+          courseProfileStatKeys.every(k => saved.includes(k))) {
+        return saved;
+      }
+    } catch (e) {}
+    return courseProfileStatKeys;
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem(COURSE_PROFILE_STAT_ORDER_KEY, JSON.stringify(courseProfileStatOrder)); } catch (e) {}
+  }, [courseProfileStatOrder]);
+  function moveCourseProfileStat(index, dir) {
+    setCourseProfileStatOrder(prev => {
+      const next = [...prev];
+      const target = index + dir;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+  function resetCourseProfileStats() { setCourseProfileStatOrder(courseProfileStatKeys); }
 
   // aid station markers: start (green), 9 aid stations (orange), finish (red) --
   // positioned at each segment boundary using the real official mile markers
@@ -287,8 +366,8 @@ function CourseProfileChart() {
         );
       })()}
 
-      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:14, marginBottom:4}}>
-        <div style={{fontFamily:'var(--display)', fontWeight:600, fontSize:14, color: focusedSegment ? 'var(--climb)' : 'var(--ink-faint)'}}>
+      <div style={{display:'flex', alignItems:'center', gap:8, marginTop:14, marginBottom:4}}>
+        <div style={{fontFamily:'var(--display)', fontWeight:600, fontSize:14, color: focusedSegment ? 'var(--climb)' : 'var(--ink-faint)', flex:1}}>
           {scopeLabel}
         </div>
         {focusedSegment && (
@@ -296,22 +375,56 @@ function CourseProfileChart() {
             background:'none', border:'none', color:'var(--ink-faint)', cursor:'pointer', fontSize:11, fontFamily:'var(--mono)',
           }}>&#10005; whole course</button>
         )}
+        <button onClick={() => setShowCourseProfileStatPanel(v => !v)} aria-label="Reorder stats" title="Reorder stats" style={{
+          background:'none', border:'1px solid var(--line)', borderRadius:6, width:26, height:26,
+          color: showCourseProfileStatPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer',
+          display:'flex', alignItems:'center', justifyContent:'center', fontSize:13,
+        }}>⚙️</button>
       </div>
 
+      {showCourseProfileStatPanel && (
+        <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:12}}>
+          {courseProfileStatOrder.map((key, i) => {
+            const label = { gain: 'Gain', loss: 'Loss', max: 'Max', min: 'Min', maxClimb: 'Max Climb', maxDescent: 'Max Descent' }[key];
+            return (
+              <div key={key} style={{display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none'}}>
+                <span style={{flex:1, fontSize:13, color:'var(--ink)'}}>{label}</span>
+                <button disabled={i===0} onClick={() => moveCourseProfileStat(i, -1)} style={{
+                  width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
+                  color: i===0 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===0 ? 'not-allowed' : 'pointer', fontSize:12,
+                }}>&uarr;</button>
+                <button disabled={i===courseProfileStatOrder.length-1} onClick={() => moveCourseProfileStat(i, 1)} style={{
+                  width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
+                  color: i===courseProfileStatOrder.length-1 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===courseProfileStatOrder.length-1 ? 'not-allowed' : 'pointer', fontSize:12,
+                }}>&darr;</button>
+              </div>
+            );
+          })}
+          <button onClick={resetCourseProfileStats} style={{
+            marginTop:10, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
+            border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
+          }}>Reset to default order</button>
+        </div>
+      )}
+
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))', gap:1, background:'var(--line)'}}>
-        {[
-          ['GAIN', `+${displayStats.gain.toLocaleString()} ft`, '#3CB897'],
-          ['LOSS', `-${displayStats.loss.toLocaleString()} ft`, 'var(--descent)'],
-          ['MAX', `${displayStats.max.toLocaleString()} ft`, 'var(--climb)'],
-          ['MIN', `${displayStats.min.toLocaleString()} ft`, 'var(--ink)'],
-          ['MAX CLIMB', `+${displayStats.maxClimbStreak.toLocaleString()} ft`, 'var(--ink)'],
-          ['MAX DESCENT', `-${displayStats.maxDescentStreak.toLocaleString()} ft`, 'var(--ink)'],
-        ].map(([label, value, color]) => (
-          <div key={label} style={{background:'var(--bg)', padding:'14px 12px'}}>
-            <div style={{fontFamily:'var(--display)', fontSize:18, fontWeight:700, color}}>{value}</div>
-            <div style={{fontFamily:'var(--mono)', fontSize:9.5, color:'var(--ink-faint)', marginTop:4, letterSpacing:'0.04em'}}>{label}</div>
-          </div>
-        ))}
+        {courseProfileStatOrder.map(key => {
+          const defs = {
+            gain: ['GAIN', `+${displayStats.gain.toLocaleString()} ft`, '#3CB897'],
+            loss: ['LOSS', `-${displayStats.loss.toLocaleString()} ft`, 'var(--descent)'],
+            max: ['MAX', `${displayStats.max.toLocaleString()} ft`, 'var(--climb)'],
+            min: ['MIN', `${displayStats.min.toLocaleString()} ft`, 'var(--ink)'],
+            maxClimb: ['MAX CLIMB', `+${displayStats.maxClimbStreak.toLocaleString()} ft`, 'var(--ink)'],
+            maxDescent: ['MAX DESCENT', `-${displayStats.maxDescentStreak.toLocaleString()} ft`, 'var(--ink)'],
+          };
+          const [label, value, color] = defs[key];
+          return (
+            <div key={label} style={{background:'var(--bg)', padding:'14px 12px'}}>
+              <div style={{fontFamily:'var(--display)', fontSize:18, fontWeight:700, color}}>{value}</div>
+              <div style={{fontFamily:'var(--mono)', fontSize:9.5, color:'var(--ink-faint)', marginTop:4, letterSpacing:'0.04em'}}>{label}</div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -321,8 +434,26 @@ function PaceTargetsWidget() {
   const {
     targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium,
     targetWaterHr, setTargetWaterHr, vestCapacity, setVestCapacity, bladderCapacity, setBladderCapacity, beltCapacity, setBeltCapacity,
+    vestEnabled, setVestEnabled, bladderEnabled, setBladderEnabled, beltEnabled, setBeltEnabled,
+    handheldCapacity, setHandheldCapacity, handheldEnabled, setHandheldEnabled,
+    vesselRanges, setVesselRanges,
+    extraGear, setExtraGear,
   } = React.useContext(window.TargetHoursContext);
   const [showAdvanced, setShowAdvanced] = React.useState(false);
+  const raceSegments = window.RACES[window.getCurrentRaceId()].baseSegments;
+  function setRangeFor(key) {
+    return (next) => setVesselRanges(prev => ({ ...prev, [key]: next }));
+  }
+  function addGearItem() {
+    setExtraGear(prev => [...prev, { id: Date.now(), name: '', pickupSegmentId: null, dropoffSegmentId: null, suggestType: 'none', tempThreshold: 40 }]);
+  }
+  function updateGearItem(id, patch) {
+    setExtraGear(prev => prev.map(g => g.id === id ? { ...g, ...patch } : g));
+  }
+  function removeGearItem(id) {
+    setExtraGear(prev => prev.filter(g => g.id !== id));
+  }
+  const gearSelectStyle = { background:'var(--bg-raised)', border:'1px solid var(--line)', borderRadius:6, color:'var(--ink)', fontSize:12, padding:'5px 6px' };
   return (
     <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
       <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:16}}>
@@ -349,12 +480,65 @@ function PaceTargetsWidget() {
           <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16, marginBottom: 20 }}>
             <TargetStepper label="Target water intake" value={targetWaterHr} setValue={setTargetWaterHr} min={200} max={1200} step={50} unit="ml/hr" />
           </div>
-          <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginBottom:12}}>Carrying setup</div>
+          <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginBottom:6}}>Carrying setup</div>
+          <div style={{fontSize:11.5, color:'var(--ink-faint)', marginBottom:14}}>Uncheck anything you're not carrying &mdash; not everyone runs with a full vest. If a race has more than one leg, set where you pick up or drop each piece.</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16 }}>
-            <TargetStepper label="Vest flask (each)" value={vestCapacity} setValue={setVestCapacity} min={150} max={750} step={50} unit="ml" note="you carry 2" />
-            <TargetStepper label="Bladder" value={bladderCapacity} setValue={setBladderCapacity} min={500} max={3000} step={100} unit="ml" />
-            <TargetStepper label="Belt flask" value={beltCapacity} setValue={setBeltCapacity} min={0} max={1000} step={50} unit="ml" note="only used if a segment needs more than flasks+bladder combined" />
+            <VesselToggleStepper label="Vest flask (each)" enabled={vestEnabled} setEnabled={setVestEnabled} value={vestCapacity} setValue={setVestCapacity} min={150} max={750} step={50} unit="ml" note="you carry 2"
+              segments={raceSegments} range={vesselRanges.vest} setRange={setRangeFor('vest')} />
+            <VesselToggleStepper label="Bladder" enabled={bladderEnabled} setEnabled={setBladderEnabled} value={bladderCapacity} setValue={setBladderCapacity} min={500} max={3000} step={100} unit="ml"
+              segments={raceSegments} range={vesselRanges.bladder} setRange={setRangeFor('bladder')} />
+            <VesselToggleStepper label="Belt flask" enabled={beltEnabled} setEnabled={setBeltEnabled} value={beltCapacity} setValue={setBeltCapacity} min={100} max={1000} step={50} unit="ml"
+              segments={raceSegments} range={vesselRanges.belt} setRange={setRangeFor('belt')} />
+            <VesselToggleStepper label="Handheld" enabled={handheldEnabled} setEnabled={setHandheldEnabled} value={handheldCapacity} setValue={setHandheldCapacity} min={150} max={750} step={50} unit="ml"
+              segments={raceSegments} range={vesselRanges.handheld} setRange={setRangeFor('handheld')} />
           </div>
+
+          <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginTop:24, marginBottom:6}}>Extra Gear</div>
+          <div style={{fontSize:11.5, color:'var(--ink-faint)', marginBottom:14}}>
+            Headlamp, shoe/clothing change, anything else picked up or dropped mid-race. "Dawn-dependent" and
+            "Cold-dependent" flag the item on Pack List when the forecast actually calls for it.
+          </div>
+          {extraGear.map(g => (
+            <div key={g.id} style={{background:'var(--bg-raised)', borderRadius:10, padding:'10px 14px', marginBottom:8}}>
+              <div style={{display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', marginBottom:8}}>
+                <input value={g.name} onChange={e => updateGearItem(g.id, { name: e.target.value })} placeholder="Item name (e.g. Headlamp)" style={{...gearSelectStyle, flex:1, minWidth:140}} />
+                <button onClick={() => removeGearItem(g.id)} aria-label="Remove gear item" style={{
+                  width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-card)',
+                  color:'var(--ink-faint)', cursor:'pointer', fontSize:13,
+                }}>&#10005;</button>
+              </div>
+              <div style={{display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', marginBottom:8, fontSize:12, color:'var(--ink-dim)'}}>
+                <span>Pickup:</span>
+                <select value={g.pickupSegmentId ?? ''} onChange={e => updateGearItem(g.id, { pickupSegmentId: e.target.value === '' ? null : Number(e.target.value) })} style={gearSelectStyle}>
+                  <option value="">Start</option>
+                  {raceSegments.slice(0, -1).map(s => <option key={s.id} value={s.id + 1}>At {s.to}</option>)}
+                </select>
+                <span>Drop:</span>
+                <select value={g.dropoffSegmentId ?? ''} onChange={e => updateGearItem(g.id, { dropoffSegmentId: e.target.value === '' ? null : Number(e.target.value) })} style={gearSelectStyle}>
+                  {raceSegments.map(s => <option key={s.id} value={s.id}>At {s.to}</option>)}
+                  <option value="">Finish</option>
+                </select>
+              </div>
+              <div style={{display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', fontSize:12, color:'var(--ink-dim)'}}>
+                <span>Suggest when:</span>
+                <select value={g.suggestType} onChange={e => updateGearItem(g.id, { suggestType: e.target.value })} style={gearSelectStyle}>
+                  <option value="none">Always (no forecast check)</option>
+                  <option value="dawn">Start is before sunrise</option>
+                  <option value="cold">Forecast at pickup is below&hellip;</option>
+                </select>
+                {g.suggestType === 'cold' && (
+                  <>
+                    <input type="number" value={g.tempThreshold} onChange={e => updateGearItem(g.id, { tempThreshold: parseInt(e.target.value) || 0 })} style={{...gearSelectStyle, width:56}} />
+                    <span>&deg;F</span>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+          <button onClick={addGearItem} style={{
+            padding:'8px 14px', borderRadius:8, border:'1px dashed var(--line)', background:'none',
+            color:'var(--climb)', fontSize:12.5, fontWeight:600, cursor:'pointer',
+          }}>+ Add gear item</button>
         </div>
       )}
     </section>
@@ -364,19 +548,24 @@ function PaceTargetsWidget() {
 function DropBagConfigWidget({ onRaceDataChanged }) {
   const race = window.RACES[window.getCurrentRaceId()];
   const segments = race.baseSegments;
-  const [checks, setChecks] = React.useState(() => segments.map(s => !!(s.amenities && s.amenities.dropBag)));
+  const [rows, setRows] = React.useState(() => segments.map(s => ({
+    dropBag: !!(s.amenities && s.amenities.dropBag),
+    crew: !!(s.amenities && s.amenities.crew),
+    pacer: !!s.pacer,
+  })));
   const [saved, setSaved] = React.useState(false);
 
-  const hasAny = checks.some(Boolean);
+  const hasAny = rows.some(r => r.dropBag || r.crew || r.pacer);
 
-  function toggle(i) {
-    setChecks(prev => prev.map((v, idx) => idx === i ? !v : v));
+  function toggle(i, field) {
+    setRows(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: !r[field] } : r));
     setSaved(false);
   }
 
   function handleSave() {
     segments.forEach((s, i) => {
-      s.amenities = { ...s.amenities, dropBag: checks[i] };
+      s.amenities = { ...s.amenities, dropBag: rows[i].dropBag, crew: rows[i].crew };
+      s.pacer = rows[i].pacer;
     });
     if (window.getCurrentRaceId() !== 'tmr') window.saveCustomRace(race);
     setSaved(true);
@@ -386,25 +575,35 @@ function DropBagConfigWidget({ onRaceDataChanged }) {
   return (
     <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
       <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:10, letterSpacing:'0.08em', textTransform:'uppercase'}}>
-        Drop Bag Locations
+        Aid Station Access (Drop Bag / Crew / Pacer)
       </div>
       {!hasAny && (
         <div style={{background:'var(--bg-raised)', border:'1px solid var(--climb)66', borderRadius:10, padding:'12px 14px', marginBottom:14, fontSize:12.5, color:'var(--ink-dim)'}}>
-          No drop bag locations set for this race &mdash; a GPX file can't tell us where they are. If this race uses drop bags, check the aid stations below where you'll have one waiting.
+          Nothing marked yet &mdash; a GPX file can't tell us where drop bags, crew, or pacers are allowed. Check the boxes below for each aid station that applies.
         </div>
       )}
       <div style={{marginBottom:14}}>
         {segments.map((s, i) => (
-          <label key={s.id} style={{display:'flex', alignItems:'center', gap:9, padding:'6px 0', fontSize:13, color:'var(--ink-dim)', cursor:'pointer'}}>
-            <input type="checkbox" checked={checks[i]} onChange={() => toggle(i)} />
-            <span>{s.to} <span style={{color:'var(--ink-faint)', fontFamily:'var(--mono)', fontSize:11}}>(mi {s.miE})</span></span>
-          </label>
+          <div key={s.id} style={{display:'flex', alignItems:'center', flexWrap:'wrap', gap:14, padding:'8px 0', borderBottom:'1px solid var(--line)'}}>
+            <span style={{fontSize:13, color:'var(--ink)', minWidth:140, flex:1}}>
+              {s.to} <span style={{color:'var(--ink-faint)', fontFamily:'var(--mono)', fontSize:11}}>(mi {s.miE})</span>
+            </span>
+            <label style={{display:'flex', alignItems:'center', gap:5, fontSize:12, color:'var(--ink-dim)', cursor:'pointer'}}>
+              <input type="checkbox" checked={rows[i].dropBag} onChange={() => toggle(i, 'dropBag')} /> Drop bag
+            </label>
+            <label style={{display:'flex', alignItems:'center', gap:5, fontSize:12, color:'var(--ink-dim)', cursor:'pointer'}}>
+              <input type="checkbox" checked={rows[i].crew} onChange={() => toggle(i, 'crew')} /> Crew
+            </label>
+            <label style={{display:'flex', alignItems:'center', gap:5, fontSize:12, color:'var(--ink-dim)', cursor:'pointer'}}>
+              <input type="checkbox" checked={rows[i].pacer} onChange={() => toggle(i, 'pacer')} /> Pacer
+            </label>
+          </div>
         ))}
       </div>
       <button onClick={handleSave} style={{
         padding:'9px 16px', borderRadius:8, border:'none', background:'var(--climb)', color:'#12151A',
         fontWeight:600, fontSize:13, cursor:'pointer',
-      }}>{saved ? 'Saved \u2713' : 'Save drop bag locations'}</button>
+      }}>{saved ? 'Saved \u2713' : 'Save aid station access'}</button>
     </section>
   );
 }
@@ -1277,3 +1476,4 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
   );
 }
 window.Overview = Overview;
+window.useRaceDayForecast = useRaceDayForecast;
