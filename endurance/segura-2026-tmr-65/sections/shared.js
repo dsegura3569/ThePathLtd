@@ -211,48 +211,156 @@ function TargetStepper({ label, value, setValue, min, max, step, unit, note }) {
   );
 }
 
+// A TargetStepper for one piece of carrying gear, plus a checkbox for
+// whether that vessel is even part of the kit -- not everyone runs with a
+// full vest, so vest/bladder/belt/handheld are each independently
+// switchable rather than always assumed present. Dims (but doesn't
+// disable) the stepper when unchecked so the ml value stays visible and
+// editable even while "not carried". When a segments list, range, and
+// setRange are supplied and the race has more than one leg, also renders
+// From/Until dropdowns so a vessel can be picked up or dropped at a
+// specific aid station instead of always assumed for the whole race.
+function VesselToggleStepper({ label, enabled, setEnabled, value, setValue, min, max, step, unit, note, segments, range, setRange }) {
+  const selectStyle = { background:'var(--bg-raised)', border:'1px solid var(--line)', borderRadius:6, color:'var(--ink)', fontSize:11.5, padding:'3px 5px' };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: enabled ? 1 : 0.5 }}>
+        <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} title="Carry this" style={{ cursor: 'pointer' }} />
+        <TargetStepper label={label} value={value} setValue={setValue} min={min} max={max} step={step} unit={unit} note={note} />
+      </div>
+      {enabled && segments && segments.length > 1 && range && setRange && (
+        <div style={{ display:'flex', alignItems:'center', flexWrap:'wrap', gap:6, marginLeft:34, fontSize:11.5, color:'var(--ink-faint)' }}>
+          <span>From</span>
+          <select value={range.from ?? ''} onChange={e => setRange({ ...range, from: e.target.value === '' ? null : Number(e.target.value) })} style={selectStyle}>
+            <option value="">Start</option>
+            {segments.slice(0, -1).map(s => <option key={s.id} value={s.id + 1}>Pickup: {s.to}</option>)}
+          </select>
+          <span>until</span>
+          <select value={range.to ?? ''} onChange={e => setRange({ ...range, to: e.target.value === '' ? null : Number(e.target.value) })} style={selectStyle}>
+            {segments.map(s => <option key={s.id} value={s.id}>Drop: {s.to}</option>)}
+            <option value="">Finish</option>
+          </select>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Whether a vessel with the given {from, to} segment-id range is carried
+// during a specific segment -- null on either end means unbounded (carried
+// from the very start / kept through the finish).
+function vesselActiveForSegment(range, segmentId) {
+  if (!range) return true;
+  if (range.from != null && segmentId < range.from) return false;
+  if (range.to != null && segmentId > range.to) return false;
+  return true;
+}
+window.vesselActiveForSegment = vesselActiveForSegment;
+
+// Builds the {vest, bladder, belt, handheld} capacities object for one
+// specific segment, given the global enabled flags/capacities/ranges --
+// shared by every vesselPlan() call site so "enabled AND active for this
+// segment's pickup/dropoff range" is computed identically everywhere.
+function capacitiesForSegment(segmentId, cfg) {
+  const r = cfg.vesselRanges || {};
+  const active = (key) => vesselActiveForSegment(r[key], segmentId);
+  return {
+    vest: (cfg.vestEnabled && active('vest')) ? cfg.vestCapacity : 0,
+    bladder: (cfg.bladderEnabled && active('bladder')) ? cfg.bladderCapacity : 0,
+    belt: (cfg.beltEnabled && active('belt')) ? cfg.beltCapacity : 0,
+    handheld: (cfg.handheldEnabled && active('handheld')) ? cfg.handheldCapacity : 0,
+  };
+}
+window.capacitiesForSegment = capacitiesForSegment;
+
 function vesselPlan(seg, capacities) {
-  // Vessel capacities: two vest flasks, one bladder, one belt flask. Defaults
-  // match the physical gear this was originally built around, but are
-  // user-configurable (Overview's Pace & Nutrition Targets, "Carrying setup")
-  // since someone else's vest/bladder/belt sizes will differ.
+  // Vessel capacities: vest flasks, bladder, belt flask, handheld -- each
+  // independently enable-able (0 or omitted capacity means "not carrying
+  // this"), since not everyone runs with a full vest. Defaults preserve the
+  // original vest+bladder+belt kit if the caller passes nothing.
   // Tailwind-diluted mix goes in whichever vessel(s) fit the diluted volume most simply;
-  // remaining plain water fills whatever's left. Shared by Race Day Plan and Segments
-  // tabs so both describe the same physical gear identically.
-  const VEST = (capacities && capacities.vest) || 500;
-  const BLADDER = (capacities && capacities.bladder) || 2000;
-  const BELT = (capacities && capacities.belt) || 650;
+  // remaining plain water fills whatever's left, cascading through every
+  // enabled vessel rather than assuming vest/bladder always exist. Shared by
+  // Race Day Plan and Segments tabs so both describe the same physical gear identically.
+  const c = capacities || {};
+  const VEST = c.vest ?? 500;
+  const BLADDER = c.bladder ?? 2000;
+  const BELT = c.belt ?? 650;
+  const HANDHELD = c.handheld ?? 0;
   const diluted = seg.dilutedMl;
   const plain = seg.plainMl;
   const vessels = [];
 
+  // Fills `remaining` plain water into a priority-ordered list of vessels,
+  // topping up a vessel already used for diluted mix (matched by name)
+  // rather than double-adding it, and skipping any disabled (capacity<=0)
+  // or already-full vessel.
+  function fillPlain(remaining, chain) {
+    for (const v of chain) {
+      if (remaining <= 0) break;
+      if (v.capacity <= 0) continue;
+      const already = vessels.find(x => x.name === v.name);
+      const room = v.capacity - (already ? already.water : 0);
+      if (room <= 0) continue;
+      const fill = Math.min(remaining, room);
+      if (already) already.water += fill;
+      else vessels.push({ name: v.name, capacity: v.capacity, water: fill, tailwindMl: 0 });
+      remaining -= fill;
+    }
+    return remaining;
+  }
+
   if (diluted === 0) {
-    let remaining = plain;
-    const bladderFill = Math.min(remaining, BLADDER);
-    if (bladderFill > 0) { vessels.push({ name: 'Bladder', capacity: BLADDER, water: bladderFill, tailwindMl: 0 }); remaining -= bladderFill; }
-    const vestFill = Math.min(remaining, VEST);
-    if (vestFill > 0) { vessels.push({ name: 'Vest flask A', capacity: VEST, water: vestFill, tailwindMl: 0 }); remaining -= vestFill; }
+    fillPlain(plain, [
+      { name: 'Bladder', capacity: BLADDER },
+      { name: 'Vest flask A', capacity: VEST },
+      { name: 'Belt flask', capacity: BELT },
+      { name: 'Handheld', capacity: HANDHELD },
+    ]);
     return vessels;
   }
 
-  if (diluted <= VEST) {
+  if (VEST > 0 && diluted <= VEST) {
     vessels.push({ name: 'Vest flask A', capacity: VEST, water: diluted, tailwindMl: diluted, tailwindG: seg.tailwind });
-    if (plain > 0) vessels.push({ name: 'Bladder', capacity: BLADDER, water: Math.min(plain, BLADDER), tailwindMl: 0 });
-  } else if (diluted <= VEST * 2) {
+    fillPlain(plain, [
+      { name: 'Bladder', capacity: BLADDER },
+      { name: 'Belt flask', capacity: BELT },
+      { name: 'Handheld', capacity: HANDHELD },
+    ]);
+  } else if (VEST > 0 && diluted <= VEST * 2) {
     const half = diluted / 2;
     vessels.push({ name: 'Vest flask A', capacity: VEST, water: half, tailwindMl: half, tailwindG: seg.tailwind / 2 });
     vessels.push({ name: 'Vest flask B', capacity: VEST, water: half, tailwindMl: half, tailwindG: seg.tailwind / 2 });
-    if (plain > 0) vessels.push({ name: 'Bladder', capacity: BLADDER, water: Math.min(plain, BLADDER), tailwindMl: 0 });
-  } else if (diluted <= BLADDER) {
+    fillPlain(plain, [
+      { name: 'Bladder', capacity: BLADDER },
+      { name: 'Belt flask', capacity: BELT },
+      { name: 'Handheld', capacity: HANDHELD },
+    ]);
+  } else if (BLADDER > 0 && diluted <= BLADDER) {
     vessels.push({ name: 'Bladder', capacity: BLADDER, water: diluted, tailwindMl: diluted, tailwindG: seg.tailwind });
-    if (plain > 0) vessels.push({ name: 'Vest flask A', capacity: VEST, water: Math.min(plain, VEST), tailwindMl: 0 });
+    fillPlain(plain, [
+      { name: 'Vest flask A', capacity: VEST },
+      { name: 'Belt flask', capacity: BELT },
+      { name: 'Handheld', capacity: HANDHELD },
+    ]);
   } else {
-    const bladderPortion = BLADDER;
-    const beltPortion = Math.min(diluted - BLADDER, BELT);
-    const bladderG = seg.tailwind * (bladderPortion / diluted);
-    const beltG = seg.tailwind * (beltPortion / diluted);
-    vessels.push({ name: 'Bladder', capacity: BLADDER, water: bladderPortion, tailwindMl: bladderPortion, tailwindG: bladderG });
-    vessels.push({ name: 'Belt flask', capacity: BELT, water: beltPortion, tailwindMl: beltPortion, tailwindG: beltG });
+    // Diluted mix is bigger than any single enabled vessel -- spread it
+    // across whatever's enabled in priority order, then send any leftover
+    // plain water through that same chain.
+    let remaining = diluted;
+    const chain = [
+      { name: 'Bladder', capacity: BLADDER },
+      { name: 'Belt flask', capacity: BELT },
+      { name: 'Vest flask A', capacity: VEST },
+      { name: 'Handheld', capacity: HANDHELD },
+    ];
+    for (const v of chain) {
+      if (remaining <= 0 || v.capacity <= 0) continue;
+      const portion = Math.min(remaining, v.capacity);
+      vessels.push({ name: v.name, capacity: v.capacity, water: portion, tailwindMl: portion, tailwindG: seg.tailwind * (portion / diluted) });
+      remaining -= portion;
+    }
+    fillPlain(plain, chain);
   }
   return vessels;
 }
@@ -288,3 +396,4 @@ window.findSegmentForMile = findSegmentForMile;
 window.computeSegmentElevationStats = computeSegmentElevationStats;
 window.VesselPlanCompact = VesselPlanCompact;
 window.TargetStepper = TargetStepper;
+window.VesselToggleStepper = VesselToggleStepper;
