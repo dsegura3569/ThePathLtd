@@ -90,11 +90,15 @@ function fmtHm(h) {
   return mm ? `${hh}h${String(mm).padStart(2, '0')}m` : `${hh}h`;
 }
 
-function computeDerivedSegments(targetTotalHours, targetCarbHr = BASE_CARB_HR, targetSodiumHr = BASE_SODIUM_HR, targetWaterHr = BASE_WATER_HR) {
+function computeDerivedSegments(targetTotalHours, targetCarbHr = BASE_CARB_HR, targetSodiumHr = BASE_SODIUM_HR, targetWaterHr = BASE_WATER_HR, gelRateShift = 0) {
   const numSegments = baseSegments.length;
   const carbScale = targetCarbHr / BASE_CARB_HR;
   const CARB_TARGETS = safeBaselineArray(BASE_CARB_TARGETS, numSegments, BASE_CARB_HR).map(c => Math.round(c * carbScale));
-  const SAFE_GEL_RATES = safeBaselineArray(GEL_RATES, numSegments, 2);
+  // gelRateShift is the "Gels <-> Tailwind" quick-convert: positive shifts
+  // more of the fixed carb target onto gels (fewer scoops of tailwind
+  // needed), negative shifts it onto tailwind (fewer gels) -- the overall
+  // carb/hr target itself never changes, only which product supplies it.
+  const SAFE_GEL_RATES = safeBaselineArray(GEL_RATES, numSegments, 2).map(r => Math.max(0, r + gelRateShift));
   const waterScale = targetWaterHr / BASE_WATER_HR;
   const SAFE_WATER_BANDS = safeBaselineArray(WATER_BANDS, numSegments, BASE_WATER_HR).map(w => Math.round(w * waterScale));
   const { hoursList, basePace } = calibratedHours(targetTotalHours);
