@@ -12,6 +12,24 @@ const TargetHoursContext = React.createContext({
   vestCapacity: 500, setVestCapacity: () => {},
   bladderCapacity: 2000, setBladderCapacity: () => {},
   beltCapacity: 650, setBeltCapacity: () => {},
+  vestEnabled: true, setVestEnabled: () => {},
+  bladderEnabled: true, setBladderEnabled: () => {},
+  beltEnabled: true, setBeltEnabled: () => {},
+  handheldCapacity: 500, setHandheldCapacity: () => {},
+  handheldEnabled: false, setHandheldEnabled: () => {},
+  // Per-vessel pickup/dropoff range: {from, to} segment ids, null on either
+  // end meaning "no restriction" (carried from the very start / kept all
+  // the way to the finish). Lets a vessel be picked up or dropped at a
+  // specific aid station instead of always assumed for the whole race.
+  vesselRanges: {
+    vest: { from: null, to: null }, bladder: { from: null, to: null },
+    belt: { from: null, to: null }, handheld: { from: null, to: null },
+  },
+  setVesselRanges: () => {},
+  // Freeform extra gear (headlamp, shoe/clothing change, etc.) -- each item
+  // is { id, name, pickupSegmentId (null = start), dropoffSegmentId (null =
+  // finish), suggestType: 'none'|'dawn'|'cold', tempThreshold }.
+  extraGear: [], setExtraGear: () => {},
 });
 window.TargetHoursContext = TargetHoursContext;
 
@@ -303,6 +321,13 @@ function loadTargetsForRace(id) {
   const defaults = {
     targetHours: Math.min(24, cutoff), targetCarb: 80, targetSodium: 700, targetWaterHr: 500,
     vestCapacity: 500, bladderCapacity: 2000, beltCapacity: 650,
+    vestEnabled: true, bladderEnabled: true, beltEnabled: true,
+    handheldCapacity: 500, handheldEnabled: false,
+    vesselRanges: {
+      vest: { from: null, to: null }, bladder: { from: null, to: null },
+      belt: { from: null, to: null }, handheld: { from: null, to: null },
+    },
+    extraGear: [],
   };
   try {
     const saved = JSON.parse(localStorage.getItem(TARGETS_KEY_PREFIX + id) || 'null');
@@ -323,6 +348,13 @@ function App() {
   const [vestCapacity, setVestCapacity] = useState(() => loadTargetsForRace(raceId).vestCapacity);
   const [bladderCapacity, setBladderCapacity] = useState(() => loadTargetsForRace(raceId).bladderCapacity);
   const [beltCapacity, setBeltCapacity] = useState(() => loadTargetsForRace(raceId).beltCapacity);
+  const [vestEnabled, setVestEnabled] = useState(() => loadTargetsForRace(raceId).vestEnabled);
+  const [bladderEnabled, setBladderEnabled] = useState(() => loadTargetsForRace(raceId).bladderEnabled);
+  const [beltEnabled, setBeltEnabled] = useState(() => loadTargetsForRace(raceId).beltEnabled);
+  const [handheldCapacity, setHandheldCapacity] = useState(() => loadTargetsForRace(raceId).handheldCapacity);
+  const [handheldEnabled, setHandheldEnabled] = useState(() => loadTargetsForRace(raceId).handheldEnabled);
+  const [vesselRanges, setVesselRanges] = useState(() => loadTargetsForRace(raceId).vesselRanges);
+  const [extraGear, setExtraGear] = useState(() => loadTargetsForRace(raceId).extraGear);
   // Bumped whenever race data is edited in place (e.g. applying parsed race
   // info) so the active page remounts and picks up fresh data, the same way
   // switching races does -- switching raceId alone wouldn't detect an edit
@@ -336,9 +368,11 @@ function App() {
     try {
       localStorage.setItem(TARGETS_KEY_PREFIX + raceId, JSON.stringify({
         targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, bladderCapacity, beltCapacity,
+        vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, extraGear,
       }));
     } catch (e) {}
-  }, [targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, bladderCapacity, beltCapacity, raceId]);
+  }, [targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, bladderCapacity, beltCapacity,
+      vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, extraGear, raceId]);
 
   // If the current race's own cutoff gets edited down below the current
   // target (e.g. via the Race Date/Time/Cutoff widget or Import Race Info),
@@ -367,6 +401,13 @@ function App() {
       setVestCapacity(loaded.vestCapacity);
       setBladderCapacity(loaded.bladderCapacity);
       setBeltCapacity(loaded.beltCapacity);
+      setVestEnabled(loaded.vestEnabled);
+      setBladderEnabled(loaded.bladderEnabled);
+      setBeltEnabled(loaded.beltEnabled);
+      setHandheldCapacity(loaded.handheldCapacity);
+      setHandheldEnabled(loaded.handheldEnabled);
+      setVesselRanges(loaded.vesselRanges);
+      setExtraGear(loaded.extraGear);
       setActive('overview'); // land on Overview -- the previously active page may not exist/make sense for a different race
     }
   }
@@ -389,6 +430,9 @@ function App() {
     <TargetHoursContext.Provider value={{
       targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium,
       targetWaterHr, setTargetWaterHr, vestCapacity, setVestCapacity, bladderCapacity, setBladderCapacity, beltCapacity, setBeltCapacity,
+      vestEnabled, setVestEnabled, bladderEnabled, setBladderEnabled, beltEnabled, setBeltEnabled,
+      handheldCapacity, setHandheldCapacity, handheldEnabled, setHandheldEnabled,
+      vesselRanges, setVesselRanges, extraGear, setExtraGear,
     }}>
       <div>
         <Nav active={active} setActive={setActive} open={open} setOpen={setOpen} onGear={handleGear} raceId={raceId} onSelectRace={handleSelectRace} />
