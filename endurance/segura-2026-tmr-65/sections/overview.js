@@ -460,9 +460,20 @@ function PaceTargetsWidget() {
   function setRangeFor(key) {
     return (next) => setVesselRanges(prev => ({ ...prev, [key]: next }));
   }
-  function addGearItem() {
-    setExtraGear(prev => [...prev, { id: Date.now(), name: '', pickupSegmentId: null, dropoffSegmentId: null, suggestType: 'none', tempThreshold: 40 }]);
+  function addGearItem(preset) {
+    setExtraGear(prev => [...prev, {
+      id: Date.now(),
+      name: preset ? preset.name : '',
+      pickupSegmentId: null, dropoffSegmentId: null,
+      suggestType: preset ? preset.suggestType : 'none',
+      tempThreshold: 40,
+    }]);
   }
+  const GEAR_PRESETS = [
+    { name: 'Poles', suggestType: 'none' },
+    { name: 'Waist Lamp', suggestType: 'dawn' },
+    { name: 'Head Lamp', suggestType: 'dawn' },
+  ];
   function updateGearItem(id, patch) {
     setExtraGear(prev => prev.map(g => g.id === id ? { ...g, ...patch } : g));
   }
@@ -476,28 +487,31 @@ function PaceTargetsWidget() {
         <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase', flex:1}}>
           Pace &amp; Nutrition Targets
         </div>
-        <button onClick={() => setShowAdvanced(v => !v)} aria-label="Water and carrying setup" title="Water and carrying setup" style={{
+        <button onClick={() => setShowAdvanced(v => !v)} aria-label="Edit targets, gear, and nutrition" title="Edit targets, gear, and nutrition" style={{
           width:30, height:30, borderRadius:8, border:'1px solid var(--line)',
           background: showAdvanced ? 'var(--climb)' : 'var(--bg-raised)', color: showAdvanced ? '#12151A' : 'var(--ink-faint)', cursor:'pointer',
           display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
         }}>&#9881;&#65039;</button>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16 }}>
-        <TargetStepper label="Target finish time" value={targetHours} setValue={setTargetHours} min={1} max={window.RACES[window.getCurrentRaceId()].cutoffHours} step={0.5} unit="hr" note={`${window.RACES[window.getCurrentRaceId()].cutoffHours}hr official cutoff`} />
-        <TargetStepper label="Target carb intake" value={targetCarb} setValue={setTargetCarb} min={50} max={120} step={5} unit="g/hr" />
-        <TargetStepper label="Target salt intake" value={targetSodium} setValue={setTargetSodium} min={400} max={1200} step={50} unit="mg/hr" />
-      </div>
+
+      {!showAdvanced && (
+        <div style={{fontSize:13, color:'var(--ink-dim)'}}>
+          {targetHours}hr finish target &middot; {targetCarb}g carb/hr &middot; {targetSodium}mg salt/hr
+        </div>
+      )}
 
       {showAdvanced && (
-        <div style={{marginTop:24, paddingTop:20, borderTop:'1px solid var(--line)'}}>
-          <div style={{fontSize:12, color:'var(--ink-faint)', marginBottom:16}}>
-            Water intake and carrying setup &mdash; also feeds every segment's vessel plan (which flask/bladder holds what).
+        <div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16, marginBottom: 20 }}>
+            <TargetStepper label="Target finish time" value={targetHours} setValue={setTargetHours} min={1} max={window.RACES[window.getCurrentRaceId()].cutoffHours} step={0.5} unit="hr" note={`${window.RACES[window.getCurrentRaceId()].cutoffHours}hr official cutoff`} />
+            <TargetStepper label="Target carb intake" value={targetCarb} setValue={setTargetCarb} min={50} max={120} step={5} unit="g/hr" />
+            <TargetStepper label="Target salt intake" value={targetSodium} setValue={setTargetSodium} min={400} max={1200} step={50} unit="mg/hr" />
           </div>
+          <div style={{marginTop:24, paddingTop:20, borderTop:'1px solid var(--line)'}}>
           <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16, marginBottom: 20 }}>
             <TargetStepper label="Target water intake" value={targetWaterHr} setValue={setTargetWaterHr} min={200} max={1200} step={50} unit="ml/hr" />
           </div>
-          <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginBottom:6}}>Carrying setup</div>
-          <div style={{fontSize:11.5, color:'var(--ink-faint)', marginBottom:14}}>Uncheck anything you're not carrying &mdash; not everyone runs with a full vest. If a race has more than one leg, set where you pick up or drop each piece.</div>
+          <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginBottom:12}}>Carrying setup</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16 }}>
             <VesselToggleStepper label="Vest flask (each)" enabled={vestEnabled} setEnabled={setVestEnabled} value={vestCapacity} setValue={setVestCapacity} min={150} max={750} step={50} unit="ml" note="you carry 2"
               segments={raceSegments} range={vesselRanges.vest} setRange={setRangeFor('vest')} />
@@ -509,11 +523,7 @@ function PaceTargetsWidget() {
               segments={raceSegments} range={vesselRanges.handheld} setRange={setRangeFor('handheld')} />
           </div>
 
-          <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginTop:24, marginBottom:6}}>Extra Gear</div>
-          <div style={{fontSize:11.5, color:'var(--ink-faint)', marginBottom:14}}>
-            Headlamp, shoe/clothing change, anything else picked up or dropped mid-race. "Dawn-dependent" and
-            "Cold-dependent" flag the item on Pack List when the forecast actually calls for it.
-          </div>
+          <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginTop:24, marginBottom:12}}>Extra Gear</div>
           {extraGear.map(g => (
             <div key={g.id} style={{background:'var(--bg-raised)', borderRadius:10, padding:'10px 14px', marginBottom:8}}>
               <div style={{display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', marginBottom:8}}>
@@ -551,10 +561,19 @@ function PaceTargetsWidget() {
               </div>
             </div>
           ))}
-          <button onClick={addGearItem} style={{
+          <div style={{display:'flex', flexWrap:'wrap', gap:8, marginBottom:10}}>
+            {GEAR_PRESETS.filter(p => !extraGear.some(g => g.name === p.name)).map(p => (
+              <button key={p.name} onClick={() => addGearItem(p)} style={{
+                padding:'6px 12px', borderRadius:20, border:'1px solid var(--line)', background:'var(--bg-raised)',
+                color:'var(--ink-dim)', fontSize:12, cursor:'pointer',
+              }}>+ {p.name}</button>
+            ))}
+          </div>
+          <button onClick={() => addGearItem()} style={{
             padding:'8px 14px', borderRadius:8, border:'1px dashed var(--line)', background:'none',
             color:'var(--climb)', fontSize:12.5, fontWeight:600, cursor:'pointer',
           }}>+ Add gear item</button>
+          </div>
         </div>
       )}
     </section>
@@ -1269,29 +1288,39 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
           </div>
         )}
 
-        <div style={{display:'flex', flexWrap:'wrap', gap:1, background:'var(--line)'}}>
-          {orderedStats.map((s, i) => {
-            const prev = orderedStats[i - 1];
-            const startsWeatherGroup = s.isWeather && (!prev || !prev.isWeather);
-            return (
-              <React.Fragment key={s.key}>
-                {startsWeatherGroup && <div style={{flexBasis:'100%', height:0}} />}
-                <div style={{background:'var(--bg)', padding:'20px 16px', flex:'1 1 140px', minWidth:140}}>
-                  <div style={{fontFamily:'var(--display)', fontSize:26, fontWeight:700, color:'var(--ink)'}}>
-                    {s.value}<span style={{fontSize:14, color:'var(--ink-faint)', marginLeft:4}}>{s.unit}</span>
-                  </div>
-                  <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginTop:6, textTransform:'uppercase', letterSpacing:'0.05em'}}>
-                    {s.label}
-                  </div>
-                  {s.sub && (
-                    <div style={{fontFamily:'var(--mono)', fontSize:10, color: s.subColor || 'var(--ink-faint)', marginTop:4}}>
-                      {s.sub}
-                    </div>
-                  )}
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:1, background:'var(--line)', marginBottom: orderedStats.some(s => s.isWeather) ? 1 : 0}}>
+          {orderedStats.filter(s => !s.isWeather).map(s => (
+            <div key={s.key} style={{background:'var(--bg)', padding:'20px 16px'}}>
+              <div style={{fontFamily:'var(--display)', fontSize:26, fontWeight:700, color:'var(--ink)'}}>
+                {s.value}<span style={{fontSize:14, color:'var(--ink-faint)', marginLeft:4}}>{s.unit}</span>
+              </div>
+              <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginTop:6, textTransform:'uppercase', letterSpacing:'0.05em'}}>
+                {s.label}
+              </div>
+              {s.sub && (
+                <div style={{fontFamily:'var(--mono)', fontSize:10, color: s.subColor || 'var(--ink-faint)', marginTop:4}}>
+                  {s.sub}
                 </div>
-              </React.Fragment>
-            );
-          })}
+              )}
+            </div>
+          ))}
+        </div>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:1, background:'var(--line)'}}>
+          {orderedStats.filter(s => s.isWeather).map(s => (
+            <div key={s.key} style={{background:'var(--bg)', padding:'20px 16px'}}>
+              <div style={{fontFamily:'var(--display)', fontSize:26, fontWeight:700, color:'var(--ink)'}}>
+                {s.value}<span style={{fontSize:14, color:'var(--ink-faint)', marginLeft:4}}>{s.unit}</span>
+              </div>
+              <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginTop:6, textTransform:'uppercase', letterSpacing:'0.05em'}}>
+                {s.label}
+              </div>
+              {s.sub && (
+                <div style={{fontFamily:'var(--mono)', fontSize:10, color: s.subColor || 'var(--ink-faint)', marginTop:4}}>
+                  {s.sub}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </section>
 
