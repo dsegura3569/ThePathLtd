@@ -6,6 +6,13 @@ window.SOUND_OPTIONS = [
   { id: 'breath', label: 'Real breath in / out' },
 ];
 
+window.ANIMATION_OPTIONS = [
+  { id: 'arc', label: 'Progress arc' },
+  { id: 'circle', label: 'Grow / shrink circle' },
+  { id: 'ripple', label: 'Ripple rings' },
+  { id: 'wave', label: 'Wave bar' },
+];
+
 function SecondsControl({ technique, duration, setDuration }) {
   return (
     <div>
@@ -86,10 +93,12 @@ function App() {
   const [technique, setTechnique] = useState(null);
   const [duration, setDuration] = useState(null);
   const [soundMode, setSoundMode] = useState('tick');
+  const [animationStyle, setAnimationStyle] = useState('arc');
   const [holdWalkSeconds, setHoldWalkSeconds] = useState(null);
   const [restSeconds, setRestSeconds] = useState(null);
   const [customPhases, setCustomPhases] = useState(null);
   const [customSoundMode, setCustomSoundMode] = useState('tick');
+  const [customAnimationStyle, setCustomAnimationStyle] = useState('arc');
   const [customTitle, setCustomTitle] = useState('');
   const [customCue, setCustomCue] = useState('');
   const [customStageLabelFor, setCustomStageLabelFor] = useState(null);
@@ -102,6 +111,13 @@ function App() {
     } else {
       setDuration(t.durationMode === 'selectable' ? t.default : null);
     }
+    // A sound mode picked for a previous technique could be one this
+    // technique excludes (e.g. chime, carried over from Box, isn't offered
+    // for Holotropic) -- reset to the default rather than silently
+    // launching with a mode that's no longer visible as selected anywhere.
+    if ((t.excludeSoundModes || []).includes(soundMode)) {
+      setSoundMode('tick');
+    }
     setView('configure');
   }
 
@@ -109,7 +125,7 @@ function App() {
     if (technique && technique.finite) {
       const phases = window.resolveRecoveryWalkingPhases(holdWalkSeconds, restSeconds);
       launchFiniteSession({
-        phases, soundMode, title: technique.name, cue: technique.cue,
+        phases, soundMode, animationStyle, title: technique.name, cue: technique.cue,
         stageLabelFor: phase => phase.stageIndex != null ? `Rep ${phase.stageIndex + 1} of 5` : null,
       });
       return;
@@ -122,18 +138,19 @@ function App() {
     setTechnique(null);
   }
 
-  function launchFiniteSession({ phases, soundMode: sm, title, stageLabelFor, cue }) {
+  function launchFiniteSession({ phases, soundMode: sm, animationStyle: as, title, stageLabelFor, cue }) {
     setCustomPhases(phases);
     setCustomSoundMode(sm);
+    setCustomAnimationStyle(as || 'arc');
     setCustomTitle(title);
     setCustomCue(cue || '');
     setCustomStageLabelFor(() => stageLabelFor);
     setView('finite-session');
   }
 
-  function startPhilosopherSession({ phases, soundMode: sm }) {
+  function startPhilosopherSession({ phases, soundMode: sm, animationStyle: as }) {
     launchFiniteSession({
-      phases, soundMode: sm, title: 'Philosopher',
+      phases, soundMode: sm, animationStyle: as, title: 'Philosopher',
       stageLabelFor: phase => phase.stageIndex != null ? `Stage ${phase.stageIndex + 1}` : 'Rest',
     });
   }
@@ -150,6 +167,7 @@ function App() {
         phases={customPhases}
         loop={false}
         soundMode={customSoundMode}
+        animationStyle={customAnimationStyle}
         title={customTitle}
         stageLabelFor={customStageLabelFor}
         cue={customCue}
@@ -169,6 +187,7 @@ function App() {
         technique={technique}
         chosenDuration={duration}
         soundMode={soundMode}
+        animationStyle={animationStyle}
         onExit={exitSession}
       />
     );
@@ -181,6 +200,13 @@ function App() {
         <p className="eyebrow" style={{ marginTop: '1.5rem' }}>Breathwork Assistant</p>
         <h1>{technique.name}</h1>
         <p>{technique.description}</p>
+
+        {technique.cue && technique.cueShowsOnSetupOnly && (
+          <p style={{
+            background: 'var(--sand-pale)', border: '1px solid var(--line)', borderRadius: 10,
+            padding: '1rem 1.1rem', fontSize: '0.9rem', color: 'var(--ink-soft)',
+          }}>{technique.cue}</p>
+        )}
 
         {technique.finite && (
           <div style={{ margin: '1.5rem 0' }}>
@@ -225,13 +251,30 @@ function App() {
         <div style={{ margin: '1.5rem 0' }}>
           <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 600 }}>Sound</label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-            {window.SOUND_OPTIONS.map(opt => (
+            {window.SOUND_OPTIONS.filter(opt => !(technique.excludeSoundModes || []).includes(opt.id)).map(opt => (
               <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
                 <input
                   type="radio"
                   name="sound"
                   checked={soundMode === opt.id}
                   onChange={() => setSoundMode(opt.id)}
+                />
+                {opt.label}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ margin: '1.5rem 0' }}>
+          <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 600 }}>Animation</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            {window.ANIMATION_OPTIONS.map(opt => (
+              <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="animation"
+                  checked={animationStyle === opt.id}
+                  onChange={() => setAnimationStyle(opt.id)}
                 />
                 {opt.label}
               </label>

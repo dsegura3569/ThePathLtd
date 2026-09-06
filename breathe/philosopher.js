@@ -1,15 +1,17 @@
 const { useState: usePState } = React;
 
-// Turns {totalTimeSeconds, stages, restBetweenStages} into a flat, finite phase list.
-// Total time is split evenly across stages (including the rests between them), so the
-// whole session -- breathing plus rests -- adds up to exactly totalTimeSeconds. Each
-// stage repeats its own in/hold_in/out/hold_out cycle to fill its allotted time,
-// cutting off immediately (not waiting for a full cycle) once that time is used.
+// Turns {stages, restBetweenStages} into a flat, finite phase list. Each
+// stage now owns its own explicit duration (stage.durationSeconds) rather
+// than being handed a slice of some separate "total session time" -- that
+// older design let someone configure a stage's breathing rhythm completely
+// incompatible with its allotted time (e.g. a 40s cycle squeezed into a 15s
+// slice), silently truncating it mid-phase with no warning anywhere in the
+// setup screen. Total session time is now purely a computed sum, shown
+// read-only in the builder, never an input that overrides what was
+// actually configured per stage.
 window.resolvePhilosopherPhases = function resolvePhilosopherPhases(config) {
-  const { totalTimeSeconds, stages, restBetweenStages } = config;
+  const { stages, restBetweenStages } = config;
   const numStages = stages.length;
-  const totalRest = restBetweenStages * Math.max(0, numStages - 1);
-  const perStageTime = Math.max(1, (totalTimeSeconds - totalRest) / numStages);
 
   const flat = [];
   stages.forEach((stg, stageIndex) => {
@@ -18,12 +20,13 @@ window.resolvePhilosopherPhases = function resolvePhilosopherPhases(config) {
     cycle.push({ type: 'out', seconds: stg.y });
     if (stg.holdOutEnabled) cycle.push({ type: 'hold_out', seconds: stg.y1 });
 
+    const stageTime = stg.durationSeconds;
     let elapsedInStage = 0;
     let safety = 0;
-    while (elapsedInStage < perStageTime && safety < 2000) {
+    while (elapsedInStage < stageTime && safety < 2000) {
       for (const phase of cycle) {
-        if (elapsedInStage >= perStageTime) break;
-        const remaining = perStageTime - elapsedInStage;
+        if (elapsedInStage >= stageTime) break;
+        const remaining = stageTime - elapsedInStage;
         const seconds = Math.min(phase.seconds, remaining);
         flat.push({ type: phase.type, seconds, stageIndex });
         elapsedInStage += seconds;
@@ -39,8 +42,19 @@ window.resolvePhilosopherPhases = function resolvePhilosopherPhases(config) {
   return flat;
 };
 
+// How many full in/hold/out/hold cycles actually fit in a stage's own
+// duration, and what (if anything) is left over -- shown live in the
+// builder so a partial/cut-off cycle is a visible, informed choice instead
+// of a silent surprise at session time.
+function stageCycleInfo(stage) {
+  const cycleSeconds = stage.x + (stage.holdInEnabled ? stage.x1 : 0) + stage.y + (stage.holdOutEnabled ? stage.y1 : 0);
+  const fullCycles = Math.floor(stage.durationSeconds / cycleSeconds);
+  const remainder = Math.round((stage.durationSeconds - fullCycles * cycleSeconds) * 10) / 10;
+  return { cycleSeconds, fullCycles, remainder };
+}
+
 function defaultStage() {
-  return { x: 4, x1: 4, y: 4, y1: 4, holdInEnabled: true, holdOutEnabled: true };
+  return { x: 4, x1: 4, y: 4, y1: 4, holdInEnabled: true, holdOutEnabled: true, durationSeconds: 60 };
 }
 
 function NumberField({ label, value, onChange, min, max, disabled, suffix }) {
@@ -67,6 +81,7 @@ function NumberField({ label, value, onChange, min, max, disabled, suffix }) {
 
 function StageEditor({ stage, index, onChange, onRemove, canRemove }) {
   function set(key, val) { onChange({ ...stage, [key]: val }); }
+  const { cycleSeconds, fullCycles, remainder } = stageCycleInfo(stage);
   return (
     <div style={{
       background: 'var(--sand-pale)', border: '1px solid var(--line)', borderRadius: 10,
@@ -81,36 +96,48 @@ function StageEditor({ stage, index, onChange, onRemove, canRemove }) {
         )}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.75rem' }}>
-        <NumberField label="Breathe in (x)" value={stage.x} min={1} max={60} suffix="sec"
+        <NumberField label="Breathe in" value={stage.x} min={1} max={60} suffix="sec"
           onChange={v => set('x', v)} />
         <div>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
             <input type="checkbox" checked={stage.holdInEnabled} onChange={e => set('holdInEnabled', e.target.checked)} />
-            Hold (x1)
+            Hold
           </label>
           <NumberField label="" value={stage.x1} min={1} max={60} suffix="sec"
             disabled={!stage.holdInEnabled} onChange={v => set('x1', v)} />
         </div>
-        <NumberField label="Breathe out (y)" value={stage.y} min={1} max={60} suffix="sec"
+        <NumberField label="Breathe out" value={stage.y} min={1} max={60} suffix="sec"
           onChange={v => set('y', v)} />
         <div>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
             <input type="checkbox" checked={stage.holdOutEnabled} onChange={e => set('holdOutEnabled', e.target.checked)} />
-            Hold (y1)
+            Hold
           </label>
           <NumberField label="" value={stage.y1} min={1} max={60} suffix="sec"
             disabled={!stage.holdOutEnabled} onChange={v => set('y1', v)} />
         </div>
+      </div>
+
+      <div style={{ marginTop: '0.9rem', paddingTop: '0.9rem', borderTop: '1px solid var(--line)' }}>
+        <div style={{ maxWidth: 160 }}>
+          <NumberField label="Stage duration" value={stage.durationSeconds} min={cycleSeconds} max={1800} suffix="sec"
+            onChange={v => set('durationSeconds', v)} />
+        </div>
+        <p style={{ fontSize: '0.78rem', color: 'var(--ink-soft)', marginTop: '0.5rem', marginBottom: 0 }}>
+          {remainder === 0
+            ? `${fullCycles} full cycle${fullCycles === 1 ? '' : 's'} of ${cycleSeconds}s, ends cleanly.`
+            : `${fullCycles} full cycle${fullCycles === 1 ? '' : 's'} of ${cycleSeconds}s, then ${remainder}s left over -- cuts off mid-phase.`}
+        </p>
       </div>
     </div>
   );
 }
 
 window.PhilosopherBuilder = function PhilosopherBuilder({ onStart, onBack }) {
-  const [totalMinutes, setTotalMinutes] = usePState(5);
   const [stages, setStages] = usePState([defaultStage()]);
   const [restBetweenStages, setRestBetweenStages] = usePState(5);
   const [soundMode, setSoundMode] = usePState('tick');
+  const [animationStyle, setAnimationStyle] = usePState('arc');
 
   function addStage() {
     if (stages.length >= 6) return;
@@ -123,12 +150,18 @@ window.PhilosopherBuilder = function PhilosopherBuilder({ onStart, onBack }) {
     setStages(stages.filter((_, idx) => idx !== i));
   }
 
-  const totalTimeSeconds = totalMinutes * 60;
-  const perStageSeconds = Math.max(1, (totalTimeSeconds - restBetweenStages * Math.max(0, stages.length - 1)) / stages.length);
+  // Total session time is now purely a computed sum of what's actually
+  // configured -- each stage's own duration, plus the rest gaps between
+  // them -- never a separate input a stage's real content could disagree
+  // with.
+  const totalTimeSeconds = stages.reduce((sum, s) => sum + s.durationSeconds, 0)
+    + restBetweenStages * Math.max(0, stages.length - 1);
+  const totalMinutesDisplay = Math.floor(totalTimeSeconds / 60);
+  const totalSecondsDisplay = Math.round(totalTimeSeconds % 60);
 
   function handleStart() {
-    const phases = window.resolvePhilosopherPhases({ totalTimeSeconds, stages, restBetweenStages });
-    onStart({ phases, soundMode });
+    const phases = window.resolvePhilosopherPhases({ stages, restBetweenStages });
+    onStart({ phases, soundMode, animationStyle });
   }
 
   return (
@@ -136,18 +169,16 @@ window.PhilosopherBuilder = function PhilosopherBuilder({ onStart, onBack }) {
       <window.GhostButton onClick={onBack}>&larr; Back</window.GhostButton>
       <p className="eyebrow" style={{ marginTop: '1.5rem' }}>Breathwork Assistant</p>
       <h1>Philosopher</h1>
-      <p>Build your own session: any number of stages, each with its own breathing rhythm.</p>
+      <p>Build your own session: any number of stages, each with its own breathing rhythm and duration.</p>
 
-      <div style={{ margin: '1.5rem 0' }}>
-        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
-          Total session time: {totalMinutes} min
-        </label>
-        <input type="range" min={1} max={60} value={totalMinutes}
-          onChange={e => setTotalMinutes(Number(e.target.value))} style={{ width: '100%' }} />
-        <p style={{ fontSize: '0.8rem', color: 'var(--ink-soft)', marginTop: '0.4rem' }}>
-          Split evenly across {stages.length} stage{stages.length > 1 ? 's' : ''} (including rest between them) &mdash;
-          about {Math.round(perStageSeconds)}s of breathing per stage.
-        </p>
+      <div style={{
+        margin: '1.5rem 0', background: 'var(--sand-pale)', border: '1px solid var(--line)',
+        borderRadius: 10, padding: '1rem 1.25rem',
+      }}>
+        <span style={{ fontSize: '0.8rem', color: 'var(--ink-soft)' }}>Total session time</span>
+        <div style={{ fontWeight: 600, fontSize: '1.1rem' }}>
+          {totalMinutesDisplay > 0 ? `${totalMinutesDisplay}m ` : ''}{totalSecondsDisplay}s
+        </div>
       </div>
 
       <div style={{ margin: '1.5rem 0' }}>
@@ -174,6 +205,18 @@ window.PhilosopherBuilder = function PhilosopherBuilder({ onStart, onBack }) {
           {window.SOUND_OPTIONS.map(opt => (
             <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
               <input type="radio" name="philosopher-sound" checked={soundMode === opt.id} onChange={() => setSoundMode(opt.id)} />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ margin: '1.5rem 0' }}>
+        <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 600 }}>Animation</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+          {window.ANIMATION_OPTIONS.map(opt => (
+            <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+              <input type="radio" name="philosopher-animation" checked={animationStyle === opt.id} onChange={() => setAnimationStyle(opt.id)} />
               {opt.label}
             </label>
           ))}
