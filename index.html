@@ -51,6 +51,8 @@
   #endurance-card:hover{ border-color:var(--climb); }
   #breathe-card:hover{ border-color:var(--breathe); }
   #body-card:hover{ border-color:var(--body-color); }
+  .widget-countdown{ font-family:var(--mono); font-size:15px; color:var(--ink-dim); }
+  .widget-countdown .unit{ font-size:11px; color:var(--ink-faint); margin-right:6px; }
   .foot-note{ margin-top:40px; font-size:12.5px; color:var(--ink-faint); }
   .foot-note a{ color:var(--ink-dim); }
 </style>
@@ -62,26 +64,102 @@
   <div class="tool-list">
     <a href="/endurance/" id="endurance-card" class="tool-card">
       <div class="tool-eyebrow" style="color:var(--climb);">Endurance</div>
-      <div class="tool-name">Race Command Center</div>
-      <p class="tool-desc">Race-day nutrition, pacing, gear, and segment planning, built around your own race data.</p>
+      <div class="tool-name" id="race-widget-name">Race Command Center</div>
+      <div class="widget-countdown" id="race-widget-countdown">Checking your races&hellip;</div>
     </a>
     <a href="/breathe/" id="breathe-card" class="tool-card">
       <div class="tool-eyebrow" style="color:var(--breathe);">Breathwork</div>
-      <div class="tool-name">Breathwork Assistant</div>
-      <p class="tool-desc">Guided breathing patterns with visual pacing and audio cues, or build your own.</p>
+      <div class="tool-name" id="breath-widget-name">Breathwork Assistant</div>
+      <p class="tool-desc" id="breath-widget-reason">Guided breathing patterns with visual pacing and audio cues, or build your own.</p>
     </a>
     <a href="/body/" id="body-card" class="tool-card">
       <div class="tool-eyebrow" style="color:var(--body-color);">Bodywork</div>
-      <div class="tool-name">Self-Massage Guide</div>
-      <p class="tool-desc">A region-by-region guide to working on your own tension between sessions.</p>
+      <div class="tool-name" id="body-widget-name">Self-Massage Guide</div>
+      <p class="tool-desc" id="body-widget-reason">A region-by-region guide to working on your own tension between sessions.</p>
     </a>
   </div>
   <p class="foot-note">Already have an account? Log in from within any tool above. Trouble with a confirmation or reset email? Those links land here first, then finish automatically.</p>
 </div>
 <script>
-  // Just initializes the widget so a confirmation/recovery token in the URL
-  // hash gets processed -- this page never gates its own content on login.
   window.netlifyIdentity && window.netlifyIdentity.init();
+
+  (function initRaceWidget() {
+    const nameEl = document.getElementById('race-widget-name');
+    const countdownEl = document.getElementById('race-widget-countdown');
+    const cardEl = document.getElementById('endurance-card');
+
+    const races = [
+      { name: 'Telluride Mountain Run \u2014 65 Mile', startDate: '2026-08-22T06:00:00-06:00', href: '/endurance/segura-2026-tmr-65/?race=tmr' },
+    ];
+    try {
+      const custom = JSON.parse(localStorage.getItem('tmr_command_custom_races_v1') || '[]');
+      custom.forEach(r => {
+        if (r.startDate) {
+          races.push({ name: r.name, startDate: r.startDate, href: '/endurance/segura-2026-tmr-65/?race=' + encodeURIComponent(r.id) });
+        }
+      });
+    } catch (e) {}
+
+    const now = Date.now();
+    const upcoming = races
+      .filter(r => new Date(r.startDate).getTime() > now)
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+    if (upcoming.length) {
+      const race = upcoming[0];
+      cardEl.href = race.href;
+      nameEl.textContent = race.name;
+      function tick() {
+        const diff = new Date(race.startDate).getTime() - Date.now();
+        if (diff <= 0) { countdownEl.textContent = 'Today'; return; }
+        const totalSeconds = Math.floor(diff / 1000);
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        countdownEl.innerHTML = days + '<span class="unit">d</span>' + String(hours).padStart(2, '0') +
+          '<span class="unit">h</span>' + String(minutes).padStart(2, '0') + '<span class="unit">m</span>' +
+          String(seconds).padStart(2, '0') + '<span class="unit">s</span>';
+      }
+      tick();
+      setInterval(tick, 1000);
+    } else {
+      cardEl.href = '/breathe/?technique=coherent';
+      nameEl.textContent = 'No race on the calendar';
+      countdownEl.textContent = 'Try a few minutes of stillness instead \u2192';
+    }
+  })();
+
+  (function initBreathWidget() {
+    const hour = new Date().getHours();
+    let rec;
+    if (hour >= 5 && hour < 12) {
+      rec = { id: 'coherent', name: 'Coherent Breathing', reason: 'A steady, resonant pace to start the day grounded.' };
+    } else if (hour >= 12 && hour < 18) {
+      rec = { id: 'box', name: 'Box Breathing', reason: 'A steady reset between meetings or effort.' };
+    } else {
+      rec = { id: '478', name: '4-7-8 Breathing', reason: 'An extended exhale to help you wind down.' };
+    }
+    document.getElementById('breathe-card').href = '/breathe/?technique=' + rec.id;
+    document.getElementById('breath-widget-name').textContent = rec.name;
+    document.getElementById('breath-widget-reason').textContent = rec.reason;
+  })();
+
+  (function initBodyWidget() {
+    const regions = [
+      { id: 'hands', name: 'Hands, Wrist & Forearm' },
+      { id: 'shoulder', name: 'Shoulder' },
+      { id: 'neck', name: 'Neck & Upper Back' },
+      { id: 'chest', name: 'Collarbone & Chest' },
+      { id: 'abdomen', name: 'Abdomen' },
+      { id: 'upper-legs', name: 'Upper Legs' },
+      { id: 'lower-legs', name: 'Lower Legs, Ankles & Feet' },
+    ];
+    const region = regions[new Date().getDay() % regions.length];
+    document.getElementById('body-card').href = '/body/#region-' + region.id;
+    document.getElementById('body-widget-name').textContent = region.name;
+    document.getElementById('body-widget-reason').textContent = "Today's self-massage focus.";
+  })();
 </script>
 </body>
 </html>

@@ -161,7 +161,7 @@
   <h2>By Region</h2>
   <div class="region-grid">
 
-    <details class="region-card">
+    <details class="region-card" id="region-hands">
       <summary>
         <div class="region-title-row">Hands, Wrist &amp; Forearm</div>
       </summary>
@@ -177,7 +177,7 @@
       </div>
     </details>
 
-    <details class="region-card">
+    <details class="region-card" id="region-shoulder">
       <summary>
         <div class="region-title-row">Shoulder</div>
       </summary>
@@ -193,7 +193,7 @@
       </div>
     </details>
 
-    <details class="region-card">
+    <details class="region-card" id="region-neck">
       <summary>
         <div class="region-title-row">Neck &amp; Upper Back</div>
       </summary>
@@ -209,7 +209,7 @@
       </div>
     </details>
 
-    <details class="region-card">
+    <details class="region-card" id="region-chest">
       <summary>
         <div class="region-title-row">Collarbone &amp; Chest</div>
       </summary>
@@ -225,7 +225,7 @@
       </div>
     </details>
 
-    <details class="region-card">
+    <details class="region-card" id="region-abdomen">
       <summary>
         <div class="region-title-row">Abdomen</div>
       </summary>
@@ -241,7 +241,7 @@
       </div>
     </details>
 
-    <details class="region-card">
+    <details class="region-card" id="region-upper-legs">
       <summary>
         <div class="region-title-row">Upper Legs</div>
       </summary>
@@ -257,7 +257,7 @@
       </div>
     </details>
 
-    <details class="region-card">
+    <details class="region-card" id="region-lower-legs">
       <summary>
         <div class="region-title-row">Lower Legs, Ankles &amp; Feet</div>
       </summary>
@@ -294,6 +294,22 @@
     fontDisplay: "'Fraunces', serif",
     fontMono: "'Space Mono', monospace",
   });
+
+  // Deep-link support: #region-shoulder (etc.) from the homepage's daily
+  // bodywork recommendation should actually open that region, not just
+  // scroll to its collapsed summary -- and since the auth gate hides all
+  // content until login, this has to wait for that to actually happen
+  // rather than running at page load.
+  function expandLinkedRegion() {
+    if (!location.hash) return;
+    const target = document.querySelector(location.hash);
+    if (target && target.tagName === 'DETAILS') {
+      target.open = true;
+      target.scrollIntoView({ block: 'start' });
+    }
+  }
+  window.netlifyIdentity.on('init', (user) => { if (user) setTimeout(expandLinkedRegion, 0); });
+  window.netlifyIdentity.on('login', () => setTimeout(expandLinkedRegion, 0));
 </script>
 </body>
 </html>

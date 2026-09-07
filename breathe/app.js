@@ -103,6 +103,19 @@ function App() {
   const [customCue, setCustomCue] = useState('');
   const [customStageLabelFor, setCustomStageLabelFor] = useState(null);
 
+  // Deep-link support: ?technique=box (etc.) jumps straight to that
+  // technique's configure screen instead of the picker grid -- used by the
+  // homepage's time-of-day breath recommendation widget, so clicking
+  // through actually lands on the suggested session, not just the tool.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedId = params.get('technique');
+    if (requestedId) {
+      const t = window.TECHNIQUES.find(x => x.id === requestedId);
+      if (t) chooseTechnique(t);
+    }
+  }, []);
+
   function chooseTechnique(t) {
     setTechnique(t);
     if (t.finite) {
