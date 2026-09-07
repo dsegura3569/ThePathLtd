@@ -313,4 +313,17 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+window.mountWithAuthGate(App, {
+  toolName: 'thepath.ltd',
+  toolTagline: 'Tools for endurance training, breathwork, and bodywork. Log in to see your patterns, or create an account to get started.',
+  accent: '#4A7C8C',
+  accentText: '#FBF7EF',
+  bg: '#F8F1E4',
+  cardBg: '#FBF7EF',
+  text: '#2B1B10',
+  textMuted: '#4A3627',
+  border: 'rgba(43,27,16,0.14)',
+  fontDisplay: "'Fraunces', serif",
+  fontMono: "'Space Mono', monospace",
+});
+

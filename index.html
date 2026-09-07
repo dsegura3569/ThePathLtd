@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>thepath.ltd</title>
+<meta name="description" content="Tools for endurance training, breathwork, and bodywork, from The Philosopher's Path." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  This page is deliberately public -- browsing it never requires logging in.
+  The Identity widget is still loaded and initialized here because Netlify's
+  signup/confirmation/password-reset emails link back to the site root, and
+  without the widget present to process the token in the URL, those links
+  land on a page that can't complete them, leaving the account stuck
+  unconfirmed. Each individual tool below has its own login gate.
+-->
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<style>
+  :root{
+    --bg: #12151A;
+    --bg-raised: #1A1E25;
+    --bg-card: #1E232B;
+    --line: #2A2F38;
+    --ink: #F3F5F7;
+    --ink-dim: #9AA3AF;
+    --ink-faint: #5B6472;
+    --climb: #E8943A;
+    --breathe: #4A7C8C;
+    --body-color: #8C8F6E;
+    --display: 'Space Grotesk', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+    --body-font: 'Inter', sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:var(--body-font); -webkit-font-smoothing:antialiased; }
+  .wrap{ max-width:640px; margin:0 auto; padding:4rem 20px 5rem; }
+  .brand{ font-family:var(--display); font-weight:700; font-size:28px; margin-bottom:10px; }
+  .brand .dot{ color:var(--climb); }
+  .tagline{ color:var(--ink-dim); font-size:14.5px; line-height:1.6; margin-bottom:40px; max-width:46ch; }
+  .tool-list{ display:flex; flex-direction:column; gap:14px; }
+  .tool-card{
+    display:block; text-decoration:none; color:inherit;
+    background:var(--bg-card); border:1px solid var(--line); border-radius:14px;
+    padding:22px 24px; transition:border-color 0.15s ease, transform 0.15s ease;
+  }
+  .tool-card:hover{ transform:translateY(-2px); }
+  .tool-eyebrow{ font-family:var(--mono); font-size:11px; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:6px; }
+  .tool-name{ font-family:var(--display); font-size:20px; font-weight:600; margin-bottom:6px; }
+  .tool-desc{ color:var(--ink-dim); font-size:13.5px; line-height:1.5; margin:0; }
+  #endurance-card:hover{ border-color:var(--climb); }
+  #breathe-card:hover{ border-color:var(--breathe); }
+  #body-card:hover{ border-color:var(--body-color); }
+  .foot-note{ margin-top:40px; font-size:12.5px; color:var(--ink-faint); }
+  .foot-note a{ color:var(--ink-dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">thepath<span class="dot">.</span>ltd</div>
+  <p class="tagline">Tools for endurance training, breathwork, and bodywork, built alongside <a href="https://thephilosopherspath.com" style="color:inherit;">The Philosopher's Path</a>. Each tool below has its own account, separate from your race data.</p>
+  <div class="tool-list">
+    <a href="/endurance/" id="endurance-card" class="tool-card">
+      <div class="tool-eyebrow" style="color:var(--climb);">Endurance</div>
+      <div class="tool-name">Race Command Center</div>
+      <p class="tool-desc">Race-day nutrition, pacing, gear, and segment planning, built around your own race data.</p>
+    </a>
+    <a href="/breathe/" id="breathe-card" class="tool-card">
+      <div class="tool-eyebrow" style="color:var(--breathe);">Breathwork</div>
+      <div class="tool-name">Breathwork Assistant</div>
+      <p class="tool-desc">Guided breathing patterns with visual pacing and audio cues, or build your own.</p>
+    </a>
+    <a href="/body/" id="body-card" class="tool-card">
+      <div class="tool-eyebrow" style="color:var(--body-color);">Bodywork</div>
+      <div class="tool-name">Self-Massage Guide</div>
+      <p class="tool-desc">A region-by-region guide to working on your own tension between sessions.</p>
+    </a>
+  </div>
+  <p class="foot-note">Already have an account? Log in from within any tool above. Trouble with a confirmation or reset email? Those links land here first, then finish automatically.</p>
+</div>
+<script>
+  // Just initializes the widget so a confirmation/recovery token in the URL
+  // hash gets processed -- this page never gates its own content on login.
+  window.netlifyIdentity && window.netlifyIdentity.init();
+</script>
+</body>
+</html>

@@ -248,5 +248,23 @@
   updateCountdowns();
   setInterval(updateCountdowns, 1000);
 </script>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="/auth-gate-vanilla.js"></script>
+<script>
+  window.initVanillaAuthGate({
+    contentSelector: '.container',
+    toolName: 'thepath.ltd',
+    toolTagline: 'Tools for endurance training, breathwork, and bodywork. Log in to see your races, or create an account to get started.',
+    accent: '#B85C38',
+    accentText: '#FBF7EF',
+    bg: '#F8F1E4',
+    cardBg: '#FBF7EF',
+    text: '#2B1B10',
+    textMuted: '#4A3627',
+    border: 'rgba(43,27,16,0.14)',
+    fontDisplay: "'Fraunces', serif",
+    fontMono: "'Space Mono', monospace",
+  });
+</script>
 </body>
 </html>
