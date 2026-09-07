@@ -34,59 +34,128 @@
   }
   *{ box-sizing:border-box; }
   html,body{ margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:var(--body-font); -webkit-font-smoothing:antialiased; }
-  .wrap{ max-width:640px; margin:0 auto; padding:4rem 20px 5rem; }
-  .brand{ font-family:var(--display); font-weight:700; font-size:28px; margin-bottom:10px; }
+  .wrap{ max-width:760px; margin:0 auto; padding:3rem 20px 5rem; }
+  .top-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:10px; }
+  .brand{ font-family:var(--display); font-weight:700; font-size:28px; }
   .brand .dot{ color:var(--climb); }
-  .tagline{ color:var(--ink-dim); font-size:14.5px; line-height:1.6; margin-bottom:40px; max-width:46ch; }
-  .tool-list{ display:flex; flex-direction:column; gap:14px; }
-  .tool-card{
-    display:block; text-decoration:none; color:inherit;
-    background:var(--bg-card); border:1px solid var(--line); border-radius:14px;
-    padding:22px 24px; transition:border-color 0.15s ease, transform 0.15s ease;
+  .auth-bar{ font-size:12.5px; color:var(--ink-dim); text-align:right; padding-top:8px; white-space:nowrap; }
+  .auth-bar button{
+    font-family:inherit; font-size:12.5px; background:none; border:1px solid var(--line);
+    border-radius:8px; color:var(--ink-dim); padding:5px 12px; cursor:pointer;
   }
-  .tool-card:hover{ transform:translateY(-2px); }
+  .auth-bar button:hover{ border-color:var(--ink-faint); color:var(--ink); }
+  .tagline{ color:var(--ink-dim); font-size:14.5px; line-height:1.6; margin-bottom:40px; max-width:52ch; }
+  .tool-list{ display:flex; flex-direction:column; gap:14px; }
+  .tool-row{
+    display:flex; background:var(--bg-card); border:1px solid var(--line); border-radius:14px;
+    overflow:hidden; transition:border-color 0.15s ease, transform 0.15s ease;
+  }
+  .tool-row:hover{ transform:translateY(-2px); }
+  .tool-main{ flex:1; min-width:0; padding:22px 24px; text-decoration:none; color:inherit; display:block; }
+  .tool-widget{
+    width:230px; flex:none; padding:22px 20px; border-left:1px solid var(--line);
+    text-decoration:none; color:inherit; display:flex; flex-direction:column; justify-content:center;
+    background:rgba(255,255,255,0.02); transition:background 0.15s ease;
+  }
+  .tool-widget:hover{ background:rgba(255,255,255,0.045); }
+  @media (max-width:600px){
+    .tool-row{ flex-direction:column; }
+    .tool-widget{ width:auto; border-left:none; border-top:1px solid var(--line); }
+  }
   .tool-eyebrow{ font-family:var(--mono); font-size:11px; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:6px; }
   .tool-name{ font-family:var(--display); font-size:20px; font-weight:600; margin-bottom:6px; }
   .tool-desc{ color:var(--ink-dim); font-size:13.5px; line-height:1.5; margin:0; }
-  #endurance-card:hover{ border-color:var(--climb); }
-  #breathe-card:hover{ border-color:var(--breathe); }
-  #body-card:hover{ border-color:var(--body-color); }
-  .widget-countdown{ font-family:var(--mono); font-size:15px; color:var(--ink-dim); }
-  .widget-countdown .unit{ font-size:11px; color:var(--ink-faint); margin-right:6px; }
+  #endurance-row:hover{ border-color:var(--climb); }
+  #breathe-row:hover{ border-color:var(--breathe); }
+  #body-row:hover{ border-color:var(--body-color); }
+  .widget-label{ font-family:var(--mono); font-size:10px; letter-spacing:0.05em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:6px; }
+  .widget-name{ font-family:var(--display); font-size:15.5px; font-weight:600; margin-bottom:4px; line-height:1.3; }
+  .widget-sub{ font-size:12px; color:var(--ink-dim); line-height:1.4; }
+  .widget-countdown{ font-family:var(--mono); font-size:14px; color:var(--ink-dim); }
+  .widget-countdown .unit{ font-size:10px; color:var(--ink-faint); margin-right:5px; }
   .foot-note{ margin-top:40px; font-size:12.5px; color:var(--ink-faint); }
-  .foot-note a{ color:var(--ink-dim); }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="brand">thepath<span class="dot">.</span>ltd</div>
+  <div class="top-row">
+    <div class="brand">thepath<span class="dot">.</span>ltd</div>
+    <div class="auth-bar" id="auth-bar">Checking your account&hellip;</div>
+  </div>
   <p class="tagline">Tools for endurance training, breathwork, and bodywork, built alongside <a href="https://thephilosopherspath.com" style="color:inherit;">The Philosopher's Path</a>. Each tool below has its own account, separate from your race data.</p>
   <div class="tool-list">
-    <a href="/endurance/" id="endurance-card" class="tool-card">
-      <div class="tool-eyebrow" style="color:var(--climb);">Endurance</div>
-      <div class="tool-name" id="race-widget-name">Race Command Center</div>
-      <div class="widget-countdown" id="race-widget-countdown">Checking your races&hellip;</div>
-    </a>
-    <a href="/breathe/" id="breathe-card" class="tool-card">
-      <div class="tool-eyebrow" style="color:var(--breathe);">Breathwork</div>
-      <div class="tool-name" id="breath-widget-name">Breathwork Assistant</div>
-      <p class="tool-desc" id="breath-widget-reason">Guided breathing patterns with visual pacing and audio cues, or build your own.</p>
-    </a>
-    <a href="/body/" id="body-card" class="tool-card">
-      <div class="tool-eyebrow" style="color:var(--body-color);">Bodywork</div>
-      <div class="tool-name" id="body-widget-name">Self-Massage Guide</div>
-      <p class="tool-desc" id="body-widget-reason">A region-by-region guide to working on your own tension between sessions.</p>
-    </a>
+    <div class="tool-row" id="endurance-row">
+      <a href="/endurance/" class="tool-main">
+        <div class="tool-eyebrow" style="color:var(--climb);">Endurance</div>
+        <div class="tool-name">Race Command Center</div>
+        <p class="tool-desc">Race-day nutrition, pacing, gear, and segment planning, built around your own race data.</p>
+      </a>
+      <a href="/endurance/" id="race-widget-link" class="tool-widget">
+        <div class="widget-label">Next up</div>
+        <div class="widget-name" id="race-widget-name">Checking your races&hellip;</div>
+        <div class="widget-countdown" id="race-widget-countdown"></div>
+      </a>
+    </div>
+    <div class="tool-row" id="breathe-row">
+      <a href="/breathe/" class="tool-main">
+        <div class="tool-eyebrow" style="color:var(--breathe);">Breathwork</div>
+        <div class="tool-name">Breathwork Assistant</div>
+        <p class="tool-desc">Guided breathing patterns with visual pacing and audio cues, or build your own.</p>
+      </a>
+      <a href="/breathe/" id="breath-widget-link" class="tool-widget">
+        <div class="widget-label">Right now</div>
+        <div class="widget-name" id="breath-widget-name"></div>
+        <div class="widget-sub" id="breath-widget-reason"></div>
+      </a>
+    </div>
+    <div class="tool-row" id="body-row">
+      <a href="/body/" class="tool-main">
+        <div class="tool-eyebrow" style="color:var(--body-color);">Bodywork</div>
+        <div class="tool-name">Self-Massage Guide</div>
+        <p class="tool-desc">A region-by-region guide to working on your own tension between sessions.</p>
+      </a>
+      <a href="/body/" id="body-widget-link" class="tool-widget">
+        <div class="widget-label">Today's focus</div>
+        <div class="widget-name" id="body-widget-name"></div>
+        <div class="widget-sub">Self-massage region</div>
+      </a>
+    </div>
   </div>
-  <p class="foot-note">Already have an account? Log in from within any tool above. Trouble with a confirmation or reset email? Those links land here first, then finish automatically.</p>
+  <p class="foot-note">Already have an account? Log in above, or from within any tool.</p>
 </div>
 <script>
-  window.netlifyIdentity && window.netlifyIdentity.init();
+  // --- Auth bar: log in / log out right here, no need to click into a
+  // tool first just to be prompted. ---
+  (function initAuthBar() {
+    const bar = document.getElementById('auth-bar');
+    function renderLoggedOut() {
+      bar.innerHTML = '';
+      const btn = document.createElement('button');
+      btn.textContent = 'Log in';
+      btn.addEventListener('click', () => window.netlifyIdentity.open('login'));
+      bar.appendChild(btn);
+    }
+    function renderLoggedIn(user) {
+      bar.innerHTML = '';
+      const email = document.createElement('span');
+      email.textContent = (user && user.email) || 'Signed in';
+      email.style.marginRight = '10px';
+      const btn = document.createElement('button');
+      btn.textContent = 'Log out';
+      btn.addEventListener('click', () => window.netlifyIdentity.logout());
+      bar.appendChild(email);
+      bar.appendChild(btn);
+    }
+    window.netlifyIdentity.on('init', (user) => { user ? renderLoggedIn(user) : renderLoggedOut(); });
+    window.netlifyIdentity.on('login', (user) => renderLoggedIn(user));
+    window.netlifyIdentity.on('logout', () => renderLoggedOut());
+    window.netlifyIdentity.init();
+  })();
 
   (function initRaceWidget() {
     const nameEl = document.getElementById('race-widget-name');
     const countdownEl = document.getElementById('race-widget-countdown');
-    const cardEl = document.getElementById('endurance-card');
+    const linkEl = document.getElementById('race-widget-link');
 
     const races = [
       { name: 'Telluride Mountain Run \u2014 65 Mile', startDate: '2026-08-22T06:00:00-06:00', href: '/endurance/segura-2026-tmr-65/?race=tmr' },
@@ -107,7 +176,7 @@
 
     if (upcoming.length) {
       const race = upcoming[0];
-      cardEl.href = race.href;
+      linkEl.href = race.href;
       nameEl.textContent = race.name;
       function tick() {
         const diff = new Date(race.startDate).getTime() - Date.now();
@@ -124,9 +193,9 @@
       tick();
       setInterval(tick, 1000);
     } else {
-      cardEl.href = '/breathe/?technique=coherent';
+      linkEl.href = '/breathe/?technique=coherent';
       nameEl.textContent = 'No race on the calendar';
-      countdownEl.textContent = 'Try a few minutes of stillness instead \u2192';
+      countdownEl.textContent = 'Try a few minutes of stillness \u2192';
     }
   })();
 
@@ -140,7 +209,7 @@
     } else {
       rec = { id: '478', name: '4-7-8 Breathing', reason: 'An extended exhale to help you wind down.' };
     }
-    document.getElementById('breathe-card').href = '/breathe/?technique=' + rec.id;
+    document.getElementById('breath-widget-link').href = '/breathe/?technique=' + rec.id;
     document.getElementById('breath-widget-name').textContent = rec.name;
     document.getElementById('breath-widget-reason').textContent = rec.reason;
   })();
@@ -156,9 +225,8 @@
       { id: 'lower-legs', name: 'Lower Legs, Ankles & Feet' },
     ];
     const region = regions[new Date().getDay() % regions.length];
-    document.getElementById('body-card').href = '/body/#region-' + region.id;
+    document.getElementById('body-widget-link').href = '/body/#region-' + region.id;
     document.getElementById('body-widget-name').textContent = region.name;
-    document.getElementById('body-widget-reason').textContent = "Today's self-massage focus.";
   })();
 </script>
 </body>
