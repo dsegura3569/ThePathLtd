@@ -197,6 +197,7 @@
       });
       list.appendChild(card);
     });
+    sortRaceCards();
   })();
 
   // Mirrors deleteCustomRace() in the dashboard's races_registry.js, but kept
@@ -213,6 +214,34 @@
         localStorage.removeItem('tmr_command_current_race_v1');
       }
     } catch (e) {}
+  }
+
+  // Order the race list: upcoming races first (soonest start date first),
+  // then finished races at the bottom, keeping the same soonest-first
+  // ordering within each group. Runs after both the hardcoded TMR card and
+  // any dynamically-rendered custom race cards exist, since TMR being first
+  // in the HTML source doesn't mean it belongs first once real dates are
+  // involved -- a finished TMR should drop below an upcoming race, not sit
+  // above it just because it's the first card in the file.
+  function sortRaceCards() {
+    const list = document.getElementById('race-list');
+    const cards = Array.from(list.querySelectorAll('.race-card'));
+    const now = Date.now();
+    cards.sort((a, b) => {
+      const aDate = a.getAttribute('data-start-date');
+      const bDate = b.getAttribute('data-start-date');
+      const aTime = aDate ? new Date(aDate).getTime() : null;
+      const bTime = bDate ? new Date(bDate).getTime() : null;
+      // No date at all sorts last, past its own group.
+      if (aTime === null && bTime === null) return 0;
+      if (aTime === null) return 1;
+      if (bTime === null) return -1;
+      const aPast = aTime < now;
+      const bPast = bTime < now;
+      if (aPast !== bPast) return aPast ? 1 : -1; // upcoming before finished
+      return aTime - bTime; // soonest first within each group
+    });
+    cards.forEach(card => list.appendChild(card));
   }
 
   function escapeHtml(str) {
