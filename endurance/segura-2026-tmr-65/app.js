@@ -1,5 +1,13 @@
 const { useState, useEffect } = React;
 
+// Who's logged in, everywhere in the app. Populated by the Root/AuthGate
+// component at the bottom of this file from the Netlify Identity widget --
+// nothing in the app below Root should talk to window.netlifyIdentity
+// directly except to log out, so the auth mechanism can change later
+// without touching every page.
+const AuthContext = React.createContext({ user: null, logout: () => {} });
+window.AuthContext = AuthContext;
+
 // Shared target-finish-time state. Segment data everywhere except raw
 // terrain (distance/elevation/grade) is derived from this at render time,
 // so changing it updates pace, clock times, cutoff margins, and the whole
@@ -397,6 +405,7 @@ function getHiddenCardIds() {
 
 function Nav({ active, setActive, open, setOpen, onGear, raceId, onSelectRace }) {
   const race = window.RACES[raceId];
+  const { user, logout } = React.useContext(window.AuthContext);
   // Only 'overview' is always shown -- every other section corresponds to a
   // Race Insights card on Overview, so if that card's been hidden there (via
   // the manage-sections gear), it shouldn't still show up as a nav option.
@@ -454,6 +463,13 @@ function Nav({ active, setActive, open, setOpen, onGear, raceId, onSelectRace })
                 <span style={{fontFamily:'var(--display)', fontSize:22, fontWeight:600}}>{s.label}</span>
               </button>
             ))}
+            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 4px', marginTop:8}}>
+              <span style={{fontSize:12.5, color:'var(--ink-faint)'}}>{user && user.email}</span>
+              <button onClick={() => { logout(); setOpen(false); }} style={{
+                background:'none', border:'1px solid var(--line)', borderRadius:8, padding:'6px 12px',
+                color:'var(--ink-dim)', fontSize:12, cursor:'pointer',
+              }}>Log out</button>
+            </div>
           </div>
         </nav>
       )}
@@ -628,5 +644,78 @@ function App() {
   );
 }
 
+// Full-screen login/signup gate. Shown instead of the app until Netlify
+// Identity confirms who (if anyone) is logged in. Widget itself renders the
+// actual login/signup/password-recovery form in its own modal -- this
+// screen is just the door.
+function LoginScreen() {
+  return (
+    <div style={{
+      minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
+      background:'var(--bg)', padding:20,
+    }}>
+      <div style={{textAlign:'center', maxWidth:360}}>
+        <div style={{fontFamily:'var(--display)', fontWeight:700, fontSize:26, color:'var(--ink)', marginBottom:8}}>
+          thepath<span style={{color:'var(--climb)'}}>.</span>ltd
+        </div>
+        <p style={{fontSize:13.5, color:'var(--ink-dim)', lineHeight:1.6, marginBottom:28}}>
+          Race-day planning tools for endurance, breathwork, and bodywork. Log in to see your races,
+          or create an account to get started.
+        </p>
+        <button onClick={() => window.netlifyIdentity.open('login')} style={{
+          width:'100%', padding:'12px', borderRadius:10, border:'none', background:'var(--climb)',
+          color:'#12151A', fontWeight:600, fontSize:14, cursor:'pointer', marginBottom:10,
+        }}>Log in</button>
+        <button onClick={() => window.netlifyIdentity.open('signup')} style={{
+          width:'100%', padding:'12px', borderRadius:10, border:'1px solid var(--line)', background:'var(--bg-raised)',
+          color:'var(--ink)', fontWeight:600, fontSize:14, cursor:'pointer',
+        }}>Create an account</button>
+      </div>
+    </div>
+  );
+}
+
+// Root/AuthGate: initializes the Netlify Identity widget once, tracks the
+// current user, and renders the login screen, a brief loading state, or the
+// real app accordingly. Everything below this reads the logged-in user (if
+// any) from AuthContext rather than touching the widget directly.
+function Root() {
+  const [ready, setReady] = React.useState(false);
+  const [user, setUser] = React.useState(null);
+
+  React.useEffect(() => {
+    function handleInit(u) { setUser(u); setReady(true); }
+    function handleLogin(u) { setUser(u); window.netlifyIdentity.close(); }
+    function handleLogout() { setUser(null); }
+    window.netlifyIdentity.on('init', handleInit);
+    window.netlifyIdentity.on('login', handleLogin);
+    window.netlifyIdentity.on('logout', handleLogout);
+    window.netlifyIdentity.init();
+    return () => {
+      window.netlifyIdentity.off('init', handleInit);
+      window.netlifyIdentity.off('login', handleLogin);
+      window.netlifyIdentity.off('logout', handleLogout);
+    };
+  }, []);
+
+  if (!ready) {
+    return (
+      <div style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg)'}}>
+        <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--ink-faint)'}}>Loading&hellip;</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginScreen />;
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, logout: () => window.netlifyIdentity.logout() }}>
+      <App />
+    </AuthContext.Provider>
+  );
+}
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+root.render(<Root />);
