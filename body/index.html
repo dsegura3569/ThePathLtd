@@ -32,6 +32,12 @@
     -webkit-font-smoothing:antialiased;
   }
   .container{ max-width:900px; margin:0 auto; padding:3rem 1.5rem 5rem; }
+    .back-link{
+    display:inline-flex; align-items:center; gap:0.4rem;
+    font-family:var(--font-mono); font-size:0.8rem; color:var(--ink-soft);
+    text-decoration:none; margin-bottom:1.25rem;
+  }
+  .back-link:hover{ color:var(--ink); }
   .tool-hero{
     position:relative;
     margin:0 0 2rem;
@@ -135,6 +141,8 @@
 </head>
 <body>
 <div class="container">
+    <a href="/" class="back-link">&larr; thepath.ltd</a>
+
   <div class="tool-hero">
     <p class="eyebrow">Bodywork</p>
     <h1>Self-Massage Guide</h1>

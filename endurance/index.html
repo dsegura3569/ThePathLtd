@@ -37,6 +37,12 @@
     text-transform:uppercase; color:var(--endurance-color); margin-bottom:0.5rem;
   }
   .intro p{ max-width:60ch; }
+    .back-link{
+    display:inline-flex; align-items:center; gap:0.4rem;
+    font-family:var(--font-mono); font-size:0.8rem; color:var(--ink-soft);
+    text-decoration:none; margin-bottom:1.25rem;
+  }
+  .back-link:hover{ color:var(--ink); }
   .tool-hero{
     position:relative;
     margin:0 0 1rem;
@@ -110,6 +116,8 @@
 </head>
 <body>
 <div class="container">
+    <a href="/" class="back-link">&larr; thepath.ltd</a>
+
   <div class="tool-hero">
     <p class="eyebrow">Endurance</p>
     <h1>Race Prep Dashboards</h1>

@@ -302,6 +302,7 @@ function App() {
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '3rem 1.5rem' }}>
+      <a href="/" className="back-link">&larr; thepath.ltd</a>
       <div className="tool-hero">
         <p className="eyebrow">Breathwork Assistant</p>
         <h1>Choose a breathing pattern</h1>
