@@ -77,6 +77,7 @@
   .waypoint-widget-sub{ font-size:0.82rem; color:var(--ink-dim); margin-top:0.1rem; }
   .countdown{ font-family:var(--mono); font-size:0.85rem; color:var(--ink-dim); margin-top:0.15rem; }
   .countdown .unit{ font-size:0.65rem; color:var(--ink-faint); margin-right:4px; }
+  .waypoint-widget-name.is-cta{ color:var(--accent); font-weight:600; }
 
   .foot-note{ margin-top:3.2rem; font-size:0.8rem; color:var(--ink-faint); }
 </style>
@@ -99,7 +100,7 @@
       <a href="/endurance/" class="waypoint-name">Race Command Center</a>
       <p class="waypoint-desc">Race-day nutrition, pacing, gear, and segment planning, built around your own race data.</p>
       <a href="/endurance/" id="race-widget-link" class="waypoint-widget">
-        <div class="waypoint-widget-label">Next up</div>
+        <div class="waypoint-widget-label" id="race-widget-label">Next up</div>
         <div class="waypoint-widget-name" id="race-widget-name">Checking your races&hellip;</div>
         <div class="countdown" id="race-widget-countdown"></div>
       </a>
@@ -161,30 +162,39 @@
   })();
 
   (function initRaceWidget() {
+    const widgetEl = document.getElementById('race-widget-link');
+    const labelEl = document.getElementById('race-widget-label');
     const nameEl = document.getElementById('race-widget-name');
     const countdownEl = document.getElementById('race-widget-countdown');
-    const linkEl = document.getElementById('race-widget-link');
+    let tickTimer = null;
 
-    const races = [
-      { name: 'Telluride Mountain Run \u2014 65 Mile', startDate: '2026-08-22T06:00:00-06:00', href: '/endurance/segura-2026-tmr-65/?race=tmr' },
-    ];
-    try {
-      const custom = JSON.parse(localStorage.getItem('tmr_command_custom_races_v1') || '[]');
-      custom.forEach(r => {
-        if (r.startDate) {
-          races.push({ name: r.name, startDate: r.startDate, href: '/endurance/segura-2026-tmr-65/?race=' + encodeURIComponent(r.id) });
-        }
-      });
-    } catch (e) {}
+    function getUpcomingRaces() {
+      const races = [
+        { name: 'Telluride Mountain Run \u2014 65 Mile', startDate: '2026-08-22T06:00:00-06:00', href: '/endurance/segura-2026-tmr-65/?race=tmr' },
+      ];
+      try {
+        const custom = JSON.parse(localStorage.getItem('tmr_command_custom_races_v1') || '[]');
+        custom.forEach(r => {
+          if (r.startDate) {
+            races.push({ name: r.name, startDate: r.startDate, href: '/endurance/segura-2026-tmr-65/?race=' + encodeURIComponent(r.id) });
+          }
+        });
+      } catch (e) {}
+      const now = Date.now();
+      return races
+        .filter(r => new Date(r.startDate).getTime() > now)
+        .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+    }
 
-    const now = Date.now();
-    const upcoming = races
-      .filter(r => new Date(r.startDate).getTime() > now)
-      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
-
-    if (upcoming.length) {
-      const race = upcoming[0];
-      linkEl.href = race.href;
+    // Renders a real countdown for a given race (used for both the actual
+    // next-up race and the logged-out mock -- same visual treatment either
+    // way, just different data and label).
+    function renderCountdown(race, label) {
+      if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+      labelEl.textContent = label;
+      labelEl.style.display = '';
+      countdownEl.style.display = '';
+      nameEl.classList.remove('is-cta');
       nameEl.textContent = race.name;
       function tick() {
         const diff = new Date(race.startDate).getTime() - Date.now();
@@ -199,12 +209,46 @@
           String(seconds).padStart(2, '0') + '<span class="unit">s</span>';
       }
       tick();
-      setInterval(tick, 1000);
-    } else {
-      linkEl.href = '/breathe/?technique=coherent';
-      nameEl.textContent = 'No race on the calendar';
-      countdownEl.textContent = 'Try a few minutes of stillness \u2192';
+      tickTimer = setInterval(tick, 1000);
     }
+
+    // Logged-out visitors (including a brand new browser with nothing in
+    // localStorage) get an illustrative sample race instead of real data
+    // or an empty state -- fixed 45 days out from whenever the page loads
+    // so the countdown always reads as a plausible upcoming race.
+    function renderMock() {
+      widgetEl.href = '/endurance/';
+      const sampleDate = new Date(Date.now() + 45 * 86400 * 1000).toISOString();
+      renderCountdown({ name: 'Rocky Mountain 50K (sample)', startDate: sampleDate }, 'Next up');
+    }
+
+    // Logged in, but no upcoming race of their own on file: offer to
+    // start one instead of showing a dead end. Links straight into the
+    // dashboard's "Add a race" modal (?addRace=1), which is where the
+    // GPX upload prompt lives.
+    function renderCreateRace() {
+      if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+      widgetEl.href = '/endurance/segura-2026-tmr-65/?addRace=1';
+      labelEl.style.display = 'none';
+      countdownEl.style.display = 'none';
+      nameEl.classList.add('is-cta');
+      nameEl.textContent = 'Create a race \u2192';
+    }
+
+    function render(loggedIn) {
+      if (!loggedIn) { renderMock(); return; }
+      const upcoming = getUpcomingRaces();
+      if (upcoming.length) {
+        widgetEl.href = upcoming[0].href;
+        renderCountdown(upcoming[0], 'Next up');
+      } else {
+        renderCreateRace();
+      }
+    }
+
+    window.netlifyIdentity.on('init', (user) => render(!!user));
+    window.netlifyIdentity.on('login', () => render(true));
+    window.netlifyIdentity.on('logout', () => render(false));
   })();
 
   (function initBreathWidget() {
