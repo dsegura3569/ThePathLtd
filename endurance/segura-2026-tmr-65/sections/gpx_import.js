@@ -223,15 +223,45 @@ function parseGpxToRace(xmlText) {
   // lat/lon distance), giving each a mile marker. Waypoints far from the
   // track (>0.3mi away -- e.g. a trailhead parking pin) are dropped rather
   // than misplacing a segment boundary.
+  //
+  // Two things make this trickier than plain nearest-neighbor: waypoints
+  // are matched in course order (mile >= the previous match) rather than
+  // searched globally, since an out-and-back or loop course passes the
+  // same physical location more than once (an aid station visited outbound
+  // and inbound sits at nearly identical lat/lon both times) and a global
+  // search can match two different waypoints to the same trackpoint,
+  // silently losing one to the de-dupe step below. And within that forward
+  // search, the *first* point found within a tight distance wins, rather
+  // than the true minimum across the whole remaining track -- on a course
+  // that re-crosses its own path, a later pass can come out marginally
+  // closer by mere feet than the intended occurrence, which a "find the
+  // global minimum" search would wrongly prefer. Falls back to a true
+  // nearest-within-0.3mi search if nothing is found within the tight
+  // threshold, preserving the original tolerance for a waypoint that's
+  // genuinely just imprecisely placed (a hand-dropped pin, GPS drift).
+  const TIGHT_MATCH_MILES = 0.05;
+  const LOOSE_MATCH_MILES = 0.3;
   const detectedAidStations = [];
+  let minMile = 0;
   for (const wp of waypoints) {
-    let best = null, bestDist = Infinity;
+    let best = null;
     for (const pt of smoothed) {
-      const d = haversineMiles(wp.lat, wp.lon, pt.lat, pt.lon);
-      if (d < bestDist) { bestDist = d; best = pt; }
+      if (pt.mile < minMile) continue;
+      if (haversineMiles(wp.lat, wp.lon, pt.lat, pt.lon) <= TIGHT_MATCH_MILES) { best = pt; break; }
     }
-    if (best && bestDist <= 0.3) {
+    if (!best) {
+      let bestDist = Infinity;
+      let candidate = null;
+      for (const pt of smoothed) {
+        if (pt.mile < minMile) continue;
+        const d = haversineMiles(wp.lat, wp.lon, pt.lat, pt.lon);
+        if (d < bestDist) { bestDist = d; candidate = pt; }
+      }
+      if (candidate && bestDist <= LOOSE_MATCH_MILES) best = candidate;
+    }
+    if (best) {
       detectedAidStations.push({ name: wp.name, mile: Math.round(best.mile * 100) / 100 });
+      minMile = best.mile;
     }
   }
   detectedAidStations.sort((a, b) => a.mile - b.mile);
