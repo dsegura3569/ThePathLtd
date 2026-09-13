@@ -80,7 +80,7 @@
   }
   .race-card-gear:hover, .race-card-gear.is-open{ border-color:var(--endurance-color); color:var(--endurance-color); }
   .race-card-panel{
-    position:absolute; top:3rem; right:0.9rem; z-index:10; width:280px;
+    z-index:1000; width:280px;
     background:var(--sand-pale); border:1px solid var(--line); border-radius:10px;
     padding:1.1rem; box-shadow:0 8px 24px rgba(43,27,16,0.16);
     font-family:var(--font-body); text-align:left; white-space:normal;
@@ -328,7 +328,20 @@
         location.reload();
       });
 
-      card.appendChild(panel);
+      // Appended to document.body (not the card) and positioned relative
+      // to the viewport, anchored under the gear button -- not the card.
+      // A z-index on the panel itself can't fix this: it only wins against
+      // other elements *within the same stacking context* as the card, and
+      // a later card in the list forms its own stacking context that
+      // paints on top regardless of what z-index a nested descendant of an
+      // earlier card claims. Escaping to body-level fixed positioning
+      // sidesteps the whole class of bug rather than chasing z-index
+      // values card by card.
+      const btnRect = gearBtn.getBoundingClientRect();
+      panel.style.position = 'fixed';
+      panel.style.top = (btnRect.bottom + 8) + 'px';
+      panel.style.right = (window.innerWidth - btnRect.right) + 'px';
+      document.body.appendChild(panel);
       gearBtn.classList.add('is-open');
     }
 
