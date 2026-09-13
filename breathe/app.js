@@ -19,6 +19,12 @@ window.COUNTDOWN_OPTIONS = [
   { id: 10, label: '10 seconds' },
 ];
 
+window.START_CUE_OPTIONS = [
+  { id: 'none', label: 'None' },
+  { id: 'gong', label: 'Gong' },
+  { id: 'bowl', label: 'Singing bowl' },
+];
+
 // Sound and Animation used to be re-chosen every time inside each
 // technique's own setup screen -- one shared pair of settings, but with
 // no memory, so they silently reset to tick/arc on every reload. Now
@@ -33,14 +39,42 @@ window.loadSettingsFrom = function loadSettingsFrom(blobState) {
     soundMode: window.SOUND_OPTIONS.some(o => o.id === raw.soundMode) ? raw.soundMode : 'tick',
     animationStyle: window.ANIMATION_OPTIONS.some(o => o.id === raw.animationStyle) ? raw.animationStyle : 'arc',
     countdownSeconds: window.COUNTDOWN_OPTIONS.some(o => o.id === raw.countdownSeconds) ? raw.countdownSeconds : 5,
+    startCue: window.START_CUE_OPTIONS.some(o => o.id === raw.startCue) ? raw.startCue : 'none',
   };
 };
-window.saveSettingsTo = function saveSettingsTo(setBlobState, soundMode, animationStyle, countdownSeconds) {
+window.saveSettingsTo = function saveSettingsTo(setBlobState, soundMode, animationStyle, countdownSeconds, startCue) {
   setBlobState(prev => Object.assign({}, prev, {
     soundMode, animationStyle,
     countdownSeconds: countdownSeconds === undefined ? (prev && prev.countdownSeconds) : countdownSeconds,
+    startCue: startCue === undefined ? (prev && prev.startCue) : startCue,
   }));
 };
+
+function SessionLengthControl({ sessionLengthMinutes, setSessionLengthMinutes }) {
+  return (
+    <div>
+      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
+        Session length: {sessionLengthMinutes === 0 ? 'Off (stop whenever you like)' : `${sessionLengthMinutes} min`}
+      </label>
+      <input
+        type="range"
+        min={0}
+        max={30}
+        step={5}
+        value={sessionLengthMinutes}
+        onChange={e => setSessionLengthMinutes(Number(e.target.value))}
+        style={{ width: '100%' }}
+      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--ink-soft)' }}>
+        <span>Off</span>
+        <span>30 min</span>
+      </div>
+      <p style={{ fontSize: '0.78rem', color: 'var(--ink-soft)', marginTop: '0.4rem' }}>
+        Rounds to the nearest full cycle of this pattern, so it never stops mid-breath.
+      </p>
+    </div>
+  );
+}
 
 function SecondsControl({ technique, duration, setDuration }) {
   return (
@@ -126,9 +160,11 @@ function App() {
   const [soundMode, setSoundModeRaw] = useState(initialSettings.soundMode);
   const [animationStyle, setAnimationStyleRaw] = useState(initialSettings.animationStyle);
   const [countdownSeconds, setCountdownSecondsRaw] = useState(initialSettings.countdownSeconds);
+  const [startCue, setStartCueRaw] = useState(initialSettings.startCue);
   const [showSettings, setShowSettings] = useState(false);
   const [holdWalkSeconds, setHoldWalkSeconds] = useState(null);
   const [restSeconds, setRestSeconds] = useState(null);
+  const [sessionLengthMinutes, setSessionLengthMinutes] = useState(0);
   const [customPhases, setCustomPhases] = useState(null);
   const [customSoundMode, setCustomSoundMode] = useState('tick');
   const [customAnimationStyle, setCustomAnimationStyle] = useState('arc');
@@ -152,6 +188,10 @@ function App() {
     setCountdownSecondsRaw(id);
     window.saveSettingsTo(setBlobState, soundMode, animationStyle, id);
   }
+  function setStartCue(id) {
+    setStartCueRaw(id);
+    window.saveSettingsTo(setBlobState, soundMode, animationStyle, countdownSeconds, id);
+  }
 
   // Deep-link support: ?technique=box (etc.) jumps straight to that
   // technique's configure screen instead of the picker grid -- used by the
@@ -174,6 +214,7 @@ function App() {
     } else {
       setDuration(t.durationMode === 'selectable' ? t.default : null);
     }
+    setSessionLengthMinutes(0);
     // A sound mode picked for a previous technique could be one this
     // technique excludes (e.g. chime, carried over from Box, isn't offered
     // for Holotropic) -- reset to the default rather than silently
@@ -232,6 +273,7 @@ function App() {
         soundMode={customSoundMode}
         animationStyle={customAnimationStyle}
         countdownSeconds={countdownSeconds}
+        startCue={startCue}
         title={customTitle}
         stageLabelFor={customStageLabelFor}
         cue={customCue}
@@ -253,6 +295,8 @@ function App() {
         soundMode={soundMode}
         animationStyle={animationStyle}
         countdownSeconds={countdownSeconds}
+        sessionLengthMinutes={sessionLengthMinutes}
+        startCue={startCue}
         onExit={exitSession}
       />
     );
@@ -314,6 +358,12 @@ function App() {
           </p>
         )}
 
+        {!technique.finite && (
+          <div style={{ margin: '1.5rem 0' }}>
+            <SessionLengthControl sessionLengthMinutes={sessionLengthMinutes} setSessionLengthMinutes={setSessionLengthMinutes} />
+          </div>
+        )}
+
         <button
           onClick={() => setShowSettings(true)}
           style={{
@@ -333,6 +383,7 @@ function App() {
           soundMode={soundMode} setSoundMode={setSoundMode}
           animationStyle={animationStyle} setAnimationStyle={setAnimationStyle}
           countdownSeconds={countdownSeconds} setCountdownSeconds={setCountdownSeconds}
+          startCue={startCue} setStartCue={setStartCue}
           excludeSoundModes={technique.excludeSoundModes}
           onClose={() => setShowSettings(false)}
         />
@@ -395,6 +446,7 @@ function App() {
         soundMode={soundMode} setSoundMode={setSoundMode}
         animationStyle={animationStyle} setAnimationStyle={setAnimationStyle}
         countdownSeconds={countdownSeconds} setCountdownSeconds={setCountdownSeconds}
+        startCue={startCue} setStartCue={setStartCue}
         onClose={() => setShowSettings(false)}
       />
     )}

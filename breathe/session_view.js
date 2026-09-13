@@ -26,9 +26,18 @@ const GET_READY_MS = 1400;
 // General-purpose breathing session runner. Accepts either:
 //   - technique + chosenDuration (presets: resolves an infinite looping cycle)
 //   - a pre-resolved `phases` array directly + loop:false (Philosopher: finite, ends naturally)
-window.SessionView = function SessionView({ technique, chosenDuration, phases: suppliedPhases, loop, soundMode, animationStyle, countdownSeconds, title, onExit, onComplete, stageLabelFor, cue }) {
+window.SessionView = function SessionView({ technique, chosenDuration, phases: suppliedPhases, loop, soundMode, animationStyle, countdownSeconds, sessionLengthMinutes, startCue, title, onExit, onComplete, stageLabelFor, cue }) {
   const anim = animationStyle || 'arc';
   const phases = suppliedPhases || window.resolvePhases(technique, chosenDuration);
+  // A target session length only makes sense as a whole number of complete
+  // cycles of THIS pattern -- stopping mid-cycle would cut a breath off
+  // partway through. Rounds to the nearest cycle count that lands closest
+  // to the requested minutes, rather than always rounding down (which
+  // could undershoot a short pattern by nearly a whole cycle) or up.
+  const cycleSeconds = phases.reduce((a, p) => a + p.seconds, 0);
+  const maxCycles = (sessionLengthMinutes && cycleSeconds > 0)
+    ? Math.max(1, Math.round((sessionLengthMinutes * 60) / cycleSeconds))
+    : null;
   // Only build a "breathe in X / hold Y / breathe out Z" preview for
   // techniques resolved from a single representative cycle -- suppliedPhases
   // (Philosopher, Breathing Recovery Walking) is a longer, non-repeating
@@ -96,6 +105,7 @@ window.SessionView = function SessionView({ technique, chosenDuration, phases: s
   useEffect(() => {
     if (stage !== 'running') return;
 
+    if (startCue) window.AudioEngine.playStartCue(startCue);
     runRef.current.phaseStartTime = performance.now();
     const firstPhase = phases[0];
     window.AudioEngine.onPhaseChange(soundMode, firstPhase.type, firstPhase.seconds);
@@ -169,7 +179,9 @@ window.SessionView = function SessionView({ technique, chosenDuration, phases: s
 
         if (elapsed >= phase.seconds) {
           const atEnd = run.phaseIndex + 1 >= phases.length;
-          if (atEnd && !shouldLoop) {
+          const cyclesAfterThis = run.cycleCount + (atEnd ? 1 : 0);
+          const hitTargetLength = atEnd && maxCycles && cyclesAfterThis >= maxCycles;
+          if (atEnd && (!shouldLoop || hitTargetLength)) {
             window.AudioEngine.stopAll();
             setStage('complete');
             return; // stop the rAF loop; don't schedule another frame

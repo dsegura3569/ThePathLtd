@@ -262,10 +262,92 @@ window.AudioEngine = (function () {
     osc.stop(c.currentTime + 0.35);
   }
 
+  // --- Start-of-practice cues: gong / singing bowl ---
+  // A convincing struck-metal sound comes from several inharmonic partials
+  // (not simple integer ratios, unlike a plucked string) each decaying at
+  // its own rate -- a single pure tone reads as a beep, not a strike.
+  // Reused for both the real cue when a session starts and the settings-
+  // panel preview button, so what you hear previewing is exactly what
+  // you'll hear at the start of a real session.
+  function playPartials(fundamental, partials) {
+    const c = getCtx();
+    const now = c.currentTime;
+    partials.forEach(p => {
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = fundamental * p.ratio;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(p.gain, now + 0.02); // quick strike attack
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + p.decay);
+      osc.connect(gain).connect(c.destination);
+      osc.start(now);
+      osc.stop(now + p.decay + 0.1);
+    });
+  }
+
+  // Low and long -- a deep struck gong, not a bright bell.
+  function playGongCue() {
+    playPartials(110, [ // A2
+      { ratio: 1.00, gain: 0.5, decay: 4.5 },
+      { ratio: 1.41, gain: 0.35, decay: 3.8 },
+      { ratio: 1.73, gain: 0.28, decay: 3.2 },
+      { ratio: 2.00, gain: 0.22, decay: 4.0 },
+      { ratio: 2.76, gain: 0.15, decay: 2.4 },
+      { ratio: 3.50, gain: 0.10, decay: 1.8 },
+      { ratio: 4.20, gain: 0.06, decay: 1.2 },
+    ]);
+  }
+
+  // Higher and shimmering -- partials clustered close together (near but
+  // not exactly matching ratios) beat softly against each other, the
+  // characteristic "singing" sustain of a struck bowl rather than a gong's
+  // single deep boom.
+  function playSingingBowlCue() {
+    playPartials(330, [ // E4
+      { ratio: 1.00, gain: 0.42, decay: 5.5 },
+      { ratio: 1.012, gain: 0.38, decay: 5.2 }, // near-unison with the fundamental -> slow beating
+      { ratio: 2.76, gain: 0.20, decay: 3.5 },
+      { ratio: 2.80, gain: 0.16, decay: 3.3 },  // same near-unison beating an octave-and-a-bit up
+      { ratio: 5.40, gain: 0.08, decay: 2.0 },
+    ]);
+  }
+
+  window.START_CUE_PLAYERS = { gong: playGongCue, bowl: playSingingBowlCue };
+
+  // Called once, right as a session transitions into 'running' -- separate
+  // from the ongoing per-breath sound mode (tick/chime/breath), which is
+  // about pacing each breath, not marking the practice beginning.
+  function playStartCue(startCueId) {
+    const player = window.START_CUE_PLAYERS[startCueId];
+    if (player) player();
+  }
+
+  // Short representative sample of an ongoing sound mode, for the settings-
+  // panel preview buttons -- reuses the exact same synthesis a real session
+  // uses, just for a couple of short simulated phases instead of the
+  // session's actual phase timing.
+  function previewSound(modeId) {
+    if (modeId === 'tick') {
+      playTick('in');
+      setTimeout(() => playTick('in'), 350);
+      setTimeout(() => playTick('out'), 700);
+      setTimeout(() => playTick('out'), 1050);
+    } else if (modeId === 'chime') {
+      toneOnPhaseChange('in', 1.1);
+      setTimeout(() => toneOnPhaseChange('out', 1.1), 1100);
+      setTimeout(() => stopToneEngine(), 2200);
+    } else if (modeId === 'breath') {
+      startBreathSound('in', 1.1);
+      setTimeout(() => startBreathSound('out', 1.1), 1150);
+      setTimeout(() => stopBreathSound(), 2300);
+    }
+  }
+
   function stopAll() {
     stopBreathSound();
     stopToneEngine();
   }
 
-  return { resume, onSecondTick, onPhaseChange, stopAll, playCountdownCue };
+  return { resume, onSecondTick, onPhaseChange, stopAll, playCountdownCue, playStartCue, previewSound };
 })();
