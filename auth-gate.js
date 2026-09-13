@@ -23,6 +23,7 @@
 // every page that needs to know who's logged in.
 
 window.AuthContext = React.createContext({ user: null, logout: () => {} });
+window.BlobStateContext = React.createContext({ state: {}, setState: () => {} });
 
 function AuthGateLoginScreen(opts) {
   return React.createElement('div', {
@@ -63,11 +64,25 @@ window.mountWithAuthGate = function mountWithAuthGate(AppComponent, opts) {
   function Root() {
     const [ready, setReady] = React.useState(false);
     const [user, setUser] = React.useState(null);
+    const [blobState, setBlobStateRaw] = React.useState(null); // null = not loaded yet; {} once loaded with nothing saved
 
     React.useEffect(() => {
-      function handleInit(u) { setUser(u); setReady(true); }
-      function handleLogin(u) { setUser(u); window.netlifyIdentity.close(); }
-      function handleLogout() { setUser(null); }
+      async function handleInit(u) {
+        setUser(u);
+        if (u && opts.blobApp) {
+          const loaded = await window.BlobClient.load(opts.blobApp);
+          setBlobStateRaw(loaded);
+        }
+        setReady(true);
+      }
+      function handleLogin(u) {
+        setUser(u);
+        window.netlifyIdentity.close();
+        if (opts.blobApp) {
+          window.BlobClient.load(opts.blobApp).then(setBlobStateRaw);
+        }
+      }
+      function handleLogout() { setUser(null); setBlobStateRaw(null); }
       window.netlifyIdentity.on('init', handleInit);
       window.netlifyIdentity.on('login', handleLogin);
       window.netlifyIdentity.on('logout', handleLogout);
@@ -78,6 +93,18 @@ window.mountWithAuthGate = function mountWithAuthGate(AppComponent, opts) {
         window.netlifyIdentity.off('logout', handleLogout);
       };
     }, []);
+
+    // setState mirrors React's own setState shape (value or updater
+    // function) so call sites read naturally, and saves to the blob
+    // (debounced) on every change automatically -- callers never need to
+    // remember to persist separately.
+    function setBlobState(updater) {
+      setBlobStateRaw(prev => {
+        const next = typeof updater === 'function' ? updater(prev || {}) : updater;
+        if (opts.blobApp) window.BlobClient.save(opts.blobApp, next);
+        return next;
+      });
+    }
 
     if (!ready) {
       return React.createElement('div', {
@@ -93,10 +120,27 @@ window.mountWithAuthGate = function mountWithAuthGate(AppComponent, opts) {
       return React.createElement(AuthGateLoginScreen, opts);
     }
 
+    if (opts.blobApp && blobState === null) {
+      // Logged in, but the blob fetch from handleInit hasn't resolved yet
+      // -- practically instant (one request) but still a real await, so
+      // guard against rendering AppComponent with no state to read.
+      return React.createElement('div', {
+        style: {
+          minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: opts.bg,
+        },
+      }, React.createElement('div', {
+        style: { fontFamily: opts.fontMono || 'inherit', fontSize: 12, color: opts.textMuted },
+      }, 'Loading\u2026'));
+    }
+
     return React.createElement(
       window.AuthContext.Provider,
       { value: { user, logout: () => window.netlifyIdentity.logout() } },
-      React.createElement(AppComponent)
+      React.createElement(
+        window.BlobStateContext.Provider,
+        { value: { state: blobState || {}, setState: setBlobState } },
+        React.createElement(AppComponent)
+      )
     );
   }
 

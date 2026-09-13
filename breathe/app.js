@@ -15,24 +15,21 @@ window.ANIMATION_OPTIONS = [
 
 // Sound and Animation used to be re-chosen every time inside each
 // technique's own setup screen -- one shared pair of settings, but with
-// no memory, so they silently reset to tick/arc on every reload. Persisted
-// here instead, configured once via the gear icon on the picker screen.
-const SETTINGS_KEY = 'breathe_settings_v1';
-window.loadSettings = function loadSettings() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
-    return {
-      soundMode: window.SOUND_OPTIONS.some(o => o.id === raw.soundMode) ? raw.soundMode : 'tick',
-      animationStyle: window.ANIMATION_OPTIONS.some(o => o.id === raw.animationStyle) ? raw.animationStyle : 'arc',
-    };
-  } catch (e) {
-    return { soundMode: 'tick', animationStyle: 'arc' };
-  }
+// no memory, so they silently reset to tick/arc on every reload. Now
+// blob-backed (synced across devices) instead of localStorage-only --
+// callers get the loaded state from window.BlobStateContext themselves
+// and pass it through here, rather than these functions reaching into
+// storage directly, since a plain helper function can't call the
+// useContext hook safely on behalf of whichever component invokes it.
+window.loadSettingsFrom = function loadSettingsFrom(blobState) {
+  const raw = blobState || {};
+  return {
+    soundMode: window.SOUND_OPTIONS.some(o => o.id === raw.soundMode) ? raw.soundMode : 'tick',
+    animationStyle: window.ANIMATION_OPTIONS.some(o => o.id === raw.animationStyle) ? raw.animationStyle : 'arc',
+  };
 };
-window.saveSettings = function saveSettings(soundMode, animationStyle) {
-  try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ soundMode, animationStyle }));
-  } catch (e) { /* private browsing / storage disabled -- setting just won't persist */ }
+window.saveSettingsTo = function saveSettingsTo(setBlobState, soundMode, animationStyle) {
+  setBlobState(prev => Object.assign({}, prev, { soundMode, animationStyle }));
 };
 
 function SecondsControl({ technique, duration, setDuration }) {
@@ -111,10 +108,11 @@ function BpmOrSecondsControl({ technique, duration, setDuration }) {
 }
 
 function App() {
+  const { state: blobState, setState: setBlobState } = React.useContext(window.BlobStateContext);
   const [view, setView] = useState('select'); // 'select' | 'configure' | 'session' | 'philosopher' | 'finite-session'
   const [technique, setTechnique] = useState(null);
   const [duration, setDuration] = useState(null);
-  const initialSettings = window.loadSettings();
+  const initialSettings = window.loadSettingsFrom(blobState);
   const [soundMode, setSoundModeRaw] = useState(initialSettings.soundMode);
   const [animationStyle, setAnimationStyleRaw] = useState(initialSettings.animationStyle);
   const [showSettings, setShowSettings] = useState(false);
@@ -128,15 +126,16 @@ function App() {
   const [customStageLabelFor, setCustomStageLabelFor] = useState(null);
 
   // Wrap the setters so every change from the gear-icon settings panel is
-  // saved immediately -- the setting should survive a reload the moment
+  // saved immediately -- the setting should survive a reload (and now
+  // sync to any other device logged into the same account) the moment
   // it's picked, not just for the rest of the current tab session.
   function setSoundMode(id) {
     setSoundModeRaw(id);
-    window.saveSettings(id, animationStyle);
+    window.saveSettingsTo(setBlobState, id, animationStyle);
   }
   function setAnimationStyle(id) {
     setAnimationStyleRaw(id);
-    window.saveSettings(soundMode, id);
+    window.saveSettingsTo(setBlobState, soundMode, id);
   }
 
   // Deep-link support: ?technique=box (etc.) jumps straight to that
@@ -387,6 +386,7 @@ function App() {
 window.mountWithAuthGate(App, {
   toolName: 'thepath.ltd',
   toolTagline: 'Tools for endurance training, breathwork, and bodywork. Log in to see your patterns, or create an account to get started.',
+  blobApp: 'breathe',
   accent: '#4A7C8C',
   accentText: '#FBF7EF',
   bg: '#F8F1E4',

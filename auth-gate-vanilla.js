@@ -51,9 +51,26 @@ window.initVanillaAuthGate = function initVanillaAuthGate(opts) {
   gate.querySelector('#agv-login-btn').addEventListener('click', () => window.netlifyIdentity.open('login'));
   gate.querySelector('#agv-signup-btn').addEventListener('click', () => window.netlifyIdentity.open('signup'));
 
-  function showApp() {
+  // window.blobState holds the loaded app state once ready (an empty
+  // object if nothing's been saved yet); window.saveBlobState(next) saves
+  // a full replacement. Both are only meaningful after 'blobstateready'
+  // fires on window -- pages using opts.blobApp should wait for that
+  // event (or check window.blobState directly, since it's set
+  // synchronously right before showApp() reveals the page) before reading
+  // or writing.
+  window.blobState = {};
+  window.saveBlobState = function (next) {
+    window.blobState = next;
+    if (opts.blobApp) window.BlobClient.save(opts.blobApp, next);
+  };
+
+  async function showApp() {
+    if (opts.blobApp) {
+      window.blobState = await window.BlobClient.load(opts.blobApp);
+    }
     gate.style.display = 'none';
     content.style.display = '';
+    window.dispatchEvent(new CustomEvent('blobstateready'));
   }
   function showLogin() {
     loadingEl.style.display = 'none';

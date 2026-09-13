@@ -134,20 +134,21 @@ function StageEditor({ stage, index, onChange, onRemove, canRemove }) {
 }
 
 window.PhilosopherBuilder = function PhilosopherBuilder({ onStart, onBack }) {
+  const { state: blobState, setState: setBlobState } = React.useContext(window.BlobStateContext);
   const [stages, setStages] = usePState([defaultStage()]);
   const [restBetweenStages, setRestBetweenStages] = usePState(5);
-  const initialSettings = window.loadSettings();
+  const initialSettings = window.loadSettingsFrom(blobState);
   const [soundMode, setSoundModeRaw] = usePState(initialSettings.soundMode);
   const [animationStyle, setAnimationStyleRaw] = usePState(initialSettings.animationStyle);
   const [showSettings, setShowSettings] = usePState(false);
 
   function setSoundMode(id) {
     setSoundModeRaw(id);
-    window.saveSettings(id, animationStyle);
+    window.saveSettingsTo(setBlobState, id, animationStyle);
   }
   function setAnimationStyle(id) {
     setAnimationStyleRaw(id);
-    window.saveSettings(soundMode, id);
+    window.saveSettingsTo(setBlobState, soundMode, id);
   }
 
   function addStage() {
