@@ -78,6 +78,7 @@ function useLiveWeather() {
 const STAT_DEFS_KEY = 'tmr_overview_stat_order_v1';
 const STAT_VISIBILITY_KEY = 'tmr_overview_stat_visibility_v1';
 const COURSE_PROFILE_STAT_ORDER_KEY = 'tmr_overview_course_profile_stat_order_v1';
+const COURSE_PROFILE_STAT_HIDDEN_KEY = 'tmr_overview_course_profile_stat_hidden_v1';
 
 function useRaceDayForecast() {
   const [state, setState] = React.useState({ status: 'loading' });
@@ -258,7 +259,20 @@ function CourseProfileChart() {
   React.useEffect(() => {
     try { localStorage.setItem(COURSE_PROFILE_STAT_ORDER_KEY, JSON.stringify(courseProfileStatOrder)); } catch (e) {}
   }, [courseProfileStatOrder]);
-  function resetCourseProfileStats() { setCourseProfileStatOrder(courseProfileStatKeys); }
+  const [courseProfileStatHidden, setCourseProfileStatHidden] = React.useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(COURSE_PROFILE_STAT_HIDDEN_KEY));
+      if (Array.isArray(saved)) return saved.filter(k => courseProfileStatKeys.includes(k));
+    } catch (e) {}
+    return [];
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem(COURSE_PROFILE_STAT_HIDDEN_KEY, JSON.stringify(courseProfileStatHidden)); } catch (e) {}
+  }, [courseProfileStatHidden]);
+  function toggleCourseProfileStat(key) {
+    setCourseProfileStatHidden(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  }
+  function resetCourseProfileStats() { setCourseProfileStatOrder(courseProfileStatKeys); setCourseProfileStatHidden([]); }
 
   // aid station markers: start (green), 9 aid stations (orange), finish (red) --
   // positioned at each segment boundary using the real official mile markers
@@ -382,7 +396,7 @@ function CourseProfileChart() {
             background:'none', border:'none', color:'var(--ink-faint)', cursor:'pointer', fontSize:11, fontFamily:'var(--mono)',
           }}>&#10005; whole course</button>
         )}
-        <button onClick={() => setShowCourseProfileStatPanel(v => !v)} aria-label="Reorder stats" title="Reorder stats" style={{
+        <button onClick={() => setShowCourseProfileStatPanel(v => !v)} aria-label="Customize stats" title="Reorder or hide stats" style={{
           background:'none', border:'1px solid var(--line)', borderRadius:6, width:26, height:26,
           color: showCourseProfileStatPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer',
           display:'flex', alignItems:'center', justifyContent:'center', fontSize:13,
@@ -394,7 +408,17 @@ function CourseProfileChart() {
           <window.DragReorderList
             order={courseProfileStatOrder}
             setOrder={setCourseProfileStatOrder}
-            renderLabel={key => ({ gain: 'Gain', loss: 'Loss', max: 'Max', min: 'Min', maxClimb: 'Max Climb', maxDescent: 'Max Descent' }[key])}
+            renderLabel={key => ({ gain: 'Gain', loss: 'Loss', max: 'Max elevation', min: 'Min elevation', maxClimb: 'Max Climb', maxDescent: 'Max Descent' }[key])}
+            extraControls={key => {
+              const vis = !courseProfileStatHidden.includes(key);
+              return (
+                <button onClick={() => toggleCourseProfileStat(key)} aria-label={vis ? 'Hide stat' : 'Show stat'} style={{
+                  width:26, height:26, borderRadius:6, border:'1px solid var(--line)',
+                  background: vis ? 'var(--climb)' : 'var(--bg-raised)',
+                  color: vis ? '#12151A' : 'var(--ink-faint)', cursor:'pointer', fontSize:16, lineHeight:1,
+                }}>{vis ? '\u2212' : '+'}</button>
+              );
+            }}
           />
           <button onClick={resetCourseProfileStats} style={{
             marginTop:10, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
@@ -404,12 +428,12 @@ function CourseProfileChart() {
       )}
 
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))', gap:1, background:'var(--line)'}}>
-        {courseProfileStatOrder.map(key => {
+        {courseProfileStatOrder.filter(key => !courseProfileStatHidden.includes(key)).map(key => {
           const defs = {
             gain: ['GAIN', `+${displayStats.gain.toLocaleString()} ft`, '#3CB897'],
             loss: ['LOSS', `-${displayStats.loss.toLocaleString()} ft`, 'var(--descent)'],
-            max: ['MAX', `${displayStats.max.toLocaleString()} ft`, 'var(--climb)'],
-            min: ['MIN', `${displayStats.min.toLocaleString()} ft`, 'var(--ink)'],
+            max: ['MAX ELEVATION', `${displayStats.max.toLocaleString()} ft`, 'var(--climb)'],
+            min: ['MIN ELEVATION', `${displayStats.min.toLocaleString()} ft`, 'var(--ink)'],
             maxClimb: ['MAX CLIMB', `+${displayStats.maxClimbStreak.toLocaleString()} ft`, 'var(--ink)'],
             maxDescent: ['MAX DESCENT', `-${displayStats.maxDescentStreak.toLocaleString()} ft`, 'var(--ink)'],
           };
@@ -1112,6 +1136,20 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
   React.useEffect(() => {
     try { localStorage.setItem(PAGE_SECTION_ORDER_KEY, JSON.stringify(pageSectionOrder)); } catch (e) {}
   }, [pageSectionOrder]);
+  const PAGE_SECTION_HIDDEN_KEY = 'tmr_overview_page_section_hidden_v1';
+  const [pageSectionHidden, setPageSectionHidden] = React.useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(PAGE_SECTION_HIDDEN_KEY));
+      if (Array.isArray(saved)) return saved.filter(id => pageSectionDefaultOrder.includes(id));
+    } catch (e) {}
+    return [];
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem(PAGE_SECTION_HIDDEN_KEY, JSON.stringify(pageSectionHidden)); } catch (e) {}
+  }, [pageSectionHidden]);
+  function togglePageSection(id) {
+    setPageSectionHidden(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
 
   const [showPageLayoutPanel, setShowPageLayoutPanel] = React.useState(false);
   React.useEffect(() => {
@@ -1250,7 +1288,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
       {showPageLayoutPanel && (
         <div style={{background:'var(--bg-card)', border:'1px solid var(--climb)', borderRadius:10, padding:12, marginBottom:20}}>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
-            <div style={{fontSize:12, color:'var(--ink-faint)'}}>Reorder the page sections below.</div>
+            <div style={{fontSize:12, color:'var(--ink-faint)'}}>Drag to reorder, or toggle to show/hide.</div>
             <button onClick={() => setShowPageLayoutPanel(false)} style={{
               background:'none', border:'none', color:'var(--ink-faint)', cursor:'pointer', fontSize:16, lineHeight:1,
             }}>&#10005;</button>
@@ -1259,8 +1297,18 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
             order={pageSectionOrder}
             setOrder={setPageSectionOrder}
             renderLabel={id => PAGE_SECTIONS.find(x => x.id === id).label}
+            extraControls={id => {
+              const vis = !pageSectionHidden.includes(id);
+              return (
+                <button onClick={() => togglePageSection(id)} aria-label={vis ? 'Hide section' : 'Show section'} style={{
+                  width:26, height:26, borderRadius:6, border:'1px solid var(--line)',
+                  background: vis ? 'var(--climb)' : 'var(--bg-raised)',
+                  color: vis ? '#12151A' : 'var(--ink-faint)', cursor:'pointer', fontSize:16, lineHeight:1,
+                }}>{vis ? '\u2212' : '+'}</button>
+              );
+            }}
           />
-          <button onClick={() => setPageSectionOrder(pageSectionDefaultOrder)} style={{
+          <button onClick={() => { setPageSectionOrder(pageSectionDefaultOrder); setPageSectionHidden([]); }} style={{
             marginTop:10, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
             border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
           }}>Reset to default order</button>
@@ -1269,7 +1317,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
 
       <div style={{display:'flex', flexDirection:'column'}}>
 
-      <div style={{order: pageSectionOrder.indexOf('countdown')}}>
+      <div style={{order: pageSectionOrder.indexOf('countdown'), display: pageSectionHidden.includes('countdown') ? 'none' : undefined}}>
       {countdown ? (
         <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
           <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:16, letterSpacing:'0.08em', textTransform:'uppercase'}}>
@@ -1303,7 +1351,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
       )}
       </div>
 
-      <div style={{order: pageSectionOrder.indexOf('conditions')}}>
+      <div style={{order: pageSectionOrder.indexOf('conditions'), display: pageSectionHidden.includes('conditions') ? 'none' : undefined}}>
       <section style={{padding:'40px 0', borderBottom:'1px solid var(--line)'}}>
         <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
           <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase', flex:1}}>
@@ -1379,7 +1427,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
       <RaceDayForecastWidget />
       </div>
 
-      <div style={{order: pageSectionOrder.indexOf('courseProfile')}}>
+      <div style={{order: pageSectionOrder.indexOf('courseProfile'), display: pageSectionHidden.includes('courseProfile') ? 'none' : undefined}}>
       <CourseProfileChart />
       <PaceTargetsWidget />
 
@@ -1404,7 +1452,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
       )}
       </div>
 
-      <div style={{order: pageSectionOrder.indexOf('raceInsights')}}>
+      <div style={{order: pageSectionOrder.indexOf('raceInsights'), display: pageSectionHidden.includes('raceInsights') ? 'none' : undefined}}>
       <section ref={cardSectionRef} style={{padding:'48px 0 20px'}}>
         <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:24}}>
           <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--ink-faint)', letterSpacing:'0.08em', flex:1}}>
