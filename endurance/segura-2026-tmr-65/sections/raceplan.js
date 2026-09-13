@@ -333,10 +333,10 @@ function RaceDayPlanView() {
             cum.tailwind += s.tailwind;
             cum.waterMl += s.waterMl;
             cum.calories += s.calories;
-            const isDropBag = /drop bag/i.test(s.to);
+            const isDropBag = s.amenities && s.amenities.dropBag;
             const isFinish = s.id === segments.length;
             if (isDropBag || isFinish) {
-              checkpoints.push({ label: isFinish ? 'Finish' : s.to.match(/\(([^)]+)\)/)[1], ...cum });
+              checkpoints.push({ label: isFinish ? 'Finish' : s.to, ...cum });
             }
           });
           return (
