@@ -529,6 +529,15 @@ function App() {
   const [open, setOpen] = useState(false);
   const [openCardPanel, setOpenCardPanel] = useState(false);
   const [raceId, setRaceId] = useState(() => window.getCurrentRaceId());
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('race') !== raceId) {
+        url.searchParams.set('race', raceId);
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch (e) {}
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mount-only sync; handleSelectRace covers subsequent changes
   const [targetHours, setTargetHours] = useState(() => loadTargetsForRace(raceId).targetHours);
   const [targetCarb, setTargetCarb] = useState(() => loadTargetsForRace(raceId).targetCarb);
   const [targetSodium, setTargetSodium] = useState(() => loadTargetsForRace(raceId).targetSodium);
@@ -605,6 +614,11 @@ function App() {
       setGelRateShift(loaded.gelRateShift);
       setCustomFuelItems(loaded.customFuelItems);
       setActive('overview'); // land on Overview -- the previously active page may not exist/make sense for a different race
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('race', id);
+        window.history.replaceState({}, '', url.toString());
+      } catch (e) {}
     }
   }
 
