@@ -564,13 +564,16 @@ function PaceTargetsWidget() {
 function DropBagConfigWidget({ onRaceDataChanged }) {
   const race = window.RACES[window.getCurrentRaceId()];
   const segments = race.baseSegments;
+  const hasElevationBins = Array.isArray(race.elevationBins) && race.elevationBins.length > 0;
   const [rows, setRows] = React.useState(() => segments.map(s => ({
     dropBag: !!(s.amenities && s.amenities.dropBag),
     crew: !!(s.amenities && s.amenities.crew),
     pacer: !!s.pacer,
     name: s.to,
+    mile: String(s.miE),
   })));
   const [saved, setSaved] = React.useState(false);
+  const [mileError, setMileError] = React.useState('');
 
   const hasAny = rows.some(r => r.dropBag || r.crew || r.pacer);
 
@@ -584,28 +587,80 @@ function DropBagConfigWidget({ onRaceDataChanged }) {
     setSaved(false);
   }
 
-  function handleSave() {
-    segments.forEach((s, i) => {
-      s.amenities = { ...s.amenities, dropBag: rows[i].dropBag, crew: rows[i].crew };
-      s.pacer = rows[i].pacer;
+  function remileRow(i, value) {
+    setRows(prev => prev.map((r, idx) => idx === i ? { ...r, mile: value } : r));
+    setSaved(false);
+    setMileError('');
+  }
 
-      // Each aid station name is shared between two places: this segment's
-      // `to` and the next segment's `from` (the same physical point, seen
-      // from either side) -- both need updating together, or the name
-      // would show correctly in one view and stay stale in another that
-      // reads the neighboring segment instead. gradeSegments carries its
-      // own independent copy of the same from/to pair (built alongside
-      // baseSegments in gpx_import.js), so it needs the same update too.
-      const newName = rows[i].name.trim();
-      if (newName && newName !== s.to) {
-        s.to = newName;
-        if (segments[i + 1]) segments[i + 1].from = newName;
-        if (race.gradeSegments && race.gradeSegments[i]) race.gradeSegments[i].to = newName;
-        if (race.gradeSegments && race.gradeSegments[i + 1]) race.gradeSegments[i + 1].from = newName;
+  function handleSave() {
+    const newMiles = rows.map(r => parseFloat(r.mile));
+    const milesChanged = newMiles.some((m, i) => m !== segments[i].miE);
+
+    if (milesChanged) {
+      if (!hasElevationBins) {
+        setMileError("Mile markers can't be corrected on this race -- it was imported before this feature existed, so the underlying elevation profile isn't available to recompute gain/loss/grade for new boundaries. Re-uploading the same GPX file will enable this.");
+        return;
       }
-    });
+      if (newMiles.some(m => isNaN(m) || m <= 0) || newMiles.some((m, i) => i > 0 && m <= newMiles[i - 1])) {
+        setMileError('Mile markers must be increasing numbers, each greater than the one before it.');
+        return;
+      }
+      if (newMiles[newMiles.length - 1] > race.elevationBins[race.elevationBins.length - 1].mile + 0.15) {
+        setMileError(`The last mile marker (${newMiles[newMiles.length - 1]}) is past the end of the recorded track (${race.elevationBins[race.elevationBins.length - 1].mile}mi). Check for a typo.`);
+        return;
+      }
+
+      const boundaries = [0, ...newMiles];
+      const names = ['Start', ...rows.map(r => r.name.trim() || 'Aid Station')];
+      const { baseSegments: freshBase, gradeSegments: freshGrade } = window.recomputeSegmentsFromBins(race.elevationBins, boundaries, names);
+
+      // Recomputing from scratch gives every segment fresh placeholder
+      // amenities/cutoffs/notes -- carry forward whatever was already set
+      // on the segment in that same position, so correcting a mile marker
+      // doesn't wipe out drop bag/crew/pacer/cutoff/notes data entered
+      // earlier.
+      freshBase.forEach((s, i) => {
+        const old = segments[i];
+        if (old) {
+          s.amenities = { ...s.amenities, dropBag: rows[i].dropBag, crew: rows[i].crew };
+          s.pacer = rows[i].pacer;
+          s.cutoffClock = old.cutoffClock; s.cutoffHours = old.cutoffHours;
+          s.conditions = old.conditions; s.note = old.note;
+          s.socks = old.socks; s.bladder = old.bladder;
+          s.color = old.color;
+        }
+      });
+      race.baseSegments = freshBase;
+      race.gradeSegments = freshGrade;
+      race.totalDistance = boundaries[boundaries.length - 1];
+      race.totalGain = freshBase.reduce((a, s) => a + s.segGain, 0);
+      race.totalLoss = freshBase.reduce((a, s) => a + s.segLoss, 0);
+    } else {
+      segments.forEach((s, i) => {
+        s.amenities = { ...s.amenities, dropBag: rows[i].dropBag, crew: rows[i].crew };
+        s.pacer = rows[i].pacer;
+
+        // Each aid station name is shared between two places: this segment's
+        // `to` and the next segment's `from` (the same physical point, seen
+        // from either side) -- both need updating together, or the name
+        // would show correctly in one view and stay stale in another that
+        // reads the neighboring segment instead. gradeSegments carries its
+        // own independent copy of the same from/to pair (built alongside
+        // baseSegments in gpx_import.js), so it needs the same update too.
+        const newName = rows[i].name.trim();
+        if (newName && newName !== s.to) {
+          s.to = newName;
+          if (segments[i + 1]) segments[i + 1].from = newName;
+          if (race.gradeSegments && race.gradeSegments[i]) race.gradeSegments[i].to = newName;
+          if (race.gradeSegments && race.gradeSegments[i + 1]) race.gradeSegments[i + 1].from = newName;
+        }
+      });
+    }
+
     if (window.getCurrentRaceId() !== 'tmr') window.saveCustomRace(race);
     setSaved(true);
+    setMileError('');
     if (onRaceDataChanged) onRaceDataChanged();
   }
 
@@ -617,6 +672,16 @@ function DropBagConfigWidget({ onRaceDataChanged }) {
       {!hasAny && (
         <div style={{background:'var(--bg-raised)', border:'1px solid var(--climb)66', borderRadius:10, padding:'12px 14px', marginBottom:14, fontSize:12.5, color:'var(--ink-dim)'}}>
           Nothing marked yet &mdash; a GPX file can't tell us where drop bags, crew, or pacers are allowed. Check the boxes below for each aid station that applies.
+        </div>
+      )}
+      {!hasElevationBins && (
+        <div style={{background:'var(--bg-raised)', border:'1px solid var(--line)', borderRadius:10, padding:'12px 14px', marginBottom:14, fontSize:12.5, color:'var(--ink-faint)'}}>
+          Names are editable below, but mile markers aren't correctable on this race -- it was imported before that was supported. Re-upload the same GPX to enable it.
+        </div>
+      )}
+      {mileError && (
+        <div style={{background:'var(--descent)15', border:'1px solid var(--descent)55', borderRadius:10, padding:'12px 14px', marginBottom:14, fontSize:12.5, color:'var(--descent)'}}>
+          {mileError}
         </div>
       )}
       <div style={{marginBottom:14}}>
@@ -631,7 +696,20 @@ function DropBagConfigWidget({ onRaceDataChanged }) {
                   borderRadius:6, padding:'4px 8px', width:160, fontFamily:'inherit',
                 }}
               />
-              <span style={{color:'var(--ink-faint)', fontFamily:'var(--mono)', fontSize:11, whiteSpace:'nowrap'}}>(mi {s.miE})</span>
+              <span style={{color:'var(--ink-faint)', fontFamily:'var(--mono)', fontSize:11, whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:4}}>
+                (mi
+                <input
+                  value={rows[i].mile}
+                  onChange={e => remileRow(i, e.target.value)}
+                  disabled={!hasElevationBins}
+                  inputMode="decimal"
+                  style={{
+                    width:48, fontSize:11, fontFamily:'var(--mono)', color: hasElevationBins ? 'var(--ink)' : 'var(--ink-faint)',
+                    background: hasElevationBins ? 'var(--bg-raised)' : 'transparent', border:'1px solid var(--line)',
+                    borderRadius:4, padding:'2px 4px', textAlign:'center',
+                  }}
+                />)
+              </span>
             </span>
             <label style={{display:'flex', alignItems:'center', gap:5, fontSize:12, color:'var(--ink-dim)', cursor:'pointer'}}>
               <input type="checkbox" checked={rows[i].dropBag} onChange={() => toggle(i, 'dropBag')} /> Drop bag

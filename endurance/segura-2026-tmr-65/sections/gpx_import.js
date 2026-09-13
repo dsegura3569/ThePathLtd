@@ -133,6 +133,19 @@ const PLACEHOLDER_COLOR = '#E8943A';
 
 // Builds one baseSegments-shaped + one gradeSegments-shaped entry for a
 // [miS, miE) slice of the resampled bins.
+function elevAtMileFromBins(bins, mile) {
+  if (!bins.length) return 0;
+  if (mile <= bins[0].mile) return bins[0].elev;
+  for (let i = 1; i < bins.length; i++) {
+    if (bins[i].mile >= mile) {
+      const p0 = bins[i - 1], p1 = bins[i];
+      const frac = p1.mile === p0.mile ? 0 : (mile - p0.mile) / (p1.mile - p0.mile);
+      return p0.elev + (p1.elev - p0.elev) * frac;
+    }
+  }
+  return bins[bins.length - 1].elev;
+}
+
 function buildSegment(id, fromName, toName, miS, miE, allBins, allElevAtMile) {
   const segBins = allBins.filter(b => b.mile > miS && b.mile <= miE);
   const elevS = Math.round(allElevAtMile(miS));
@@ -170,6 +183,27 @@ function buildSegment(id, fromName, toName, miS, miE, allBins, allElevAtMile) {
   return { base, grade };
 }
 
+// Rebuilds baseSegments/gradeSegments for a new set of boundaries/names,
+// straight from the persisted elevation bins -- used both by the initial
+// GPX import (below) and later, whenever aid station mile markers get
+// corrected against a real race document once the actual numbers are
+// known (see overview.js's DropBagConfigWidget). Keeping this independent
+// of parseGpxToRace's own local closures is what makes the later case
+// possible at all -- the original per-file smoothed/cum arrays don't
+// survive past import, but elevationBins (0.1mi resolution) does.
+function recomputeSegmentsFromBins(bins, boundaries, names) {
+  const elevAtMile = mile => elevAtMileFromBins(bins, mile);
+  const baseSegments = [];
+  const gradeSegments = [];
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    const { base, grade } = buildSegment(i + 1, names[i], names[i + 1], boundaries[i], boundaries[i + 1], bins, elevAtMile);
+    baseSegments.push(base);
+    gradeSegments.push(grade);
+  }
+  return { baseSegments, gradeSegments };
+}
+window.recomputeSegmentsFromBins = recomputeSegmentsFromBins;
+
 // Main entry point: takes raw GPX file text, returns { baseSegments,
 // gradeSegments, totalDistance, totalGain, totalLoss, trackName,
 // detectedAidStations }, or throws with a person-readable message on
@@ -184,18 +218,6 @@ function parseGpxToRace(xmlText) {
   const smoothed = smoothElevation(cum, 5);
   const bins = resampleToBins(smoothed, 0.1);
   const totalDistance = Math.round(smoothed[smoothed.length - 1].mile * 100) / 100;
-
-  function elevAtMile(mile) {
-    if (mile <= 0) return smoothed[0].elevFt;
-    for (let i = 1; i < smoothed.length; i++) {
-      if (smoothed[i].mile >= mile) {
-        const p0 = smoothed[i-1], p1 = smoothed[i];
-        const frac = p1.mile === p0.mile ? 0 : (mile - p0.mile) / (p1.mile - p0.mile);
-        return p0.elevFt + (p1.elevFt - p0.elevFt) * frac;
-      }
-    }
-    return smoothed[smoothed.length - 1].elevFt;
-  }
 
   // Match GPX waypoints to their nearest point on the track (by straight-line
   // lat/lon distance), giving each a mile marker. Waypoints far from the
@@ -237,13 +259,7 @@ function parseGpxToRace(xmlText) {
     names = ['Start', ...Array.from({ length: n - 1 }, (_, i) => `Mile ${boundaries[i+1]}`), 'Finish'];
   }
 
-  const baseSegments = [];
-  const gradeSegments = [];
-  for (let i = 0; i < boundaries.length - 1; i++) {
-    const { base, grade } = buildSegment(i + 1, names[i], names[i + 1], boundaries[i], boundaries[i + 1], bins, elevAtMile);
-    baseSegments.push(base);
-    gradeSegments.push(grade);
-  }
+  const { baseSegments, gradeSegments } = recomputeSegmentsFromBins(bins, boundaries, names);
 
   const totalGain = baseSegments.reduce((a, s) => a + s.segGain, 0);
   const totalLoss = baseSegments.reduce((a, s) => a + s.segLoss, 0);
@@ -252,6 +268,12 @@ function parseGpxToRace(xmlText) {
     baseSegments, gradeSegments, totalDistance, totalGain, totalLoss,
     trackName, usedWaypoints: dedupedStations.length > 0, aidStationCount: dedupedStations.length,
     startLat: smoothed[0].lat, startLon: smoothed[0].lon,
+    // 0.1mi-resolution elevation samples, kept around (not just used to
+    // build the initial segments and discarded) so aid station mile
+    // markers can be corrected later against a real race document and
+    // have gain/loss/grade recomputed accurately for the new boundaries,
+    // rather than just relabeled. See recomputeSegmentsFromBins above.
+    elevationBins: bins,
   };
 }
 
