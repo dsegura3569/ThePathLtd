@@ -517,11 +517,11 @@ function PaceTargetsWidget() {
                 <span>Pickup:</span>
                 <select value={g.pickupSegmentId ?? ''} onChange={e => updateGearItem(g.id, { pickupSegmentId: e.target.value === '' ? null : Number(e.target.value) })} style={gearSelectStyle}>
                   <option value="">Start</option>
-                  {raceSegments.slice(0, -1).map(s => <option key={s.id} value={s.id + 1}>At {s.to}</option>)}
+                  {raceSegments.slice(0, -1).map(s => <option key={s.id} value={s.id + 1}>At {s.to} (mi {s.miE})</option>)}
                 </select>
                 <span>Drop:</span>
                 <select value={g.dropoffSegmentId ?? ''} onChange={e => updateGearItem(g.id, { dropoffSegmentId: e.target.value === '' ? null : Number(e.target.value) })} style={gearSelectStyle}>
-                  {raceSegments.map(s => <option key={s.id} value={s.id}>At {s.to}</option>)}
+                  {raceSegments.map(s => <option key={s.id} value={s.id}>At {s.to} (mi {s.miE})</option>)}
                   <option value="">Finish</option>
                 </select>
               </div>

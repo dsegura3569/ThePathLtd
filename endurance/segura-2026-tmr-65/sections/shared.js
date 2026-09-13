@@ -247,11 +247,11 @@ function VesselToggleStepper({ label, enabled, setEnabled, value, setValue, min,
           <span>From</span>
           <select value={range.from ?? ''} onChange={e => setRange({ ...range, from: e.target.value === '' ? null : Number(e.target.value) })} style={selectStyle}>
             <option value="">Start</option>
-            {segments.slice(0, -1).map(s => <option key={s.id} value={s.id + 1}>Pickup: {s.to}</option>)}
+            {segments.slice(0, -1).map(s => <option key={s.id} value={s.id + 1}>Pickup: {s.to} (mi {s.miE})</option>)}
           </select>
           <span>until</span>
           <select value={range.to ?? ''} onChange={e => setRange({ ...range, to: e.target.value === '' ? null : Number(e.target.value) })} style={selectStyle}>
-            {segments.map(s => <option key={s.id} value={s.id}>Drop: {s.to}</option>)}
+            {segments.map(s => <option key={s.id} value={s.id}>Drop: {s.to} (mi {s.miE})</option>)}
             <option value="">Finish</option>
           </select>
         </div>
