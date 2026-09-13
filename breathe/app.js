@@ -57,6 +57,44 @@ window.saveSettingsTo = function saveSettingsTo(setBlobState, soundMode, animati
   }));
 };
 
+function formatPracticeDuration(totalSeconds) {
+  const totalMin = Math.round(totalSeconds / 60);
+  if (totalMin < 60) return `${totalMin} min`;
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+
+function LifetimeStatsCard({ stats }) {
+  const totalSeconds = stats.inSeconds + stats.outSeconds + stats.holdSeconds;
+  if (totalSeconds < 30 && stats.breaths === 0) return null; // nothing meaningful practiced yet -- skip the card rather than greet a new visitor with zeros
+
+  return (
+    <div style={{
+      display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'baseline',
+      background: 'var(--sand-pale)', border: '1px solid var(--line)', borderRadius: 10,
+      padding: '1rem 1.25rem', margin: '1.5rem 0',
+    }}>
+      <div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: 'var(--breathe-color)' }}>
+          {formatPracticeDuration(totalSeconds)}
+        </div>
+        <div style={{ fontSize: '0.78rem', color: 'var(--ink-soft)' }}>practiced total</div>
+      </div>
+      <div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: 'var(--breathe-color)' }}>
+          {stats.breaths.toLocaleString()}
+        </div>
+        <div style={{ fontSize: '0.78rem', color: 'var(--ink-soft)' }}>breaths taken</div>
+      </div>
+      <div style={{ fontSize: '0.8rem', color: 'var(--ink-soft)', marginLeft: 'auto' }}>
+        {formatPracticeDuration(stats.inSeconds)} inhaling &middot; {formatPracticeDuration(stats.outSeconds)} exhaling
+        {stats.holdSeconds >= 30 ? <> &middot; {formatPracticeDuration(stats.holdSeconds)} holding</> : null}
+      </div>
+    </div>
+  );
+}
+
 function SessionLengthControl({ sessionLengthMinutes, setSessionLengthMinutes }) {
   return (
     <div>
@@ -205,6 +243,24 @@ function App() {
     window.saveSettingsTo(setBlobState, soundMode, animationStyle, countdownSeconds, startCue, id);
   }
 
+  // Lifetime practice stats, accumulated across every session ever run --
+  // separate from the Sound/Animation/etc preferences above (those get
+  // fully replaced on change; this only ever adds).
+  function flushSessionStats(delta) {
+    setBlobState(prev => {
+      const s = (prev && prev.lifetimeStats) || { inSeconds: 0, outSeconds: 0, holdSeconds: 0, breaths: 0 };
+      return Object.assign({}, prev, {
+        lifetimeStats: {
+          inSeconds: s.inSeconds + delta.inSeconds,
+          outSeconds: s.outSeconds + delta.outSeconds,
+          holdSeconds: s.holdSeconds + delta.holdSeconds,
+          breaths: s.breaths + delta.breaths,
+        },
+      });
+    });
+  }
+  const lifetimeStats = blobState.lifetimeStats || { inSeconds: 0, outSeconds: 0, holdSeconds: 0, breaths: 0 };
+
   // Deep-link support: ?technique=box (etc.) jumps straight to that
   // technique's configure screen instead of the picker grid -- used by the
   // homepage's time-of-day breath recommendation widget, so clicking
@@ -287,6 +343,7 @@ function App() {
         countdownSeconds={countdownSeconds}
         startCue={startCue}
         countDirection={countDirection}
+        onStatsFlush={flushSessionStats}
         title={customTitle}
         stageLabelFor={customStageLabelFor}
         cue={customCue}
@@ -311,6 +368,7 @@ function App() {
         sessionLengthMinutes={sessionLengthMinutes}
         startCue={startCue}
         countDirection={countDirection}
+        onStatsFlush={flushSessionStats}
         onExit={exitSession}
       />
     );
@@ -429,6 +487,8 @@ function App() {
         <h1>Choose a breathing pattern</h1>
         <p style={{ marginBottom: 0 }}>Each pattern paces itself visually and with sound — pick one, set it up, and follow along. Not sure which one? Start with which Path fits what's actually going on right now.</p>
       </div>
+
+      <LifetimeStatsCard stats={lifetimeStats} />
 
       {['performance', 'regulation'].map(pathId => (
         <div key={pathId} style={{ marginTop: '2.25rem' }}>

@@ -26,7 +26,7 @@ const GET_READY_MS = 1400;
 // General-purpose breathing session runner. Accepts either:
 //   - technique + chosenDuration (presets: resolves an infinite looping cycle)
 //   - a pre-resolved `phases` array directly + loop:false (Philosopher: finite, ends naturally)
-window.SessionView = function SessionView({ technique, chosenDuration, phases: suppliedPhases, loop, soundMode, animationStyle, countdownSeconds, sessionLengthMinutes, startCue, countDirection, title, onExit, onComplete, stageLabelFor, cue }) {
+window.SessionView = function SessionView({ technique, chosenDuration, phases: suppliedPhases, loop, soundMode, animationStyle, countdownSeconds, sessionLengthMinutes, startCue, countDirection, onStatsFlush, title, onExit, onComplete, stageLabelFor, cue }) {
   const anim = animationStyle || 'arc';
   const phases = suppliedPhases || window.resolvePhases(technique, chosenDuration);
   // A target session length only makes sense as a whole number of complete
@@ -66,6 +66,20 @@ window.SessionView = function SessionView({ technique, chosenDuration, phases: s
     lastTickedSecond: -1,
     cycleCount: 0,
   });
+  // Lifetime-stats accumulator for this one session -- flushed into the
+  // blob-backed running totals (via onStatsFlush) when the session ends,
+  // however it ends (completes naturally or is exited early). Counts only
+  // *completed* phases, not a partial phase still in progress when the
+  // person exits -- undercounts a session by at most a few seconds in
+  // that case, which is an acceptable simplification for a lifetime
+  // tracker rather than a precision timer.
+  const statsRef = useRef({ inSeconds: 0, outSeconds: 0, holdSeconds: 0, breaths: 0 });
+  function statBucketFor(phaseType) {
+    if (phaseType === 'in') return 'inSeconds';
+    if (phaseType === 'out') return 'outSeconds';
+    if (phaseType === 'hold_in' || phaseType === 'hold_out' || phaseType === 'pause_in' || phaseType === 'pause_out') return 'holdSeconds';
+    return null; // 'rest' (Philosopher between-stage pause): not a breath phase, excluded from the breakdown
+  }
 
   const [display, setDisplay] = useState({
     phaseType: phases[0].type,
@@ -177,6 +191,10 @@ window.SessionView = function SessionView({ technique, chosenDuration, phases: s
           : { phaseType: phase.type, count, cycleCount: run.cycleCount });
 
         if (elapsed >= phase.seconds) {
+          const bucket = statBucketFor(phase.type);
+          if (bucket) statsRef.current[bucket] += phase.seconds;
+          if (phase.type === 'in') statsRef.current.breaths += 1;
+
           const atEnd = run.phaseIndex + 1 >= phases.length;
           const cyclesAfterThis = run.cycleCount + (atEnd ? 1 : 0);
           const hitTargetLength = atEnd && maxCycles && cyclesAfterThis >= maxCycles;
@@ -201,6 +219,11 @@ window.SessionView = function SessionView({ technique, chosenDuration, phases: s
     return () => {
       cancelAnimationFrame(rafRef.current);
       window.AudioEngine.stopAll();
+      const s = statsRef.current;
+      if (onStatsFlush && (s.inSeconds || s.outSeconds || s.holdSeconds || s.breaths)) {
+        onStatsFlush({ inSeconds: s.inSeconds, outSeconds: s.outSeconds, holdSeconds: s.holdSeconds, breaths: s.breaths });
+        statsRef.current = { inSeconds: 0, outSeconds: 0, holdSeconds: 0, breaths: 0 }; // guard against a double-flush if this cleanup somehow ran twice
+      }
     };
   }, [stage]);
 
