@@ -82,13 +82,13 @@
   }
   .caution-card[open] .region-title-row::after{ content:'–'; }
   .caution-card > p{ margin-top:1rem; }
-  .caution-list{ list-style:none; padding:0; margin:1rem 0 0; display:grid; gap:0.9rem; }
-  .caution-list li{ padding-left:1.4rem; position:relative; }
-  .caution-list li::before{
-    content:'!'; position:absolute; left:0; top:0;
-    font-family:var(--font-mono); font-weight:700; color:var(--caution);
+  .caution-list{ list-style:none; padding:0; margin:1rem 0 0; display:grid; gap:1.1rem; }
+  .caution-list li{ display:flex; gap:1rem; align-items:flex-start; }
+  .caution-thumb{
+    width:88px; height:88px; flex-shrink:0; object-fit:cover; border-radius:8px;
+    display:block;
   }
-  .caution-list strong{ color:var(--ink); }
+  .caution-list strong{ color:var(--ink); display:block; margin-bottom:0.15rem; }
   .caution-list span{ display:block; font-size:0.92rem; color:var(--ink-soft); }
 
   .region-grid{ display:grid; gap:1.5rem; margin-top:1.5rem; }
@@ -160,14 +160,38 @@
     <img class="region-thumb" src="assets/endangerment.jpg" alt="Illustration of areas on the body to approach with care" loading="lazy">
     <p>These are spots where a nerve, artery, or vein sits close to the surface with little muscle to cushion it — what massage therapists call endangerment sites. They're not off-limits, but they call for light pressure only, never sustained deep pressure. The regions below reference the ones relevant to each area.</p>
     <ul class="caution-list">
-      <li><strong>Front and sides of the neck</strong><span>Carotid artery and jugular vein sit right under the skin. Never press firmly here.</span></li>
-      <li><strong>Inner elbow crease</strong><span>Brachial artery and median nerve. Light pressure only.</span></li>
-      <li><strong>Base of the throat / collarbone notch</strong><span>Sits over the trachea and major vessels beneath.</span></li>
-      <li><strong>Navel area</strong><span>The abdominal aorta runs beneath. Keep abdominal work light.</span></li>
-      <li><strong>Low back over the kidneys</strong><span>No firm or percussive pressure here.</span></li>
-      <li><strong>Inner thigh / groin crease</strong><span>Femoral artery, vein, and nerve (the femoral triangle).</span></li>
-      <li><strong>Center of the glute, deep</strong><span>The sciatic nerve passes through here (the sciatic notch).</span></li>
-      <li><strong>Back of the knee</strong><span>Popliteal artery and nerve. Avoid deep pressure.</span></li>
+      <li>
+        <img class="caution-thumb" src="assets/endangerment-neck.jpg" alt="Front and sides of the neck" loading="lazy">
+        <div><strong>Front and sides of the neck</strong><span>Carotid artery and jugular vein sit right under the skin. Never press firmly here.</span></div>
+      </li>
+      <li>
+        <img class="caution-thumb" src="assets/endangerment-elbow.jpg" alt="Inner elbow crease" loading="lazy">
+        <div><strong>Inner elbow crease</strong><span>Brachial artery and median nerve. Light pressure only.</span></div>
+      </li>
+      <li>
+        <img class="caution-thumb" src="assets/endangerment-throat.jpg" alt="Base of the throat and collarbone notch" loading="lazy">
+        <div><strong>Base of the throat / collarbone notch</strong><span>Sits over the trachea and major vessels beneath.</span></div>
+      </li>
+      <li>
+        <img class="caution-thumb" src="assets/endangerment-navel.jpg" alt="Navel area" loading="lazy">
+        <div><strong>Navel area</strong><span>The abdominal aorta runs beneath. Keep abdominal work light.</span></div>
+      </li>
+      <li>
+        <img class="caution-thumb" src="assets/endangerment-lowback.jpg" alt="Low back over the kidneys" loading="lazy">
+        <div><strong>Low back over the kidneys</strong><span>No firm or percussive pressure here.</span></div>
+      </li>
+      <li>
+        <img class="caution-thumb" src="assets/endangerment-groin.jpg" alt="Inner thigh and groin crease" loading="lazy">
+        <div><strong>Inner thigh / groin crease</strong><span>Femoral artery, vein, and nerve (the femoral triangle).</span></div>
+      </li>
+      <li>
+        <img class="caution-thumb" src="assets/endangerment-glute.jpg" alt="Center of the glute, deep" loading="lazy">
+        <div><strong>Center of the glute, deep</strong><span>The sciatic nerve passes through here (the sciatic notch).</span></div>
+      </li>
+      <li>
+        <img class="caution-thumb" src="assets/endangerment-knee.jpg" alt="Back of the knee" loading="lazy">
+        <div><strong>Back of the knee</strong><span>Popliteal artery and nerve. Avoid deep pressure.</span></div>
+      </li>
     </ul>
   </details>
 
