@@ -588,6 +588,7 @@ function DropBagConfigWidget({ onRaceDataChanged }) {
     dropBag: !!(s.amenities && s.amenities.dropBag),
     crew: !!(s.amenities && s.amenities.crew),
     pacer: !!s.pacer,
+    name: s.to,
   })));
   const [saved, setSaved] = React.useState(false);
 
@@ -598,10 +599,30 @@ function DropBagConfigWidget({ onRaceDataChanged }) {
     setSaved(false);
   }
 
+  function renameRow(i, value) {
+    setRows(prev => prev.map((r, idx) => idx === i ? { ...r, name: value } : r));
+    setSaved(false);
+  }
+
   function handleSave() {
     segments.forEach((s, i) => {
       s.amenities = { ...s.amenities, dropBag: rows[i].dropBag, crew: rows[i].crew };
       s.pacer = rows[i].pacer;
+
+      // Each aid station name is shared between two places: this segment's
+      // `to` and the next segment's `from` (the same physical point, seen
+      // from either side) -- both need updating together, or the name
+      // would show correctly in one view and stay stale in another that
+      // reads the neighboring segment instead. gradeSegments carries its
+      // own independent copy of the same from/to pair (built alongside
+      // baseSegments in gpx_import.js), so it needs the same update too.
+      const newName = rows[i].name.trim();
+      if (newName && newName !== s.to) {
+        s.to = newName;
+        if (segments[i + 1]) segments[i + 1].from = newName;
+        if (race.gradeSegments && race.gradeSegments[i]) race.gradeSegments[i].to = newName;
+        if (race.gradeSegments && race.gradeSegments[i + 1]) race.gradeSegments[i + 1].from = newName;
+      }
     });
     if (window.getCurrentRaceId() !== 'tmr') window.saveCustomRace(race);
     setSaved(true);
@@ -621,8 +642,16 @@ function DropBagConfigWidget({ onRaceDataChanged }) {
       <div style={{marginBottom:14}}>
         {segments.map((s, i) => (
           <div key={s.id} style={{display:'flex', alignItems:'center', flexWrap:'wrap', gap:14, padding:'8px 0', borderBottom:'1px solid var(--line)'}}>
-            <span style={{fontSize:13, color:'var(--ink)', minWidth:140, flex:1}}>
-              {s.to} <span style={{color:'var(--ink-faint)', fontFamily:'var(--mono)', fontSize:11}}>(mi {s.miE})</span>
+            <span style={{display:'flex', alignItems:'center', gap:8, minWidth:200, flex:1}}>
+              <input
+                value={rows[i].name}
+                onChange={e => renameRow(i, e.target.value)}
+                style={{
+                  fontSize:13, color:'var(--ink)', background:'var(--bg-raised)', border:'1px solid var(--line)',
+                  borderRadius:6, padding:'4px 8px', width:160, fontFamily:'inherit',
+                }}
+              />
+              <span style={{color:'var(--ink-faint)', fontFamily:'var(--mono)', fontSize:11, whiteSpace:'nowrap'}}>(mi {s.miE})</span>
             </span>
             <label style={{display:'flex', alignItems:'center', gap:5, fontSize:12, color:'var(--ink-dim)', cursor:'pointer'}}>
               <input type="checkbox" checked={rows[i].dropBag} onChange={() => toggle(i, 'dropBag')} /> Drop bag
@@ -639,7 +668,7 @@ function DropBagConfigWidget({ onRaceDataChanged }) {
       <button onClick={handleSave} style={{
         padding:'9px 16px', borderRadius:8, border:'none', background:'var(--climb)', color:'#12151A',
         fontWeight:600, fontSize:13, cursor:'pointer',
-      }}>{saved ? 'Saved \u2713' : 'Save aid station access'}</button>
+      }}>{saved ? 'Saved \u2713' : 'Save aid stations'}</button>
     </section>
   );
 }
