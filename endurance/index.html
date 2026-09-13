@@ -64,20 +64,61 @@
 
   .race-list{ display:grid; gap:1.25rem; margin-top:2rem; }
   .race-card{
-    display:block; text-decoration:none; color:inherit;
+    display:block; text-decoration:none; color:inherit; cursor:pointer;
     background:var(--sand-pale); border:1px solid var(--line);
     border-radius:12px; padding:1.75rem;
     transition:border-color 0.2s ease, transform 0.2s ease;
   }
+  .race-card:focus-visible{ outline:2px solid var(--endurance-color); outline-offset:2px; }
   .race-card:hover{ border-color:var(--endurance-color); transform:translateY(-2px); }
   .race-card{ position:relative; }
-  .race-card-delete{
+  .race-card-gear{
     position:absolute; top:0.9rem; right:0.9rem; width:30px; height:30px;
     border-radius:8px; border:1px solid var(--line); background:var(--sand-pale);
     color:var(--ink-soft); cursor:pointer; display:flex; align-items:center; justify-content:center;
-    font-size:14px; transition:border-color 0.15s ease, color 0.15s ease;
+    font-size:15px; transition:border-color 0.15s ease, color 0.15s ease; z-index:2;
   }
-  .race-card-delete:hover{ border-color:#B23A3A; color:#B23A3A; }
+  .race-card-gear:hover, .race-card-gear.is-open{ border-color:var(--endurance-color); color:var(--endurance-color); }
+  .race-card-panel{
+    position:absolute; top:3rem; right:0.9rem; z-index:10; width:280px;
+    background:var(--sand-pale); border:1px solid var(--line); border-radius:10px;
+    padding:1.1rem; box-shadow:0 8px 24px rgba(43,27,16,0.16);
+    font-family:var(--font-body); text-align:left; white-space:normal;
+  }
+  .race-card-panel label{ display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.3rem; }
+  .race-card-panel input[type="text"]{
+    width:100%; padding:0.4rem 0.5rem; border-radius:6px; border:1px solid var(--line);
+    font-family:var(--font-body); font-size:0.85rem; margin-bottom:0.75rem; background:#fff; color:var(--ink);
+  }
+  .race-card-panel .panel-section{ margin-bottom:0.9rem; }
+  .race-card-panel .panel-checkbox-row{
+    display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; margin-bottom:0.35rem;
+  }
+  .race-card-panel .panel-extra-field{
+    display:flex; gap:0.4rem; margin-bottom:0.4rem;
+  }
+  .race-card-panel .panel-extra-field input{ margin-bottom:0; }
+  .race-card-panel .panel-extra-field input:first-child{ flex:0 0 38%; }
+  .race-card-panel .panel-extra-field input:last-child{ flex:1; }
+  .race-card-panel .panel-remove-field{
+    flex:0 0 auto; width:26px; border:1px solid var(--line); border-radius:6px;
+    background:transparent; color:var(--ink-soft); cursor:pointer;
+  }
+  .race-card-panel .panel-add-field{
+    font-size:0.8rem; background:none; border:none; color:var(--endurance-color);
+    font-weight:600; cursor:pointer; padding:0; margin-bottom:0.5rem;
+  }
+  .race-card-panel .panel-actions{
+    display:flex; justify-content:space-between; align-items:center; margin-top:1rem;
+    padding-top:0.85rem; border-top:1px solid var(--line);
+  }
+  .race-card-panel .panel-save{
+    background:var(--endurance-color); color:#fff; border:none; border-radius:6px;
+    padding:0.5rem 1rem; font-size:0.85rem; font-weight:600; cursor:pointer;
+  }
+  .race-card-panel .panel-danger{
+    background:none; border:none; color:#B23A3A; font-size:0.8rem; cursor:pointer; padding:0;
+  }
   .race-card-top{
     display:flex; justify-content:space-between; align-items:center;
     flex-wrap:wrap; gap:0.5rem; padding-right:2.5rem;
@@ -112,6 +153,7 @@
   .race-stats strong{
     display:block; font-size:1.1rem; color:var(--ink); font-family:var(--font-body); font-weight:700;
   }
+  .stat-hidden{ display:none !important; }
 </style>
 </head>
 <body>
@@ -127,27 +169,179 @@
   </div>
 
   <div class="race-list" id="race-list">
-    <a class="race-card" href="/endurance/segura-2026-tmr-65/?race=tmr" data-start-date="2026-08-22T06:00:00-06:00" data-results-url="https://www.runtelluride.com/results">
+    <div class="race-card" tabindex="0" role="link" data-href="/endurance/segura-2026-tmr-65/?race=tmr" data-race-id="tmr" data-start-date="2026-08-22T06:00:00-06:00" data-results-url="https://www.runtelluride.com/results">
+      <button class="race-card-gear" aria-label="Race settings" title="Race settings">&#9881;</button>
       <div class="race-card-top">
-        <h2>Telluride Mountain Run — 65 Mile</h2>
+        <h2 data-field="name">Telluride Mountain Run — 65 Mile</h2>
         <div style="text-align:right;">
           <span class="race-date">Sat, Aug 22, 2026</span>
           <div class="race-countdown" data-countdown></div>
         </div>
       </div>
       <p class="race-location">Telluride, Colorado</p>
-      <div class="race-stats">
-        <div><strong>63.5 mi</strong>Distance</div>
-        <div><strong>23,320 ft</strong>Vert Gain</div>
-        <div><strong>Mountain</strong>Terrain</div>
-        <div><strong>32h</strong>Cutoff</div>
+      <div class="race-stats" data-stats-container>
+        <div data-stat="distance"><strong>63.5 mi</strong>Distance</div>
+        <div data-stat="vertGain"><strong>23,320 ft</strong>Vert Gain</div>
+        <div data-stat="terrain"><strong>Mountain</strong>Terrain</div>
+        <div data-stat="cutoff"><strong>32h</strong>Cutoff</div>
       </div>
-    </a>
+    </div>
   </div>
 
   <p style="margin-top:1.5rem;">Have a course in mind? <a href="/endurance/segura-2026-tmr-65/?addRace=1" style="color:var(--endurance-color); font-weight:600;">Upload a GPX to get started &rarr;</a></p>
 </div>
 <script>
+  const STAT_LABELS = { distance: 'Distance', vertGain: 'Vert Gain', terrain: 'Terrain', cutoff: 'Cutoff' };
+  const OVERRIDES_KEY = 'tmr_command_race_overrides_v1';
+
+  // Per-race customizations (renamed title, hidden built-in stats, extra
+  // custom stat fields, or a soft "hidden" flag for the hardcoded TMR card,
+  // which can't be deleted the way a real data record can) live in their
+  // own storage key, separate from the custom-race data itself -- this way
+  // the exact same override mechanism applies whether the underlying race
+  // is the hardcoded TMR card or a GPX-uploaded one.
+  function getOverrides() {
+    try { return JSON.parse(localStorage.getItem(OVERRIDES_KEY) || '{}'); } catch (e) { return {}; }
+  }
+  function getOverride(id) { return getOverrides()[id] || {}; }
+  function saveOverride(id, patch) {
+    const all = getOverrides();
+    all[id] = Object.assign({}, all[id], patch);
+    localStorage.setItem(OVERRIDES_KEY, JSON.stringify(all));
+  }
+
+  // Applies whatever override exists for this race -- renamed title,
+  // hidden built-in stats, extra custom fields -- to a card already in the
+  // DOM. Safe to call once per card right after it's built/inserted.
+  function applyOverrideToCard(card, raceId) {
+    const override = getOverride(raceId);
+    if (override.name) {
+      const nameEl = card.querySelector('[data-field="name"]');
+      if (nameEl) nameEl.textContent = override.name;
+    }
+    (override.hiddenStats || []).forEach(key => {
+      const statEl = card.querySelector(`[data-stat="${key}"]`);
+      if (statEl) statEl.classList.add('stat-hidden');
+    });
+    (override.extraFields || []).forEach(field => {
+      appendExtraFieldToCard(card, field.label, field.value);
+    });
+  }
+
+  function appendExtraFieldToCard(card, label, value) {
+    const container = card.querySelector('[data-stats-container]');
+    if (!container || !label) return;
+    const div = document.createElement('div');
+    div.setAttribute('data-extra-stat', '');
+    div.innerHTML = `<strong>${escapeHtml(value || '—')}</strong>${escapeHtml(label)}`;
+    container.appendChild(div);
+  }
+
+  // Builds (once) and wires up the gear icon + its settings panel for a
+  // single race card. `baseName` is the race's original, un-overridden
+  // title -- used to pre-fill the name field even after a previous rename,
+  // since the override object only stores the latest name, not history.
+  function attachGearPanel(card, raceId, baseName, onDelete) {
+    const gearBtn = card.querySelector('.race-card-gear');
+    if (!gearBtn) return;
+    let panel = null;
+
+    function closePanel() {
+      if (panel) { panel.remove(); panel = null; }
+      gearBtn.classList.remove('is-open');
+    }
+
+    function openPanel() {
+      const override = getOverride(raceId);
+      const hidden = override.hiddenStats || [];
+      const extras = override.extraFields || [];
+
+      panel = document.createElement('div');
+      panel.className = 'race-card-panel';
+
+      const currentName = card.querySelector('[data-field="name"]').textContent;
+      const checkboxRows = Object.keys(STAT_LABELS).map(key => `
+        <label class="panel-checkbox-row">
+          <input type="checkbox" data-stat-checkbox="${key}" ${hidden.includes(key) ? '' : 'checked'} />
+          ${STAT_LABELS[key]}
+        </label>
+      `).join('');
+
+      panel.innerHTML = `
+        <div class="panel-section">
+          <label>Race name</label>
+          <input type="text" data-name-input value="${escapeHtml(currentName)}" />
+        </div>
+        <div class="panel-section">
+          <label>Show on card</label>
+          ${checkboxRows}
+        </div>
+        <div class="panel-section" data-extra-fields-section>
+          <label>Other fields (forecast, notes, anything else)</label>
+        </div>
+        <button type="button" class="panel-add-field">+ Add a field</button>
+        <div class="panel-actions">
+          <button type="button" class="panel-save">Save</button>
+          <button type="button" class="panel-danger" data-delete-btn></button>
+        </div>
+      `;
+
+      const extraSection = panel.querySelector('[data-extra-fields-section]');
+      function addExtraFieldRow(label, value) {
+        const row = document.createElement('div');
+        row.className = 'panel-extra-field';
+        row.innerHTML = `
+          <input type="text" placeholder="Label (e.g. Forecast)" value="${escapeHtml(label || '')}" data-extra-label />
+          <input type="text" placeholder="Value (e.g. 55°F, clear)" value="${escapeHtml(value || '')}" data-extra-value />
+          <button type="button" class="panel-remove-field" aria-label="Remove field">&times;</button>
+        `;
+        row.querySelector('.panel-remove-field').addEventListener('click', () => row.remove());
+        extraSection.appendChild(row);
+      }
+      extras.forEach(f => addExtraFieldRow(f.label, f.value));
+
+      panel.querySelector('.panel-add-field').addEventListener('click', () => addExtraFieldRow('', ''));
+
+      const deleteBtn = panel.querySelector('[data-delete-btn]');
+      deleteBtn.textContent = onDelete.label;
+      deleteBtn.addEventListener('click', () => {
+        if (!confirm(onDelete.confirmMessage)) return;
+        onDelete.run();
+      });
+
+      panel.querySelector('.panel-save').addEventListener('click', () => {
+        const newName = panel.querySelector('[data-name-input]').value.trim();
+        const newHidden = Object.keys(STAT_LABELS).filter(key => {
+          const cb = panel.querySelector(`[data-stat-checkbox="${key}"]`);
+          return cb && !cb.checked;
+        });
+        const newExtras = Array.from(panel.querySelectorAll('.panel-extra-field')).map(row => ({
+          label: row.querySelector('[data-extra-label]').value.trim(),
+          value: row.querySelector('[data-extra-value]').value.trim(),
+        })).filter(f => f.label);
+
+        saveOverride(raceId, {
+          name: newName && newName !== baseName ? newName : undefined,
+          hiddenStats: newHidden,
+          extraFields: newExtras,
+        });
+        location.reload();
+      });
+
+      card.appendChild(panel);
+      gearBtn.classList.add('is-open');
+    }
+
+    gearBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (panel) { closePanel(); } else { openPanel(); }
+    });
+    document.addEventListener('click', (e) => {
+      if (panel && !panel.contains(e.target) && e.target !== gearBtn) closePanel();
+    });
+  }
+
   // Custom (GPX-uploaded) races live in the same origin's localStorage the
   // dashboard itself writes to -- read the same key here and append a card
   // per race, so this list reflects reality instead of staying frozen at
@@ -157,9 +351,28 @@
     try {
       customRaces = JSON.parse(localStorage.getItem('tmr_command_custom_races_v1') || '[]');
     } catch (e) { return; }
-    if (!customRaces.length) return;
 
     const list = document.getElementById('race-list');
+
+    // TMR's own gear panel + any saved overrides (rename, hidden stats,
+    // extra fields, or a soft "removed from list" flag).
+    const tmrCard = list.querySelector('.race-card[data-race-id="tmr"]');
+    if (tmrCard) {
+      if (getOverride('tmr').hidden) {
+        tmrCard.remove();
+      } else {
+        makeCardNavigable(tmrCard);
+        applyOverrideToCard(tmrCard, 'tmr');
+        attachGearPanel(tmrCard, 'tmr', 'Telluride Mountain Run — 65 Mile', {
+          label: 'Remove from my list',
+          confirmMessage: 'Remove Telluride Mountain Run from your list? You can bring it back later by clearing this browser\'s site data.',
+          run: () => { saveOverride('tmr', { hidden: true }); location.reload(); },
+        });
+      }
+    }
+
+    if (!customRaces.length) return;
+
     customRaces.forEach(race => {
       // Parsed directly from the string as literal text rather than through
       // a Date object -- new Date(startDate) converts to the viewer's own
@@ -178,35 +391,36 @@
       const distLabel = typeof race.distance === 'number' ? `${race.distance} mi` : '—';
       const cutoffLabel = race.cutoffHours ? `${race.cutoffHours}h` : '—';
 
-      const card = document.createElement('a');
+      const card = document.createElement('div');
       card.className = 'race-card';
-      card.href = `/endurance/segura-2026-tmr-65/?race=${encodeURIComponent(race.id)}`;
+      card.setAttribute('tabindex', '0');
+      card.setAttribute('role', 'link');
+      card.setAttribute('data-href', `/endurance/segura-2026-tmr-65/?race=${encodeURIComponent(race.id)}`);
       if (race.startDate) card.setAttribute('data-start-date', race.startDate);
       if (race.resultsUrl) card.setAttribute('data-results-url', race.resultsUrl);
       card.innerHTML = `
-        <button class="race-card-delete" aria-label="Delete ${escapeHtml(race.name)}" title="Delete this race">&#128465;</button>
+        <button class="race-card-gear" aria-label="Race settings" title="Race settings">&#9881;</button>
         <div class="race-card-top">
-          <h2>${escapeHtml(race.name)}</h2>
+          <h2 data-field="name">${escapeHtml(race.name)}</h2>
           <div style="text-align:right;">
             <span class="race-date">${escapeHtml(dateLabel)}</span>
             <div class="race-countdown" data-countdown></div>
           </div>
         </div>
         <p class="race-location">Uploaded course</p>
-        <div class="race-stats">
-          <div><strong>${escapeHtml(distLabel)}</strong>Distance</div>
-          <div><strong>${escapeHtml(gainLabel)}</strong>Vert Gain</div>
-          <div><strong>—</strong>Terrain</div>
-          <div><strong>${escapeHtml(cutoffLabel)}</strong>Cutoff</div>
+        <div class="race-stats" data-stats-container>
+          <div data-stat="distance"><strong>${escapeHtml(distLabel)}</strong>Distance</div>
+          <div data-stat="vertGain"><strong>${escapeHtml(gainLabel)}</strong>Vert Gain</div>
+          <div data-stat="terrain"><strong>—</strong>Terrain</div>
+          <div data-stat="cutoff"><strong>${escapeHtml(cutoffLabel)}</strong>Cutoff</div>
         </div>
       `;
-      const deleteBtn = card.querySelector('.race-card-delete');
-      deleteBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!confirm(`Delete "${race.name}"? This can't be undone.`)) return;
-        deleteCustomRaceFromStorage(race.id);
-        card.remove();
+      applyOverrideToCard(card, race.id);
+      makeCardNavigable(card);
+      attachGearPanel(card, race.id, race.name, {
+        label: 'Delete this race',
+        confirmMessage: `Delete "${race.name}"? This can't be undone.`,
+        run: () => { deleteCustomRaceFromStorage(race.id); card.remove(); },
       });
       list.appendChild(card);
     });
@@ -261,6 +475,29 @@
     const div = document.createElement('div');
     div.textContent = String(str);
     return div.innerHTML;
+  }
+
+  // Cards are plain divs (not real <a> elements) specifically so that
+  // form controls inside the gear panel -- checkboxes especially -- work
+  // correctly. Nesting a checkbox inside a native <a href>, there's no way
+  // to preventDefault() the anchor's own navigation without *also*
+  // canceling the checkbox's toggle -- browsers bundle both as the same
+  // single cancelable flag on one click event, since the checkbox's
+  // "activation behavior" and the anchor's "activation behavior" are both
+  // gated by the same defaultPrevented check after the event finishes
+  // dispatching. Handling navigation manually here sidesteps that entirely.
+  function makeCardNavigable(card) {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.race-card-gear') || e.target.closest('.race-card-panel')) return;
+      window.location.href = card.getAttribute('data-href');
+    });
+    card.addEventListener('keydown', (e) => {
+      if (e.target !== card) return; // let inputs/buttons inside handle their own keys
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        window.location.href = card.getAttribute('data-href');
+      }
+    });
   }
 
   function updateCountdowns() {
