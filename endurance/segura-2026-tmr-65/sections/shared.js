@@ -405,6 +405,74 @@ function popsicleBagsForVessels(vessels, maxG = 80) {
   return bags;
 }
 
+// Shared drag-to-reorder row, replacing the up/down arrow buttons that used
+// to appear in every "customize order" panel across the dashboard (segment
+// table columns, course profile stats, page section layout, stat cards,
+// custom cards) -- one drag handle, one drop behavior, used consistently
+// instead of five separate arrow-button implementations.
+function DragHandle() {
+  return (
+    <span aria-hidden="true" style={{
+      cursor: 'grab', color: 'var(--ink-faint)', fontSize: 14, lineHeight: 1,
+      padding: '0 4px', userSelect: 'none', letterSpacing: '-2px',
+    }}>&#8942;&#8942;</span>
+  );
+}
+
+// order: array of keys/ids in current order. setOrder: state setter for
+// that array. Renders one row per item via `renderRow(item, index)` --
+// renderRow gets the drag handle already positioned; just render the rest
+// of the row's content after it.
+function DragReorderList({ order, setOrder, renderLabel, extraControls }) {
+  const dragIndex = React.useRef(null);
+  const [overIndex, setOverIndex] = React.useState(null);
+
+  function handleDrop() {
+    if (dragIndex.current === null || overIndex === null || dragIndex.current === overIndex) {
+      dragIndex.current = null; setOverIndex(null); return;
+    }
+    setOrder(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(dragIndex.current, 1);
+      next.splice(overIndex, 0, moved);
+      return next;
+    });
+    dragIndex.current = null; setOverIndex(null);
+  }
+
+  return order.map((key, i) => (
+    <div
+      key={key}
+      draggable
+      onDragStart={() => { dragIndex.current = i; }}
+      onDragOver={e => { e.preventDefault(); if (overIndex !== i) setOverIndex(i); }}
+      onDragEnd={handleDrop}
+      onDrop={e => { e.preventDefault(); handleDrop(); }}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0',
+        borderTop: i > 0 ? '1px solid var(--line)' : 'none',
+        background: overIndex === i ? 'var(--bg-raised)' : 'transparent',
+        opacity: dragIndex.current === i ? 0.4 : 1,
+      }}
+    >
+      <DragHandle />
+      <span style={{ flex: 1, fontSize: 13, color: 'var(--ink)' }}>{renderLabel(key, i)}</span>
+      {extraControls && extraControls(key, i)}
+    </div>
+  ));
+}
+
+window.GearIcon = function GearIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6"/>
+      <path d="M19.4 13a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V19a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 17.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 13 1.65 1.65 0 0 0 3.17 12H3.09a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.68 7a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3.09a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.68a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9c.13.62.63 1.09 1.26 1.24l.42.09a2 2 0 1 1 0 3.9l-.42.09a1.65 1.65 0 0 0-1.18 1.24z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+};
+
+window.DragHandle = DragHandle;
+window.DragReorderList = DragReorderList;
 window.SectionHeader = SectionHeader;
 window.StatBox = StatBox;
 window.SmallLabel = SmallLabel;

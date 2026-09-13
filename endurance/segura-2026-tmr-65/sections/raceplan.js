@@ -1,5 +1,7 @@
 const COLUMN_DEFS = [
   { key:'clock', label:'Clock', cellStyle:() => cellStyle('var(--ink-faint)'), render: s => s.clockS.split(' ')[1] },
+  { key:'finishTime', label:'Finish Time', cellStyle:() => cellStyle('var(--ink-faint)'), render: s => s.clockE.split(' ')[1] },
+  { key:'duration', label:'Duration', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.time },
   { key:'cutoff', label:'Cutoff', cellStyle:() => cellStyle('crimson', 600), render: s => s.cutoffClock },
   { key:'segment', label:'Segment', cellStyle: s => cellStyle(dropBagNum(s) ? 'var(--db)' : 'var(--ink)', dropBagNum(s) ? 600 : 400), render: s => <React.Fragment>{s.from} &rarr; {s.to.split(' (')[0]}</React.Fragment> },
   { key:'dist', label:'Dist', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => `${s.distReal.toFixed(1)}mi` },
@@ -19,6 +21,7 @@ const COLUMN_DEFS = [
 ];
 const DEFAULT_COLUMN_ORDER = COLUMN_DEFS.map(c => c.key);
 const COLUMN_ORDER_KEY = 'tmr_segment_table_col_order_v2';
+const HIDDEN_COLUMNS_KEY = 'tmr_segment_table_hidden_cols_v1';
 
 function loadColumnOrder() {
   try {
@@ -29,6 +32,14 @@ function loadColumnOrder() {
     }
   } catch (e) {}
   return DEFAULT_COLUMN_ORDER;
+}
+
+function loadHiddenColumns() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(HIDDEN_COLUMNS_KEY));
+    if (Array.isArray(saved)) return saved.filter(k => DEFAULT_COLUMN_ORDER.includes(k));
+  } catch (e) {}
+  return [];
 }
 
 function dropBagNum(seg) {
@@ -49,21 +60,19 @@ function RaceDayPlanView() {
   const [showColumnPanel, setShowColumnPanel] = React.useState(false);
   const [showAdvancedTargets, setShowAdvancedTargets] = React.useState(false);
   const [columnOrder, setColumnOrder] = React.useState(loadColumnOrder);
+  const [hiddenColumns, setHiddenColumns] = React.useState(loadHiddenColumns);
 
   React.useEffect(() => {
     try { localStorage.setItem(COLUMN_ORDER_KEY, JSON.stringify(columnOrder)); } catch (e) {}
   }, [columnOrder]);
+  React.useEffect(() => {
+    try { localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify(hiddenColumns)); } catch (e) {}
+  }, [hiddenColumns]);
 
-  function moveColumn(index, dir) {
-    setColumnOrder(prev => {
-      const next = [...prev];
-      const target = index + dir;
-      if (target < 0 || target >= next.length) return prev;
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
+  function toggleColumn(key) {
+    setHiddenColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   }
-  function resetColumns() { setColumnOrder(DEFAULT_COLUMN_ORDER); }
+  function resetColumns() { setColumnOrder(DEFAULT_COLUMN_ORDER); setHiddenColumns([]); }
 
   // Vessel breakdown now comes from the same shared vesselPlan() used by the
   // Segments tab, so both views describe the same physical flasks/bladder
@@ -138,33 +147,29 @@ function RaceDayPlanView() {
       <div style={{marginTop:32, marginBottom:32}}>
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8}}>
           <SmallLabel>All segments</SmallLabel>
-          <button onClick={() => setShowColumnPanel(v => !v)} style={{
-            fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'var(--bg-raised)',
-            border:'1px solid var(--line)', borderRadius:8, padding:'5px 10px', cursor:'pointer',
+          <button onClick={() => setShowColumnPanel(v => !v)} aria-label="Customize columns" title="Customize columns" style={{
+            width:30, height:30, borderRadius:8, color:'var(--ink-faint)', background: showColumnPanel ? 'var(--climb)' : 'var(--bg-raised)',
+            border:'1px solid var(--line)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
           }}>
-            {showColumnPanel ? 'Done' : 'Customize columns'}
+            {showColumnPanel ? <span style={{color:'#12151A', fontSize:12, fontWeight:700}}>Done</span> : <window.GearIcon />}
           </button>
         </div>
 
         {showColumnPanel && (
           <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginTop:10}}>
-            <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:8}}>Reorder with the arrows, or reset.</div>
-            {columnOrder.map((key, i) => {
-              const col = COLUMN_DEFS.find(c => c.key === key);
-              return (
-                <div key={key} style={{display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none'}}>
-                  <span style={{flex:1, fontSize:13, color:'var(--ink)'}}>{col.label}</span>
-                  <button disabled={i===0} onClick={() => moveColumn(i, -1)} style={{
-                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
-                    color: i===0 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===0 ? 'not-allowed' : 'pointer', fontSize:12,
-                  }}>&uarr;</button>
-                  <button disabled={i===columnOrder.length-1} onClick={() => moveColumn(i, 1)} style={{
-                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
-                    color: i===columnOrder.length-1 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===columnOrder.length-1 ? 'not-allowed' : 'pointer', fontSize:12,
-                  }}>&darr;</button>
-                </div>
-              );
-            })}
+            <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:8}}>Drag to reorder, or toggle to show/hide.</div>
+            <window.DragReorderList
+              order={columnOrder}
+              setOrder={setColumnOrder}
+              renderLabel={key => COLUMN_DEFS.find(c => c.key === key).label}
+              extraControls={key => (
+                <button onClick={() => toggleColumn(key)} aria-label={hiddenColumns.includes(key) ? 'Show column' : 'Hide column'} style={{
+                  width:26, height:26, borderRadius:6, border:'1px solid var(--line)',
+                  background: hiddenColumns.includes(key) ? 'var(--bg-raised)' : 'var(--climb)',
+                  color: hiddenColumns.includes(key) ? 'var(--ink-faint)' : '#12151A', cursor:'pointer', fontSize:16, lineHeight:1,
+                }}>{hiddenColumns.includes(key) ? '+' : '\u2212'}</button>
+              )}
+            />
             <button onClick={resetColumns} style={{
               marginTop:10, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
               border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
@@ -176,7 +181,7 @@ function RaceDayPlanView() {
           <table style={{width:'100%', minWidth:900, borderCollapse:'collapse', fontFamily:'var(--body)'}}>
             <thead>
               <tr style={{background:'var(--bg-raised)', textAlign:'left'}}>
-                {columnOrder.map(key => {
+                {columnOrder.filter(key => !hiddenColumns.includes(key)).map(key => {
                   const col = COLUMN_DEFS.find(c => c.key === key);
                   return (
                     <th key={key} style={{padding:'9px 12px', fontFamily:'var(--mono)', fontSize:10, color:'var(--ink-faint)', fontWeight:500, textTransform:'uppercase', borderBottom:'1px solid var(--line)'}}>{col.label}</th>
@@ -187,7 +192,7 @@ function RaceDayPlanView() {
             <tbody>
               {segments.map(s=>(
                 <tr key={s.id} onClick={()=>setActive(s.id)} style={{cursor:'pointer', background: active===s.id ? s.color+'14' : 'transparent'}}>
-                  {columnOrder.map(key => (
+                  {columnOrder.filter(key => !hiddenColumns.includes(key)).map(key => (
                     <td key={key} style={COLUMN_DEFS.find(c => c.key === key).cellStyle(s)}>
                       {COLUMN_DEFS.find(c => c.key === key).render(s)}
                     </td>
@@ -197,7 +202,7 @@ function RaceDayPlanView() {
             </tbody>
             <tfoot>
               <tr style={{background:'var(--bg-raised)', borderTop:'2px solid var(--line)'}}>
-                {columnOrder.map(key => {
+                {columnOrder.filter(key => !hiddenColumns.includes(key)).map(key => {
                   const totalDist = segments.reduce((a,s)=>a+s.distReal,0);
                   const totalGain = segments.reduce((a,s)=>a+s.segGain,0);
                   const totalLoss = segments.reduce((a,s)=>a+s.segLoss,0);
@@ -220,23 +225,6 @@ function RaceDayPlanView() {
             </tfoot>
           </table>
         </div>
-      </div>
-
-      <div style={{display:'flex', gap:6, overflowX:'auto', paddingBottom:10, marginBottom:20}}>
-        {segments.map(s => (
-          <button key={s.id} onClick={()=>setActive(s.id)} style={{
-            padding:'9px 12px', borderRadius:10, flexShrink:0, minWidth:118, textAlign:'left', cursor:'pointer',
-            border:`1.5px solid ${active===s.id ? s.color : 'var(--line)'}`,
-            background: active===s.id ? s.color+'1a' : 'var(--bg-card)',
-          }}>
-            <div style={{display:'flex', justifyContent:'space-between', fontSize:10, fontWeight:700, color: active===s.id ? s.color : 'var(--ink-faint)', fontFamily:'var(--mono)'}}>
-              <span>Mi {s.miS}&ndash;{s.miE}</span>
-              <span>{s.netDir==='climb' ? '\u25B2' : '\u25BC'}</span>
-            </div>
-            <div style={{fontSize:11, color:'var(--ink-dim)', marginTop:4, lineHeight:1.3}}>{s.from} &rarr; {s.to.split(' (')[0]}</div>
-            <div style={{fontSize:10, color:'var(--ink-faint)', marginTop:3, fontFamily:'var(--mono)'}}>{s.time}</div>
-          </button>
-        ))}
       </div>
 
       <div style={{border:`1.5px solid ${seg.color}55`, borderRadius:16, overflow:'hidden', background:'var(--bg-card)'}}>

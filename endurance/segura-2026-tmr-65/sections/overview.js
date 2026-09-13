@@ -258,15 +258,6 @@ function CourseProfileChart() {
   React.useEffect(() => {
     try { localStorage.setItem(COURSE_PROFILE_STAT_ORDER_KEY, JSON.stringify(courseProfileStatOrder)); } catch (e) {}
   }, [courseProfileStatOrder]);
-  function moveCourseProfileStat(index, dir) {
-    setCourseProfileStatOrder(prev => {
-      const next = [...prev];
-      const target = index + dir;
-      if (target < 0 || target >= next.length) return prev;
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  }
   function resetCourseProfileStats() { setCourseProfileStatOrder(courseProfileStatKeys); }
 
   // aid station markers: start (green), 9 aid stations (orange), finish (red) --
@@ -400,22 +391,11 @@ function CourseProfileChart() {
 
       {showCourseProfileStatPanel && (
         <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:12}}>
-          {courseProfileStatOrder.map((key, i) => {
-            const label = { gain: 'Gain', loss: 'Loss', max: 'Max', min: 'Min', maxClimb: 'Max Climb', maxDescent: 'Max Descent' }[key];
-            return (
-              <div key={key} style={{display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none'}}>
-                <span style={{flex:1, fontSize:13, color:'var(--ink)'}}>{label}</span>
-                <button disabled={i===0} onClick={() => moveCourseProfileStat(i, -1)} style={{
-                  width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
-                  color: i===0 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===0 ? 'not-allowed' : 'pointer', fontSize:12,
-                }}>&uarr;</button>
-                <button disabled={i===courseProfileStatOrder.length-1} onClick={() => moveCourseProfileStat(i, 1)} style={{
-                  width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
-                  color: i===courseProfileStatOrder.length-1 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===courseProfileStatOrder.length-1 ? 'not-allowed' : 'pointer', fontSize:12,
-                }}>&darr;</button>
-              </div>
-            );
-          })}
+          <window.DragReorderList
+            order={courseProfileStatOrder}
+            setOrder={setCourseProfileStatOrder}
+            renderLabel={key => ({ gain: 'Gain', loss: 'Loss', max: 'Max', min: 'Min', maxClimb: 'Max Climb', maxDescent: 'Max Descent' }[key])}
+          />
           <button onClick={resetCourseProfileStats} style={{
             marginTop:10, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
             border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
@@ -1006,15 +986,6 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
     setStatVisible(prev => ({ ...prev, [key]: prev[key] === false ? true : false }));
   }
 
-  function moveStat(index, dir) {
-    setStatOrder(prev => {
-      const next = [...prev];
-      const target = index + dir;
-      if (target < 0 || target >= next.length) return prev;
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  }
   function resetStats() { setStatOrder(defaultOrder); setStatVisible({}); }
 
   const CARD_ORDER_KEY = 'tmr_overview_card_order_v2';
@@ -1063,15 +1034,6 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
   React.useEffect(() => {
     try { localStorage.setItem(PAGE_SECTION_ORDER_KEY, JSON.stringify(pageSectionOrder)); } catch (e) {}
   }, [pageSectionOrder]);
-  function movePageSection(index, dir) {
-    setPageSectionOrder(prev => {
-      const next = [...prev];
-      const target = index + dir;
-      if (target < 0 || target >= next.length) return prev;
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  }
 
   const [showPageLayoutPanel, setShowPageLayoutPanel] = React.useState(false);
   React.useEffect(() => {
@@ -1215,22 +1177,11 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
               background:'none', border:'none', color:'var(--ink-faint)', cursor:'pointer', fontSize:16, lineHeight:1,
             }}>&#10005;</button>
           </div>
-          {pageSectionOrder.map((id, i) => {
-            const s = PAGE_SECTIONS.find(x => x.id === id);
-            return (
-              <div key={id} style={{display:'flex', alignItems:'center', gap:8, padding:'6px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none'}}>
-                <span style={{flex:1, fontSize:13, color:'var(--ink)'}}>{s.label}</span>
-                <button disabled={i===0} onClick={() => movePageSection(i, -1)} style={{
-                  width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
-                  color: i===0 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===0 ? 'not-allowed' : 'pointer', fontSize:12,
-                }}>&uarr;</button>
-                <button disabled={i===pageSectionOrder.length-1} onClick={() => movePageSection(i, 1)} style={{
-                  width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
-                  color: i===pageSectionOrder.length-1 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===pageSectionOrder.length-1 ? 'not-allowed' : 'pointer', fontSize:12,
-                }}>&darr;</button>
-              </div>
-            );
-          })}
+          <window.DragReorderList
+            order={pageSectionOrder}
+            setOrder={setPageSectionOrder}
+            renderLabel={id => PAGE_SECTIONS.find(x => x.id === id).label}
+          />
           <button onClick={() => setPageSectionOrder(pageSectionDefaultOrder)} style={{
             marginTop:10, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
             border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
@@ -1289,28 +1240,21 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
 
         {showStatPanel && (
           <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:16}}>
-            {statOrder.map((key, i) => {
-              const s = allStats.find(x => x.key === key);
-              const vis = isVisible(key);
-              return (
-                <div key={key} style={{display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none', opacity: vis ? 1 : 0.45}}>
-                  <span style={{flex:1, fontSize:13, color:'var(--ink)'}}>{s.label}</span>
+            <window.DragReorderList
+              order={statOrder}
+              setOrder={setStatOrder}
+              renderLabel={key => allStats.find(x => x.key === key).label}
+              extraControls={key => {
+                const vis = isVisible(key);
+                return (
                   <button onClick={() => toggleVisible(key)} aria-label={vis ? 'Hide stat' : 'Show stat'} style={{
                     width:26, height:26, borderRadius:6, border:'1px solid var(--line)',
                     background: vis ? 'var(--climb)' : 'var(--bg-raised)',
                     color: vis ? '#12151A' : 'var(--ink-faint)', cursor:'pointer', fontSize:16, lineHeight:1,
-                  }}>{vis ? '−' : '+'}</button>
-                  <button disabled={i===0} onClick={() => moveStat(i, -1)} style={{
-                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
-                    color: i===0 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===0 ? 'not-allowed' : 'pointer', fontSize:12,
-                  }}>&uarr;</button>
-                  <button disabled={i===statOrder.length-1} onClick={() => moveStat(i, 1)} style={{
-                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
-                    color: i===statOrder.length-1 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===statOrder.length-1 ? 'not-allowed' : 'pointer', fontSize:12,
-                  }}>&darr;</button>
-                </div>
-              );
-            })}
+                  }}>{vis ? '\u2212' : '+'}</button>
+                );
+              }}
+            />
             <button onClick={resetStats} style={{
               marginTop:10, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
               border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
@@ -1397,43 +1341,43 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
 
         {showCardPanel && (
           <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:20}}>
-            <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:8}}>+ to show · − to minimize · tap again to hide. Drag ↑↓ to reorder.</div>
-            {cardOrder.map((id, i) => {
-              const c = cards.find(x => x.id === id);
-              if (!c) return null;
-              const state = getCardState(id);
-              return (
-                <div key={id} style={{display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderTop: i>0 ? '1px solid var(--line)' : 'none', opacity: state==='hidden' ? 0.35 : 1}}>
-                  <span style={{flex:1, fontSize:13, color:'var(--ink)'}}>{c.t}{c.isCustom && <span style={{color:'var(--ink-faint)', fontSize:11}}> ↗</span>}</span>
-                  <button onClick={() => cycleCardState(id)} aria-label={`${state} — tap to cycle`} title={state} style={{
-                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)',
-                    background: state==='shown' ? 'var(--climb)' : state==='minimized' ? 'var(--bg-raised)' : 'transparent',
-                    color: state==='shown' ? '#12151A' : state==='minimized' ? '#4A9FE8' : 'var(--ink-faint)',
-                    cursor:'pointer', fontSize:16, lineHeight:1,
-                  }}>{state==='shown' ? '−' : state==='minimized' ? '◻' : '+'}</button>
-                  {c.isCustom && (
-                    <button onClick={() => startEditCustomCard(c)} aria-label="Edit custom card" title="Edit" style={{
-                      fontSize:10, fontFamily:'var(--mono)', padding:'4px 9px', borderRadius:6,
-                      border:'1px solid var(--line)', background:'transparent', color:'var(--ink-dim)', cursor:'pointer',
-                    }}>&#9998;</button>
-                  )}
-                  {c.isCustom && (
-                    <button onClick={() => removeCustomCard(id)} style={{
-                      fontSize:10, fontFamily:'var(--mono)', padding:'4px 9px', borderRadius:6,
-                      border:'1px solid var(--descent)', background:'transparent', color:'var(--descent)', cursor:'pointer',
-                    }}>✕</button>
-                  )}
-                  <button disabled={i===0} onClick={() => moveCard(i, -1)} style={{
-                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
-                    color: i===0 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===0 ? 'not-allowed' : 'pointer', fontSize:12,
-                  }}>&uarr;</button>
-                  <button disabled={i===cardOrder.length-1} onClick={() => moveCard(i, 1)} style={{
-                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-raised)',
-                    color: i===cardOrder.length-1 ? 'var(--ink-faint)' : 'var(--ink)', cursor: i===cardOrder.length-1 ? 'not-allowed' : 'pointer', fontSize:12,
-                  }}>&darr;</button>
-                </div>
-              );
-            })}
+            <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:8}}>+ to show &middot; &minus; to minimize &middot; tap again to hide. Drag the handle to reorder.</div>
+            <window.DragReorderList
+              order={cardOrder}
+              setOrder={setCardOrder}
+              renderLabel={id => {
+                const c = cards.find(x => x.id === id);
+                if (!c) return null;
+                return <React.Fragment>{c.t}{c.isCustom && <span style={{color:'var(--ink-faint)', fontSize:11}}> &#8599;</span>}</React.Fragment>;
+              }}
+              extraControls={id => {
+                const c = cards.find(x => x.id === id);
+                if (!c) return null;
+                const state = getCardState(id);
+                return (
+                  <React.Fragment>
+                    <button onClick={() => cycleCardState(id)} aria-label={`${state} \u2014 tap to cycle`} title={state} style={{
+                      width:26, height:26, borderRadius:6, border:'1px solid var(--line)',
+                      background: state==='shown' ? 'var(--climb)' : state==='minimized' ? 'var(--bg-raised)' : 'transparent',
+                      color: state==='shown' ? '#12151A' : state==='minimized' ? '#4A9FE8' : 'var(--ink-faint)',
+                      cursor:'pointer', fontSize:16, lineHeight:1,
+                    }}>{state==='shown' ? '\u2212' : state==='minimized' ? '\u25FB' : '+'}</button>
+                    {c.isCustom && (
+                      <button onClick={() => startEditCustomCard(c)} aria-label="Edit custom card" title="Edit" style={{
+                        fontSize:10, fontFamily:'var(--mono)', padding:'4px 9px', borderRadius:6,
+                        border:'1px solid var(--line)', background:'transparent', color:'var(--ink-dim)', cursor:'pointer',
+                      }}>&#9998;</button>
+                    )}
+                    {c.isCustom && (
+                      <button onClick={() => removeCustomCard(id)} style={{
+                        fontSize:10, fontFamily:'var(--mono)', padding:'4px 9px', borderRadius:6,
+                        border:'1px solid var(--descent)', background:'transparent', color:'var(--descent)', cursor:'pointer',
+                      }}>&#10005;</button>
+                    )}
+                  </React.Fragment>
+                );
+              }}
+            />
 
             {showAddForm ? (
               <div style={{marginTop:14, paddingTop:14, borderTop:'1px solid var(--line)'}}>
