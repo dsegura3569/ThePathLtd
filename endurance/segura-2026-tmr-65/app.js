@@ -113,6 +113,7 @@ function AddRaceModal({ onClose, onRaceSelected }) {
       cutoffHours: Number(cutoffHours) || 24,
       startLat: parsed.startLat, startLon: parsed.startLon,
       baseSegments: parsed.baseSegments, gradeSegments: parsed.gradeSegments,
+      elevationBins: parsed.elevationBins,
     };
     window.saveCustomRace(raceConfig);
     window.selectRace(id);
