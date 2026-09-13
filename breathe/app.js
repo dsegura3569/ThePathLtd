@@ -1,4 +1,4 @@
-const { useState } = React;
+const { useState, useEffect } = React;
 
 window.SOUND_OPTIONS = [
   { id: 'tick', label: 'Soft tick / tock' },
@@ -12,6 +12,28 @@ window.ANIMATION_OPTIONS = [
   { id: 'ripple', label: 'Ripple rings' },
   { id: 'wave', label: 'Wave bar' },
 ];
+
+// Sound and Animation used to be re-chosen every time inside each
+// technique's own setup screen -- one shared pair of settings, but with
+// no memory, so they silently reset to tick/arc on every reload. Persisted
+// here instead, configured once via the gear icon on the picker screen.
+const SETTINGS_KEY = 'breathe_settings_v1';
+window.loadSettings = function loadSettings() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    return {
+      soundMode: window.SOUND_OPTIONS.some(o => o.id === raw.soundMode) ? raw.soundMode : 'tick',
+      animationStyle: window.ANIMATION_OPTIONS.some(o => o.id === raw.animationStyle) ? raw.animationStyle : 'arc',
+    };
+  } catch (e) {
+    return { soundMode: 'tick', animationStyle: 'arc' };
+  }
+};
+window.saveSettings = function saveSettings(soundMode, animationStyle) {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ soundMode, animationStyle }));
+  } catch (e) { /* private browsing / storage disabled -- setting just won't persist */ }
+};
 
 function SecondsControl({ technique, duration, setDuration }) {
   return (
@@ -92,8 +114,10 @@ function App() {
   const [view, setView] = useState('select'); // 'select' | 'configure' | 'session' | 'philosopher' | 'finite-session'
   const [technique, setTechnique] = useState(null);
   const [duration, setDuration] = useState(null);
-  const [soundMode, setSoundMode] = useState('tick');
-  const [animationStyle, setAnimationStyle] = useState('arc');
+  const initialSettings = window.loadSettings();
+  const [soundMode, setSoundModeRaw] = useState(initialSettings.soundMode);
+  const [animationStyle, setAnimationStyleRaw] = useState(initialSettings.animationStyle);
+  const [showSettings, setShowSettings] = useState(false);
   const [holdWalkSeconds, setHoldWalkSeconds] = useState(null);
   const [restSeconds, setRestSeconds] = useState(null);
   const [customPhases, setCustomPhases] = useState(null);
@@ -102,6 +126,18 @@ function App() {
   const [customTitle, setCustomTitle] = useState('');
   const [customCue, setCustomCue] = useState('');
   const [customStageLabelFor, setCustomStageLabelFor] = useState(null);
+
+  // Wrap the setters so every change from the gear-icon settings panel is
+  // saved immediately -- the setting should survive a reload the moment
+  // it's picked, not just for the rest of the current tab session.
+  function setSoundMode(id) {
+    setSoundModeRaw(id);
+    window.saveSettings(id, animationStyle);
+  }
+  function setAnimationStyle(id) {
+    setAnimationStyleRaw(id);
+    window.saveSettings(soundMode, id);
+  }
 
   // Deep-link support: ?technique=box (etc.) jumps straight to that
   // technique's configure screen instead of the picker grid -- used by the
@@ -208,6 +244,7 @@ function App() {
 
   if (view === 'configure' && technique) {
     return (
+      <>
       <div style={{ maxWidth: 560, margin: '0 auto', padding: '3rem 1.5rem' }}>
         <window.GhostButton onClick={() => setView('select')}>&larr; Back</window.GhostButton>
         <p className="eyebrow" style={{ marginTop: '1.5rem' }}>Breathwork Assistant</p>
@@ -261,48 +298,49 @@ function App() {
           </p>
         )}
 
-        <div style={{ margin: '1.5rem 0' }}>
-          <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 600 }}>Sound</label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-            {window.SOUND_OPTIONS.filter(opt => !(technique.excludeSoundModes || []).includes(opt.id)).map(opt => (
-              <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
-                <input
-                  type="radio"
-                  name="sound"
-                  checked={soundMode === opt.id}
-                  onChange={() => setSoundMode(opt.id)}
-                />
-                {opt.label}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ margin: '1.5rem 0' }}>
-          <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 600 }}>Animation</label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-            {window.ANIMATION_OPTIONS.map(opt => (
-              <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
-                <input
-                  type="radio"
-                  name="animation"
-                  checked={animationStyle === opt.id}
-                  onChange={() => setAnimationStyle(opt.id)}
-                />
-                {opt.label}
-              </label>
-            ))}
-          </div>
-        </div>
+        <button
+          onClick={() => setShowSettings(true)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '1.5rem 0',
+            background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+            color: 'var(--ink-soft)', fontSize: '0.85rem',
+          }}
+        >
+          <window.GearIcon />
+          Sound: {window.SOUND_OPTIONS.find(o => o.id === soundMode)?.label} &middot; Animation: {window.ANIMATION_OPTIONS.find(o => o.id === animationStyle)?.label}
+        </button>
 
         <window.PrimaryButton onClick={startSession}>Begin</window.PrimaryButton>
       </div>
+      {showSettings && (
+        <window.SettingsModal
+          soundMode={soundMode} setSoundMode={setSoundMode}
+          animationStyle={animationStyle} setAnimationStyle={setAnimationStyle}
+          excludeSoundModes={technique.excludeSoundModes}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+      </>
     );
   }
 
   return (
+    <>
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '3rem 1.5rem' }}>
-      <a href="/" className="back-link">&larr; thepath.ltd</a>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <a href="/" className="back-link">&larr; thepath.ltd</a>
+        <button
+          onClick={() => setShowSettings(true)}
+          aria-label="Sound and animation settings"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 36, height: 36, borderRadius: 8, border: '1px solid var(--line)',
+            background: 'transparent', color: 'var(--ink-soft)', cursor: 'pointer',
+          }}
+        >
+          <window.GearIcon />
+        </button>
+      </div>
       <div className="tool-hero">
         <p className="eyebrow">Breathwork Assistant</p>
         <h1>Choose a breathing pattern</h1>
@@ -324,6 +362,14 @@ function App() {
         </window.Card>
       </div>
     </div>
+    {showSettings && (
+      <window.SettingsModal
+        soundMode={soundMode} setSoundMode={setSoundMode}
+        animationStyle={animationStyle} setAnimationStyle={setAnimationStyle}
+        onClose={() => setShowSettings(false)}
+      />
+    )}
+    </>
   );
 }
 

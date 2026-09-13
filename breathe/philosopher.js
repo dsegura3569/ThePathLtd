@@ -136,8 +136,19 @@ function StageEditor({ stage, index, onChange, onRemove, canRemove }) {
 window.PhilosopherBuilder = function PhilosopherBuilder({ onStart, onBack }) {
   const [stages, setStages] = usePState([defaultStage()]);
   const [restBetweenStages, setRestBetweenStages] = usePState(5);
-  const [soundMode, setSoundMode] = usePState('tick');
-  const [animationStyle, setAnimationStyle] = usePState('arc');
+  const initialSettings = window.loadSettings();
+  const [soundMode, setSoundModeRaw] = usePState(initialSettings.soundMode);
+  const [animationStyle, setAnimationStyleRaw] = usePState(initialSettings.animationStyle);
+  const [showSettings, setShowSettings] = usePState(false);
+
+  function setSoundMode(id) {
+    setSoundModeRaw(id);
+    window.saveSettings(id, animationStyle);
+  }
+  function setAnimationStyle(id) {
+    setAnimationStyleRaw(id);
+    window.saveSettings(soundMode, id);
+  }
 
   function addStage() {
     if (stages.length >= 6) return;
@@ -165,6 +176,7 @@ window.PhilosopherBuilder = function PhilosopherBuilder({ onStart, onBack }) {
   }
 
   return (
+    <>
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '3rem 1.5rem' }}>
       <window.GhostButton onClick={onBack}>&larr; Back</window.GhostButton>
       <p className="eyebrow" style={{ marginTop: '1.5rem' }}>Breathwork Assistant</p>
@@ -199,31 +211,27 @@ window.PhilosopherBuilder = function PhilosopherBuilder({ onStart, onBack }) {
         )}
       </div>
 
-      <div style={{ margin: '1.5rem 0' }}>
-        <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 600 }}>Sound</label>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-          {window.SOUND_OPTIONS.map(opt => (
-            <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
-              <input type="radio" name="philosopher-sound" checked={soundMode === opt.id} onChange={() => setSoundMode(opt.id)} />
-              {opt.label}
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ margin: '1.5rem 0' }}>
-        <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 600 }}>Animation</label>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-          {window.ANIMATION_OPTIONS.map(opt => (
-            <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
-              <input type="radio" name="philosopher-animation" checked={animationStyle === opt.id} onChange={() => setAnimationStyle(opt.id)} />
-              {opt.label}
-            </label>
-          ))}
-        </div>
-      </div>
+      <button
+        onClick={() => setShowSettings(true)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '1.5rem 0',
+          background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+          color: 'var(--ink-soft)', fontSize: '0.85rem',
+        }}
+      >
+        <window.GearIcon />
+        Sound: {window.SOUND_OPTIONS.find(o => o.id === soundMode)?.label} &middot; Animation: {window.ANIMATION_OPTIONS.find(o => o.id === animationStyle)?.label}
+      </button>
 
       <window.PrimaryButton onClick={handleStart}>Begin</window.PrimaryButton>
     </div>
+    {showSettings && (
+      <window.SettingsModal
+        soundMode={soundMode} setSoundMode={setSoundMode}
+        animationStyle={animationStyle} setAnimationStyle={setAnimationStyle}
+        onClose={() => setShowSettings(false)}
+      />
+    )}
+    </>
   );
 };
