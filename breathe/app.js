@@ -247,7 +247,7 @@ function App() {
       <>
       <div style={{ maxWidth: 560, margin: '0 auto', padding: '3rem 1.5rem' }}>
         <window.GhostButton onClick={() => setView('select')}>&larr; Back</window.GhostButton>
-        <p className="eyebrow" style={{ marginTop: '1.5rem' }}>Breathwork Assistant</p>
+        <p className="eyebrow" style={{ marginTop: '1.5rem' }}>Breathwork Assistant &middot; {window.PATH_INFO[technique.path].label}</p>
         <h1>{technique.name}</h1>
         <p>{technique.description}</p>
 
@@ -344,21 +344,32 @@ function App() {
       <div className="tool-hero">
         <p className="eyebrow">Breathwork Assistant</p>
         <h1>Choose a breathing pattern</h1>
-        <p style={{ marginBottom: 0 }}>Each pattern paces itself visually and with sound — pick one, set it up, and follow along.</p>
+        <p style={{ marginBottom: 0 }}>Each pattern paces itself visually and with sound — pick one, set it up, and follow along. Not sure which one? Start with which Path fits what's actually going on right now.</p>
       </div>
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-        gap: '1.25rem', marginTop: '2rem',
-      }}>
-        {window.TECHNIQUES.map(t => (
-          <window.Card key={t.id} onClick={() => chooseTechnique(t)}>
-            <h3 style={{ color: 'var(--breathe-color)' }}>{t.name}</h3>
-            <p style={{ marginBottom: 0 }}>{t.description}</p>
-          </window.Card>
-        ))}
+
+      {['performance', 'regulation'].map(pathId => (
+        <div key={pathId} style={{ marginTop: '2.25rem' }}>
+          <h2 style={{ fontSize: '1.15rem', marginBottom: '0.3rem' }}>{window.PATH_INFO[pathId].label}</h2>
+          <p style={{ fontSize: '0.88rem', color: 'var(--ink-soft)', marginTop: 0, marginBottom: '1.1rem', maxWidth: '60ch' }}>
+            {window.PATH_INFO[pathId].blurb}
+          </p>
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem',
+          }}>
+            {window.TECHNIQUES.filter(t => t.path === pathId).map(t => (
+              <window.Card key={t.id} onClick={() => chooseTechnique(t)}>
+                <h3 style={{ color: 'var(--breathe-color)' }}>{t.name}</h3>
+                <p style={{ marginBottom: 0 }}>{t.description}</p>
+              </window.Card>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div style={{ marginTop: '2.25rem' }}>
         <window.Card onClick={() => setView('philosopher')}>
           <h3 style={{ color: 'var(--clay)' }}>Philosopher</h3>
-          <p style={{ marginBottom: 0 }}>Build your own: any number of stages, each with its own breathing rhythm.</p>
+          <p style={{ marginBottom: 0 }}>Build your own: any number of stages, each with its own breathing rhythm. Doesn't need to fit either Path.</p>
         </window.Card>
       </div>
     </div>

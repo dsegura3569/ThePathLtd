@@ -13,6 +13,7 @@ window.TECHNIQUES = [
   {
     id: 'box',
     name: 'Box',
+    path: 'regulation',
     description: 'Equal inhale, hold, exhale, hold — a steady four-count square.',
     phaseTypes: ['in', 'hold_in', 'out', 'hold_out'],
     durationMode: 'selectable',
@@ -23,6 +24,7 @@ window.TECHNIQUES = [
   {
     id: '478',
     name: '4-7-8',
+    path: 'regulation',
     description: 'A fixed pattern: inhale 4, hold 7, exhale 8.',
     phaseTypes: ['in', 'hold_in', 'out'],
     durationMode: 'fixed',
@@ -31,6 +33,7 @@ window.TECHNIQUES = [
   {
     id: 'coherent',
     name: 'Coherent',
+    path: 'regulation',
     description: 'Equal inhale and exhale, no holds — steady resonance breathing.',
     phaseTypes: ['in', 'out'],
     durationMode: 'selectable',
@@ -42,6 +45,7 @@ window.TECHNIQUES = [
   {
     id: 'cadence',
     name: 'Cadence Breathing',
+    path: 'performance',
     description: 'Light, slow, and deep. Six breaths a minute, felt through the ribs. Works well paced to a walk.',
     phaseTypes: ['in', 'out'],
     durationMode: 'fixed',
@@ -51,6 +55,7 @@ window.TECHNIQUES = [
   {
     id: 'recovery-walk',
     name: 'Breathing Recovery Walking',
+    path: 'performance',
     description: 'Exhale, hold your breath and walk 10-15 paces, then recover and repeat five times.',
     finite: true, // configured and resolved specially, not via resolvePhases/resolvePhilosopherPhases
     holdWalk: { min: 8, max: 30, default: 15 },
@@ -60,6 +65,7 @@ window.TECHNIQUES = [
   {
     id: 'connected',
     name: 'Conscious Connected',
+    path: 'regulation',
     description: 'A continuous circular loop, no pause between inhale and exhale — active in, passive out.',
     phaseTypes: ['in', 'out'],
     durationMode: 'selectable',
@@ -74,6 +80,7 @@ window.TECHNIQUES = [
   {
     id: 'holotropic',
     name: 'Holotropic',
+    path: 'regulation',
     description: 'Fast, deep, continuous breathing — traditionally done with a trained facilitator, not alone.',
     phaseTypes: ['in', 'out'],
     durationMode: 'selectable',
@@ -97,6 +104,26 @@ window.TECHNIQUES = [
     noTransitionPause: true,
   },
 ];
+
+// Which Path each technique belongs to: 'regulation' techniques bring the
+// nervous system back online (calming, processing, recovering -- the same
+// framing as Path to Regulation sitewide); 'performance' techniques are
+// training tools used before, during, or after physical effort (paced to
+// movement, or building breath-hold tolerance), matching Path to
+// Performance sitewide. Box/Coherent could arguably serve a pre-performance
+// composure role too, but their more common, everyday use is general
+// regulation, so that's where they're filed to keep the split legible
+// rather than showing techniques in both places.
+window.PATH_INFO = {
+  performance: {
+    label: 'Path to Performance',
+    blurb: 'Before, during, or right after training: pacing a walk or run, or building breath-hold tolerance.',
+  },
+  regulation: {
+    label: 'Path to Regulation',
+    blurb: 'Recovering, winding down, or working through stress -- including post-workout recovery like a sauna or hot bath, where the body needs to settle rather than perform.',
+  },
+};
 
 // Resolves a Breathing Recovery Walking session into 5 repetitions of
 // exhale-cue -> hold & walk -> rest, ending naturally (not looping).
