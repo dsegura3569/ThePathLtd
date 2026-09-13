@@ -170,13 +170,13 @@
 
     function getUpcomingRaces() {
       const races = [
-        { name: 'Telluride Mountain Run \u2014 65 Mile', startDate: '2026-08-22T06:00:00-06:00', href: '/endurance/segura-2026-tmr-65/?race=tmr' },
+        { name: 'Telluride Mountain Run \u2014 65 Mile', startDate: '2026-08-22T06:00:00-06:00', href: '/endurance/command-center/?race=tmr' },
       ];
       try {
         const custom = JSON.parse(localStorage.getItem('tmr_command_custom_races_v1') || '[]');
         custom.forEach(r => {
           if (r.startDate) {
-            races.push({ name: r.name, startDate: r.startDate, href: '/endurance/segura-2026-tmr-65/?race=' + encodeURIComponent(r.id) });
+            races.push({ name: r.name, startDate: r.startDate, href: '/endurance/command-center/?race=' + encodeURIComponent(r.id) });
           }
         });
       } catch (e) {}
@@ -228,7 +228,7 @@
     // GPX upload prompt lives.
     function renderCreateRace() {
       if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
-      widgetEl.href = '/endurance/segura-2026-tmr-65/?addRace=1';
+      widgetEl.href = '/endurance/command-center/?addRace=1';
       labelEl.style.display = 'none';
       countdownEl.style.display = 'none';
       nameEl.classList.add('is-cta');

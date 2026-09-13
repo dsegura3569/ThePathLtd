@@ -169,7 +169,7 @@
   </div>
 
   <div class="race-list" id="race-list">
-    <div class="race-card" tabindex="0" role="link" data-href="/endurance/segura-2026-tmr-65/?race=tmr" data-race-id="tmr" data-start-date="2026-08-22T06:00:00-06:00" data-results-url="https://www.runtelluride.com/results">
+    <div class="race-card" tabindex="0" role="link" data-href="/endurance/command-center/?race=tmr" data-race-id="tmr" data-start-date="2026-08-22T06:00:00-06:00" data-results-url="https://www.runtelluride.com/results">
       <button class="race-card-gear" aria-label="Race settings" title="Race settings">&#9881;</button>
       <div class="race-card-top">
         <h2 data-field="name">Telluride Mountain Run — 65 Mile</h2>
@@ -188,7 +188,7 @@
     </div>
   </div>
 
-  <p style="margin-top:1.5rem;">Have a course in mind? <a href="/endurance/segura-2026-tmr-65/?addRace=1" style="color:var(--endurance-color); font-weight:600;">Upload a GPX to get started &rarr;</a></p>
+  <p style="margin-top:1.5rem;">Have a course in mind? <a href="/endurance/command-center/?addRace=1" style="color:var(--endurance-color); font-weight:600;">Upload a GPX to get started &rarr;</a></p>
 </div>
 <script>
   const STAT_LABELS = { distance: 'Distance', vertGain: 'Vert Gain', terrain: 'Terrain', cutoff: 'Cutoff' };
@@ -408,7 +408,7 @@
       card.className = 'race-card';
       card.setAttribute('tabindex', '0');
       card.setAttribute('role', 'link');
-      card.setAttribute('data-href', `/endurance/segura-2026-tmr-65/?race=${encodeURIComponent(race.id)}`);
+      card.setAttribute('data-href', `/endurance/command-center/?race=${encodeURIComponent(race.id)}`);
       if (race.startDate) card.setAttribute('data-start-date', race.startDate);
       if (race.resultsUrl) card.setAttribute('data-results-url', race.resultsUrl);
       card.innerHTML = `
