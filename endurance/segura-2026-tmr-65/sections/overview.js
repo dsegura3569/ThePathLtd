@@ -470,7 +470,7 @@ function PaceTargetsWidget() {
     }]);
   }
   const GEAR_PRESETS = [
-    { name: 'Poles', suggestType: 'none' },
+    { name: 'Poles', suggestType: 'steepTerrain' },
     { name: 'Waist Lamp', suggestType: 'dawn' },
     { name: 'Head Lamp', suggestType: 'dawn' },
   ];
@@ -551,6 +551,7 @@ function PaceTargetsWidget() {
                   <option value="none">Always (no forecast check)</option>
                   <option value="dawn">Start is before sunrise</option>
                   <option value="cold">Forecast at pickup is below&hellip;</option>
+                  <option value="steepTerrain">Segment has a steep climb or descent</option>
                 </select>
                 {g.suggestType === 'cold' && (
                   <>

@@ -190,6 +190,11 @@ function PackListView() {
     return prevSeg ? prevSeg.modeledArrivalHours : 0;
   }
 
+  // Steep enough to usually mean power-hiking a climb or picking carefully
+  // down loose/technical footing -- used to flag poles-worthy terrain from
+  // the same maxClimb/maxDescent grade data already on each base segment,
+  // rather than a separate weather-style check.
+  const STEEP_GRADE_THRESHOLD = 20;
   function gearSuggestion(g) {
     if (g.suggestType === 'dawn') {
       if (forecast.status !== 'ok' || raceStartDecHour == null) return null;
@@ -208,6 +213,19 @@ function PackListView() {
       return temp < g.tempThreshold
         ? { suggested: true, note: `~${Math.round(temp)}\u00b0F forecasted at pickup` }
         : { suggested: false, note: `~${Math.round(temp)}\u00b0F forecasted at pickup, above ${g.tempThreshold}\u00b0F` };
+    }
+    if (g.suggestType === 'steepTerrain') {
+      const range = { from: g.pickupSegmentId, to: g.dropoffSegmentId };
+      const relevantSegs = raceSegments.filter(s => window.vesselActiveForSegment(range, s.id));
+      const steepSeg = relevantSegs.find(s =>
+        Math.abs(parseFloat(s.maxClimb)) >= STEEP_GRADE_THRESHOLD || Math.abs(parseFloat(s.maxDescent)) >= STEEP_GRADE_THRESHOLD);
+      if (!steepSeg) {
+        return { suggested: false, note: `no segment over ${STEEP_GRADE_THRESHOLD}% grade in this range` };
+      }
+      const climbAbs = Math.abs(parseFloat(steepSeg.maxClimb));
+      const descAbs = Math.abs(parseFloat(steepSeg.maxDescent));
+      const steepest = climbAbs >= descAbs ? `${steepSeg.maxClimb}% climb` : `${steepSeg.maxDescent}% descent`;
+      return { suggested: true, note: `${steepest} in ${steepSeg.from} \u2192 ${steepSeg.to}` };
     }
     return null;
   }

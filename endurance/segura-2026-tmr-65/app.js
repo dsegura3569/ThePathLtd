@@ -285,7 +285,7 @@ function AddRaceModal({ onClose, onRaceSelected }) {
             <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginTop:22, marginBottom:10}}>Other gear</div>
             <div style={{display:'flex', flexWrap:'wrap', gap:8}}>
               {[
-                { name: 'Poles', suggestType: 'none' },
+                { name: 'Poles', suggestType: 'steepTerrain' },
                 { name: 'Waist Lamp', suggestType: 'dawn' },
                 { name: 'Head Lamp', suggestType: 'dawn' },
               ].map(p => {
