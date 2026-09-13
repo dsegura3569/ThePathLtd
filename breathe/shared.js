@@ -95,7 +95,7 @@ function SoundPreviewButton({ soundId }) {
   );
 }
 
-window.SettingsModal = function SettingsModal({ soundMode, setSoundMode, animationStyle, setAnimationStyle, excludeSoundModes, countdownSeconds, setCountdownSeconds, startCue, setStartCue, onClose }) {
+window.SettingsModal = function SettingsModal({ soundMode, setSoundMode, animationStyle, setAnimationStyle, excludeSoundModes, countdownSeconds, setCountdownSeconds, startCue, setStartCue, countDirection, setCountDirection, onClose }) {
   const excluded = excludeSoundModes || [];
   return (
     <div
@@ -178,6 +178,20 @@ window.SettingsModal = function SettingsModal({ soundMode, setSoundMode, animati
                   </label>
                   {opt.id !== 'none' && <SoundPreviewButton soundId={opt.id} />}
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {setCountDirection && (
+          <div style={{ margin: '1.25rem 0' }}>
+            <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 600 }}>On-screen counter</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              {window.COUNT_DIRECTION_OPTIONS.map(opt => (
+                <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+                  <input type="radio" name="countDirection" checked={countDirection === opt.id} onChange={() => setCountDirection(opt.id)} />
+                  {opt.label}
+                </label>
               ))}
             </div>
           </div>

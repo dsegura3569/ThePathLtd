@@ -25,6 +25,11 @@ window.START_CUE_OPTIONS = [
   { id: 'bowl', label: 'Singing bowl' },
 ];
 
+window.COUNT_DIRECTION_OPTIONS = [
+  { id: 'down', label: 'Count down (time remaining)' },
+  { id: 'up', label: 'Count up (time elapsed)' },
+];
+
 // Sound and Animation used to be re-chosen every time inside each
 // technique's own setup screen -- one shared pair of settings, but with
 // no memory, so they silently reset to tick/arc on every reload. Now
@@ -40,13 +45,15 @@ window.loadSettingsFrom = function loadSettingsFrom(blobState) {
     animationStyle: window.ANIMATION_OPTIONS.some(o => o.id === raw.animationStyle) ? raw.animationStyle : 'arc',
     countdownSeconds: window.COUNTDOWN_OPTIONS.some(o => o.id === raw.countdownSeconds) ? raw.countdownSeconds : 5,
     startCue: window.START_CUE_OPTIONS.some(o => o.id === raw.startCue) ? raw.startCue : 'none',
+    countDirection: window.COUNT_DIRECTION_OPTIONS.some(o => o.id === raw.countDirection) ? raw.countDirection : 'down',
   };
 };
-window.saveSettingsTo = function saveSettingsTo(setBlobState, soundMode, animationStyle, countdownSeconds, startCue) {
+window.saveSettingsTo = function saveSettingsTo(setBlobState, soundMode, animationStyle, countdownSeconds, startCue, countDirection) {
   setBlobState(prev => Object.assign({}, prev, {
     soundMode, animationStyle,
     countdownSeconds: countdownSeconds === undefined ? (prev && prev.countdownSeconds) : countdownSeconds,
     startCue: startCue === undefined ? (prev && prev.startCue) : startCue,
+    countDirection: countDirection === undefined ? (prev && prev.countDirection) : countDirection,
   }));
 };
 
@@ -161,6 +168,7 @@ function App() {
   const [animationStyle, setAnimationStyleRaw] = useState(initialSettings.animationStyle);
   const [countdownSeconds, setCountdownSecondsRaw] = useState(initialSettings.countdownSeconds);
   const [startCue, setStartCueRaw] = useState(initialSettings.startCue);
+  const [countDirection, setCountDirectionRaw] = useState(initialSettings.countDirection);
   const [showSettings, setShowSettings] = useState(false);
   const [holdWalkSeconds, setHoldWalkSeconds] = useState(null);
   const [restSeconds, setRestSeconds] = useState(null);
@@ -191,6 +199,10 @@ function App() {
   function setStartCue(id) {
     setStartCueRaw(id);
     window.saveSettingsTo(setBlobState, soundMode, animationStyle, countdownSeconds, id);
+  }
+  function setCountDirection(id) {
+    setCountDirectionRaw(id);
+    window.saveSettingsTo(setBlobState, soundMode, animationStyle, countdownSeconds, startCue, id);
   }
 
   // Deep-link support: ?technique=box (etc.) jumps straight to that
@@ -274,6 +286,7 @@ function App() {
         animationStyle={customAnimationStyle}
         countdownSeconds={countdownSeconds}
         startCue={startCue}
+        countDirection={countDirection}
         title={customTitle}
         stageLabelFor={customStageLabelFor}
         cue={customCue}
@@ -297,6 +310,7 @@ function App() {
         countdownSeconds={countdownSeconds}
         sessionLengthMinutes={sessionLengthMinutes}
         startCue={startCue}
+        countDirection={countDirection}
         onExit={exitSession}
       />
     );
@@ -384,6 +398,7 @@ function App() {
           animationStyle={animationStyle} setAnimationStyle={setAnimationStyle}
           countdownSeconds={countdownSeconds} setCountdownSeconds={setCountdownSeconds}
           startCue={startCue} setStartCue={setStartCue}
+          countDirection={countDirection} setCountDirection={setCountDirection}
           excludeSoundModes={technique.excludeSoundModes}
           onClose={() => setShowSettings(false)}
         />
@@ -447,6 +462,7 @@ function App() {
         animationStyle={animationStyle} setAnimationStyle={setAnimationStyle}
         countdownSeconds={countdownSeconds} setCountdownSeconds={setCountdownSeconds}
         startCue={startCue} setStartCue={setStartCue}
+        countDirection={countDirection} setCountDirection={setCountDirection}
         onClose={() => setShowSettings(false)}
       />
     )}

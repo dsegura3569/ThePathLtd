@@ -26,7 +26,7 @@ const GET_READY_MS = 1400;
 // General-purpose breathing session runner. Accepts either:
 //   - technique + chosenDuration (presets: resolves an infinite looping cycle)
 //   - a pre-resolved `phases` array directly + loop:false (Philosopher: finite, ends naturally)
-window.SessionView = function SessionView({ technique, chosenDuration, phases: suppliedPhases, loop, soundMode, animationStyle, countdownSeconds, sessionLengthMinutes, startCue, title, onExit, onComplete, stageLabelFor, cue }) {
+window.SessionView = function SessionView({ technique, chosenDuration, phases: suppliedPhases, loop, soundMode, animationStyle, countdownSeconds, sessionLengthMinutes, startCue, countDirection, title, onExit, onComplete, stageLabelFor, cue }) {
   const anim = animationStyle || 'arc';
   const phases = suppliedPhases || window.resolvePhases(technique, chosenDuration);
   // A target session length only makes sense as a whole number of complete
@@ -113,8 +113,7 @@ window.SessionView = function SessionView({ technique, chosenDuration, phases: s
     runRef.current.lastTickedSecond = 0;
 
     function countFor(phase, elapsed) {
-      // Inhale counts up (1, 2, 3...). Exhale, holds, and rest count down (time remaining).
-      if (phase.type === 'in') {
+      if (countDirection === 'up') {
         return Math.min(phase.seconds, Math.floor(elapsed) + 1);
       }
       return Math.max(0, Math.ceil(phase.seconds - elapsed));
