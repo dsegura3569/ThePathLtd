@@ -449,7 +449,7 @@ function CourseProfileChart() {
 function PaceTargetsWidget() {
   const {
     targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium,
-    targetWaterHr, setTargetWaterHr, vestCapacity, setVestCapacity, bladderCapacity, setBladderCapacity, beltCapacity, setBeltCapacity,
+    targetWaterHr, setTargetWaterHr, vestCapacity, setVestCapacity, vestCount, setVestCount, bladderCapacity, setBladderCapacity, beltCapacity, setBeltCapacity,
     vestEnabled, setVestEnabled, bladderEnabled, setBladderEnabled, beltEnabled, setBeltEnabled,
     handheldCapacity, setHandheldCapacity, handheldEnabled, setHandheldEnabled,
     vesselRanges, setVesselRanges,
@@ -513,7 +513,7 @@ function PaceTargetsWidget() {
           </div>
           <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginBottom:12}}>Carrying setup</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16 }}>
-            <VesselToggleStepper label="Vest flask (each)" enabled={vestEnabled} setEnabled={setVestEnabled} value={vestCapacity} setValue={setVestCapacity} min={150} max={750} step={50} unit="ml" note="you carry 2"
+            <VesselToggleStepper label="Vest flask (each)" enabled={vestEnabled} setEnabled={setVestEnabled} value={vestCapacity} setValue={setVestCapacity} min={150} max={750} step={50} unit="ml" count={vestCount} setCount={setVestCount} countMin={1} countMax={6}
               segments={raceSegments} range={vesselRanges.vest} setRange={setRangeFor('vest')} />
             <VesselToggleStepper label="Bladder" enabled={bladderEnabled} setEnabled={setBladderEnabled} value={bladderCapacity} setValue={setBladderCapacity} min={500} max={3000} step={100} unit="ml"
               segments={raceSegments} range={vesselRanges.bladder} setRange={setRangeFor('bladder')} />

@@ -14,6 +14,7 @@ const TargetHoursContext = React.createContext({
   targetSodium: 700, setTargetSodium: () => {},
   targetWaterHr: 500, setTargetWaterHr: () => {},
   vestCapacity: 500, setVestCapacity: () => {},
+  vestCount: 2, setVestCount: () => {},
   bladderCapacity: 2000, setBladderCapacity: () => {},
   beltCapacity: 650, setBeltCapacity: () => {},
   vestEnabled: true, setVestEnabled: () => {},
@@ -276,7 +277,7 @@ function AddRaceModal({ onClose, onRaceSelected }) {
             <div style={{fontFamily:'var(--display)', fontWeight:700, fontSize:17, color:'var(--ink)', marginBottom:4}}>Gear</div>
             <div style={{fontSize:12.5, color:'var(--ink-faint)', marginBottom:16}}>Uncheck anything you're not carrying.</div>
             <div style={{display:'flex', flexDirection:'column', gap:16}}>
-              <window.VesselToggleStepper label="Vest flask (each)" enabled={ctx.vestEnabled} setEnabled={ctx.setVestEnabled} value={ctx.vestCapacity} setValue={ctx.setVestCapacity} min={150} max={750} step={50} unit="ml" note="you carry 2" />
+              <window.VesselToggleStepper label="Vest flask (each)" enabled={ctx.vestEnabled} setEnabled={ctx.setVestEnabled} value={ctx.vestCapacity} setValue={ctx.setVestCapacity} min={150} max={750} step={50} unit="ml" count={ctx.vestCount} setCount={ctx.setVestCount} countMin={1} countMax={6} />
               <window.VesselToggleStepper label="Bladder" enabled={ctx.bladderEnabled} setEnabled={ctx.setBladderEnabled} value={ctx.bladderCapacity} setValue={ctx.setBladderCapacity} min={500} max={3000} step={100} unit="ml" />
               <window.VesselToggleStepper label="Belt flask" enabled={ctx.beltEnabled} setEnabled={ctx.setBeltEnabled} value={ctx.beltCapacity} setValue={ctx.setBeltCapacity} min={100} max={1000} step={50} unit="ml" />
               <window.VesselToggleStepper label="Handheld" enabled={ctx.handheldEnabled} setEnabled={ctx.setHandheldEnabled} value={ctx.handheldCapacity} setValue={ctx.setHandheldCapacity} min={150} max={750} step={50} unit="ml" />
@@ -504,7 +505,7 @@ function loadTargetsForRace(id) {
   const cutoff = (race && race.cutoffHours) || 24;
   const defaults = {
     targetHours: Math.min(24, cutoff), targetCarb: 80, targetSodium: 700, targetWaterHr: 500,
-    vestCapacity: 500, bladderCapacity: 2000, beltCapacity: 650,
+    vestCapacity: 500, vestCount: 2, bladderCapacity: 2000, beltCapacity: 650,
     vestEnabled: true, bladderEnabled: true, beltEnabled: true,
     handheldCapacity: 500, handheldEnabled: false,
     vesselRanges: {
@@ -532,6 +533,7 @@ function App() {
   const [targetSodium, setTargetSodium] = useState(() => loadTargetsForRace(raceId).targetSodium);
   const [targetWaterHr, setTargetWaterHr] = useState(() => loadTargetsForRace(raceId).targetWaterHr);
   const [vestCapacity, setVestCapacity] = useState(() => loadTargetsForRace(raceId).vestCapacity);
+  const [vestCount, setVestCount] = useState(() => loadTargetsForRace(raceId).vestCount);
   const [bladderCapacity, setBladderCapacity] = useState(() => loadTargetsForRace(raceId).bladderCapacity);
   const [beltCapacity, setBeltCapacity] = useState(() => loadTargetsForRace(raceId).beltCapacity);
   const [vestEnabled, setVestEnabled] = useState(() => loadTargetsForRace(raceId).vestEnabled);
@@ -555,12 +557,12 @@ function App() {
   useEffect(() => {
     try {
       localStorage.setItem(TARGETS_KEY_PREFIX + raceId, JSON.stringify({
-        targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, bladderCapacity, beltCapacity,
+        targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, vestCount, bladderCapacity, beltCapacity,
         vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, extraGear,
         gelRateShift, customFuelItems,
       }));
     } catch (e) {}
-  }, [targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, bladderCapacity, beltCapacity,
+  }, [targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, vestCount, bladderCapacity, beltCapacity,
       vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, extraGear,
       gelRateShift, customFuelItems, raceId]);
 
@@ -589,6 +591,7 @@ function App() {
       setTargetSodium(loaded.targetSodium);
       setTargetWaterHr(loaded.targetWaterHr);
       setVestCapacity(loaded.vestCapacity);
+      setVestCount(loaded.vestCount);
       setBladderCapacity(loaded.bladderCapacity);
       setBeltCapacity(loaded.beltCapacity);
       setVestEnabled(loaded.vestEnabled);
@@ -621,7 +624,7 @@ function App() {
   return (
     <TargetHoursContext.Provider value={{
       targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium,
-      targetWaterHr, setTargetWaterHr, vestCapacity, setVestCapacity, bladderCapacity, setBladderCapacity, beltCapacity, setBeltCapacity,
+      targetWaterHr, setTargetWaterHr, vestCapacity, setVestCapacity, vestCount, setVestCount, bladderCapacity, setBladderCapacity, beltCapacity, setBeltCapacity,
       vestEnabled, setVestEnabled, bladderEnabled, setBladderEnabled, beltEnabled, setBeltEnabled,
       handheldCapacity, setHandheldCapacity, handheldEnabled, setHandheldEnabled,
       vesselRanges, setVesselRanges, extraGear, setExtraGear,

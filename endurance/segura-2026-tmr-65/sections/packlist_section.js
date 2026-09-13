@@ -122,15 +122,15 @@ function PackCard({ point }) {
 }
 
 function PackListView() {
-  const { targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, bladderCapacity, beltCapacity,
+  const { targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, vestCount, bladderCapacity, beltCapacity,
     vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, extraGear,
     gelRateShift, setGelRateShift, customFuelItems, setCustomFuelItems } = React.useContext(window.TargetHoursContext);
   const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium, targetWaterHr, gelRateShift), [targetHours, targetCarb, targetSodium, targetWaterHr, gelRateShift]);
   const vesselConfig = {
-    vestCapacity, vestEnabled, bladderCapacity, bladderEnabled, beltCapacity, beltEnabled,
+    vestCapacity, vestCount, vestEnabled, bladderCapacity, bladderEnabled, beltCapacity, beltEnabled,
     handheldCapacity, handheldEnabled, vesselRanges,
   };
-  const packing = React.useMemo(() => buildPackingData(segments, vesselConfig), [segments, vestCapacity, bladderCapacity, beltCapacity, vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges]);
+  const packing = React.useMemo(() => buildPackingData(segments, vesselConfig), [segments, vestCapacity, vestCount, bladderCapacity, beltCapacity, vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges]);
 
   const grandGels = packing.reduce((s, p) => s + p.gelsTotal, 0);
   const grandTailwind = packing.reduce((s, p) => s + p.tailwindTotal, 0);
@@ -213,7 +213,7 @@ function PackListView() {
   }
 
   const vesselRows = [
-    { key: 'vest', label: 'Vest flasks (x2)', enabled: vestEnabled, capacity: vestCapacity, range: vesselRanges.vest },
+    { key: 'vest', label: `Vest flask${vestCount > 1 ? 's' : ''}${vestCount > 1 ? ` (x${vestCount})` : ''}`, enabled: vestEnabled, capacity: vestCapacity, range: vesselRanges.vest },
     { key: 'bladder', label: 'Bladder', enabled: bladderEnabled, capacity: bladderCapacity, range: vesselRanges.bladder },
     { key: 'belt', label: 'Belt flask', enabled: beltEnabled, capacity: beltCapacity, range: vesselRanges.belt },
     { key: 'handheld', label: 'Handheld', enabled: handheldEnabled, capacity: handheldCapacity, range: vesselRanges.handheld },

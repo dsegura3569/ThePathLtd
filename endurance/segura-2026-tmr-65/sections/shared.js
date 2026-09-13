@@ -179,7 +179,7 @@ function VesselPlanCompact({ seg, vessels, bags, labelColor }) {
   );
 }
 
-function TargetStepper({ label, value, setValue, min, max, step, unit, note }) {
+function TargetStepper({ label, value, setValue, min, max, step, unit, note, count, setCount, countMin, countMax }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
       <SmallLabel>{label}</SmallLabel>
@@ -206,7 +206,21 @@ function TargetStepper({ label, value, setValue, min, max, step, unit, note }) {
           color: 'var(--ink)', cursor: 'pointer', fontSize: 14,
         }}>+</button>
       </div>
-      {note && <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{note}</span>}
+      {note && !setCount && <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{note}</span>}
+      {setCount && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-faint)' }}>
+          <span>you carry</span>
+          <button onClick={() => setCount(c => Math.max(countMin ?? 1, c - 1))} style={{
+            width: 22, height: 22, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--bg-raised)',
+            color: 'var(--ink)', cursor: 'pointer', fontSize: 12, lineHeight: 1,
+          }}>&minus;</button>
+          <span style={{ minWidth: 12, textAlign: 'center', fontWeight: 600, color: 'var(--ink)' }}>{count}</span>
+          <button onClick={() => setCount(c => Math.min(countMax ?? 6, c + 1))} style={{
+            width: 22, height: 22, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--bg-raised)',
+            color: 'var(--ink)', cursor: 'pointer', fontSize: 12, lineHeight: 1,
+          }}>+</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -220,13 +234,13 @@ function TargetStepper({ label, value, setValue, min, max, step, unit, note }) {
 // setRange are supplied and the race has more than one leg, also renders
 // From/Until dropdowns so a vessel can be picked up or dropped at a
 // specific aid station instead of always assumed for the whole race.
-function VesselToggleStepper({ label, enabled, setEnabled, value, setValue, min, max, step, unit, note, segments, range, setRange }) {
+function VesselToggleStepper({ label, enabled, setEnabled, value, setValue, min, max, step, unit, note, segments, range, setRange, count, setCount, countMin, countMax }) {
   const selectStyle = { background:'var(--bg-raised)', border:'1px solid var(--line)', borderRadius:6, color:'var(--ink)', fontSize:11.5, padding:'3px 5px' };
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: enabled ? 1 : 0.5 }}>
         <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} title="Carry this" style={{ cursor: 'pointer' }} />
-        <TargetStepper label={label} value={value} setValue={setValue} min={min} max={max} step={step} unit={unit} note={note} />
+        <TargetStepper label={label} value={value} setValue={setValue} min={min} max={max} step={step} unit={unit} note={note} count={count} setCount={setCount} countMin={countMin} countMax={countMax} />
       </div>
       {enabled && segments && segments.length > 1 && range && setRange && (
         <div style={{ display:'flex', alignItems:'center', flexWrap:'wrap', gap:6, marginLeft:34, fontSize:11.5, color:'var(--ink-faint)' }}>
@@ -266,6 +280,7 @@ function capacitiesForSegment(segmentId, cfg) {
   const active = (key) => vesselActiveForSegment(r[key], segmentId);
   return {
     vest: (cfg.vestEnabled && active('vest')) ? cfg.vestCapacity : 0,
+    vestCount: cfg.vestCount || 1,
     bladder: (cfg.bladderEnabled && active('bladder')) ? cfg.bladderCapacity : 0,
     belt: (cfg.beltEnabled && active('belt')) ? cfg.beltCapacity : 0,
     handheld: (cfg.handheldEnabled && active('handheld')) ? cfg.handheldCapacity : 0,
@@ -284,12 +299,22 @@ function vesselPlan(seg, capacities) {
   // Race Day Plan and Segments tabs so both describe the same physical gear identically.
   const c = capacities || {};
   const VEST = c.vest ?? 500;
+  const VEST_COUNT = Math.max(1, c.vestCount || 1);
   const BLADDER = c.bladder ?? 2000;
   const BELT = c.belt ?? 650;
   const HANDHELD = c.handheld ?? 0;
   const diluted = seg.dilutedMl;
   const plain = seg.plainMl;
   const vessels = [];
+
+  // One named slot per flask actually carried (A, B, C...) rather than a
+  // hardcoded pair -- how many of these exist is now the vest count set in
+  // Gear, not an assumption baked into this function.
+  const vestSlots = Array.from({ length: VEST_COUNT }, (_, i) => ({
+    name: `Vest flask ${String.fromCharCode(65 + i)}`,
+    capacity: VEST,
+  }));
+  const totalVestCapacity = VEST * VEST_COUNT;
 
   // Fills `remaining` plain water into a priority-ordered list of vessels,
   // topping up a vessel already used for diluted mix (matched by name)
@@ -313,24 +338,22 @@ function vesselPlan(seg, capacities) {
   if (diluted === 0) {
     fillPlain(plain, [
       { name: 'Bladder', capacity: BLADDER },
-      { name: 'Vest flask A', capacity: VEST },
+      ...vestSlots,
       { name: 'Belt flask', capacity: BELT },
       { name: 'Handheld', capacity: HANDHELD },
     ]);
     return vessels;
   }
 
-  if (VEST > 0 && diluted <= VEST) {
-    vessels.push({ name: 'Vest flask A', capacity: VEST, water: diluted, tailwindMl: diluted, tailwindG: seg.tailwind });
-    fillPlain(plain, [
-      { name: 'Bladder', capacity: BLADDER },
-      { name: 'Belt flask', capacity: BELT },
-      { name: 'Handheld', capacity: HANDHELD },
-    ]);
-  } else if (VEST > 0 && diluted <= VEST * 2) {
-    const half = diluted / 2;
-    vessels.push({ name: 'Vest flask A', capacity: VEST, water: half, tailwindMl: half, tailwindG: seg.tailwind / 2 });
-    vessels.push({ name: 'Vest flask B', capacity: VEST, water: half, tailwindMl: half, tailwindG: seg.tailwind / 2 });
+  if (VEST > 0 && diluted <= totalVestCapacity) {
+    // Use only as many flasks as the diluted mix actually needs, splitting
+    // it evenly across those -- not always every flask carried, matching
+    // the original behavior of preferring 1 flask over 2 when 1 was enough.
+    const flasksNeeded = Math.min(VEST_COUNT, Math.ceil(diluted / VEST));
+    const portion = diluted / flasksNeeded;
+    for (let i = 0; i < flasksNeeded; i++) {
+      vessels.push({ name: vestSlots[i].name, capacity: VEST, water: portion, tailwindMl: portion, tailwindG: seg.tailwind / flasksNeeded });
+    }
     fillPlain(plain, [
       { name: 'Bladder', capacity: BLADDER },
       { name: 'Belt flask', capacity: BELT },
@@ -339,7 +362,7 @@ function vesselPlan(seg, capacities) {
   } else if (BLADDER > 0 && diluted <= BLADDER) {
     vessels.push({ name: 'Bladder', capacity: BLADDER, water: diluted, tailwindMl: diluted, tailwindG: seg.tailwind });
     fillPlain(plain, [
-      { name: 'Vest flask A', capacity: VEST },
+      ...vestSlots,
       { name: 'Belt flask', capacity: BELT },
       { name: 'Handheld', capacity: HANDHELD },
     ]);
@@ -351,7 +374,7 @@ function vesselPlan(seg, capacities) {
     const chain = [
       { name: 'Bladder', capacity: BLADDER },
       { name: 'Belt flask', capacity: BELT },
-      { name: 'Vest flask A', capacity: VEST },
+      ...vestSlots,
       { name: 'Handheld', capacity: HANDHELD },
     ];
     for (const v of chain) {

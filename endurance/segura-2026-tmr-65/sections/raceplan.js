@@ -36,7 +36,7 @@ function dropBagNum(seg) {
 }
 
 function RaceDayPlanView() {
-  const { targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium, targetWaterHr, setTargetWaterHr, vestCapacity, setVestCapacity, bladderCapacity, setBladderCapacity, beltCapacity, setBeltCapacity,
+  const { targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium, targetWaterHr, setTargetWaterHr, vestCapacity, setVestCapacity, vestCount, setVestCount, bladderCapacity, setBladderCapacity, beltCapacity, setBeltCapacity,
     vestEnabled, setVestEnabled, bladderEnabled, setBladderEnabled, beltEnabled, setBeltEnabled, handheldCapacity, setHandheldCapacity, handheldEnabled, setHandheldEnabled, vesselRanges, setVesselRanges,
     gelRateShift, setGelRateShift } = React.useContext(window.TargetHoursContext);
   const raceSegments = window.RACES[window.getCurrentRaceId()].baseSegments;
@@ -69,7 +69,7 @@ function RaceDayPlanView() {
   // Segments tab, so both views describe the same physical flasks/bladder
   // identically instead of drifting apart.
   const vessels = vesselPlan(seg, capacitiesForSegment(seg.id, {
-    vestCapacity, vestEnabled, bladderCapacity, bladderEnabled, beltCapacity, beltEnabled,
+    vestCapacity, vestCount, vestEnabled, bladderCapacity, bladderEnabled, beltCapacity, beltEnabled,
     handheldCapacity, handheldEnabled, vesselRanges,
   }));
   const bags = popsicleBagsForVessels(vessels);
@@ -122,7 +122,7 @@ function RaceDayPlanView() {
           </div>
           <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase', marginBottom:12}}>Carrying setup</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16 }}>
-            <VesselToggleStepper label="Vest flask (each)" enabled={vestEnabled} setEnabled={setVestEnabled} value={vestCapacity} setValue={setVestCapacity} min={150} max={750} step={50} unit="ml" note="you carry 2"
+            <VesselToggleStepper label="Vest flask (each)" enabled={vestEnabled} setEnabled={setVestEnabled} value={vestCapacity} setValue={setVestCapacity} min={150} max={750} step={50} unit="ml" count={vestCount} setCount={setVestCount} countMin={1} countMax={6}
               segments={raceSegments} range={vesselRanges.vest} setRange={setRangeFor('vest')} />
             <VesselToggleStepper label="Bladder" enabled={bladderEnabled} setEnabled={setBladderEnabled} value={bladderCapacity} setValue={setBladderCapacity} min={500} max={3000} step={100} unit="ml"
               segments={raceSegments} range={vesselRanges.bladder} setRange={setRangeFor('bladder')} />
