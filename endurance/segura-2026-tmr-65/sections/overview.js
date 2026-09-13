@@ -994,7 +994,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
 
   const courseSamples = React.useMemo(() => buildFullCourseSamples(), [activeRace]);
   const courseStats = React.useMemo(() => computeElevationStats(courseSamples), [courseSamples]);
-  const dropBagSegs = baseSegments.filter(s => /Drop Bag #/i.test(s.to));
+  const dropBagSegs = baseSegments.filter(s => s.amenities && s.amenities.dropBag);
   const avgAltitude = Math.round(courseSamples.reduce((a, s) => a + s.elev, 0) / courseSamples.length);
 
   const staticStats = [
