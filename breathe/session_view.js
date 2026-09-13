@@ -21,13 +21,12 @@ function hexToRgba(hex, alpha) {
 
 const SCALE_SMALL = 0.55;
 const SCALE_LARGE = 1.0;
-const PRE_COUNTDOWN_SECONDS = 3;
 const GET_READY_MS = 1400;
 
 // General-purpose breathing session runner. Accepts either:
 //   - technique + chosenDuration (presets: resolves an infinite looping cycle)
 //   - a pre-resolved `phases` array directly + loop:false (Philosopher: finite, ends naturally)
-window.SessionView = function SessionView({ technique, chosenDuration, phases: suppliedPhases, loop, soundMode, animationStyle, title, onExit, onComplete, stageLabelFor, cue }) {
+window.SessionView = function SessionView({ technique, chosenDuration, phases: suppliedPhases, loop, soundMode, animationStyle, countdownSeconds, title, onExit, onComplete, stageLabelFor, cue }) {
   const anim = animationStyle || 'arc';
   const phases = suppliedPhases || window.resolvePhases(technique, chosenDuration);
   // Only build a "breathe in X / hold Y / breathe out Z" preview for
@@ -48,7 +47,7 @@ window.SessionView = function SessionView({ technique, chosenDuration, phases: s
   const rafRef = useRef(null);
 
   const [stage, setStage] = useState('getready'); // 'getready' | 'countdown' | 'running' | 'complete'
-  const [preCount, setPreCount] = useState(PRE_COUNTDOWN_SECONDS);
+  const [preCount, setPreCount] = useState(countdownSeconds ?? 5);
 
   const runRef = useRef({
     phaseIndex: 0,

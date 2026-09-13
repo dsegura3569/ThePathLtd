@@ -13,6 +13,12 @@ window.ANIMATION_OPTIONS = [
   { id: 'wave', label: 'Wave bar' },
 ];
 
+window.COUNTDOWN_OPTIONS = [
+  { id: 0, label: 'Off' },
+  { id: 5, label: '5 seconds' },
+  { id: 10, label: '10 seconds' },
+];
+
 // Sound and Animation used to be re-chosen every time inside each
 // technique's own setup screen -- one shared pair of settings, but with
 // no memory, so they silently reset to tick/arc on every reload. Now
@@ -26,10 +32,14 @@ window.loadSettingsFrom = function loadSettingsFrom(blobState) {
   return {
     soundMode: window.SOUND_OPTIONS.some(o => o.id === raw.soundMode) ? raw.soundMode : 'tick',
     animationStyle: window.ANIMATION_OPTIONS.some(o => o.id === raw.animationStyle) ? raw.animationStyle : 'arc',
+    countdownSeconds: window.COUNTDOWN_OPTIONS.some(o => o.id === raw.countdownSeconds) ? raw.countdownSeconds : 5,
   };
 };
-window.saveSettingsTo = function saveSettingsTo(setBlobState, soundMode, animationStyle) {
-  setBlobState(prev => Object.assign({}, prev, { soundMode, animationStyle }));
+window.saveSettingsTo = function saveSettingsTo(setBlobState, soundMode, animationStyle, countdownSeconds) {
+  setBlobState(prev => Object.assign({}, prev, {
+    soundMode, animationStyle,
+    countdownSeconds: countdownSeconds === undefined ? (prev && prev.countdownSeconds) : countdownSeconds,
+  }));
 };
 
 function SecondsControl({ technique, duration, setDuration }) {
@@ -115,6 +125,7 @@ function App() {
   const initialSettings = window.loadSettingsFrom(blobState);
   const [soundMode, setSoundModeRaw] = useState(initialSettings.soundMode);
   const [animationStyle, setAnimationStyleRaw] = useState(initialSettings.animationStyle);
+  const [countdownSeconds, setCountdownSecondsRaw] = useState(initialSettings.countdownSeconds);
   const [showSettings, setShowSettings] = useState(false);
   const [holdWalkSeconds, setHoldWalkSeconds] = useState(null);
   const [restSeconds, setRestSeconds] = useState(null);
@@ -136,6 +147,10 @@ function App() {
   function setAnimationStyle(id) {
     setAnimationStyleRaw(id);
     window.saveSettingsTo(setBlobState, soundMode, id);
+  }
+  function setCountdownSeconds(id) {
+    setCountdownSecondsRaw(id);
+    window.saveSettingsTo(setBlobState, soundMode, animationStyle, id);
   }
 
   // Deep-link support: ?technique=box (etc.) jumps straight to that
@@ -216,6 +231,7 @@ function App() {
         loop={false}
         soundMode={customSoundMode}
         animationStyle={customAnimationStyle}
+        countdownSeconds={countdownSeconds}
         title={customTitle}
         stageLabelFor={customStageLabelFor}
         cue={customCue}
@@ -236,6 +252,7 @@ function App() {
         chosenDuration={duration}
         soundMode={soundMode}
         animationStyle={animationStyle}
+        countdownSeconds={countdownSeconds}
         onExit={exitSession}
       />
     );
@@ -315,6 +332,7 @@ function App() {
         <window.SettingsModal
           soundMode={soundMode} setSoundMode={setSoundMode}
           animationStyle={animationStyle} setAnimationStyle={setAnimationStyle}
+          countdownSeconds={countdownSeconds} setCountdownSeconds={setCountdownSeconds}
           excludeSoundModes={technique.excludeSoundModes}
           onClose={() => setShowSettings(false)}
         />
@@ -376,6 +394,7 @@ function App() {
       <window.SettingsModal
         soundMode={soundMode} setSoundMode={setSoundMode}
         animationStyle={animationStyle} setAnimationStyle={setAnimationStyle}
+        countdownSeconds={countdownSeconds} setCountdownSeconds={setCountdownSeconds}
         onClose={() => setShowSettings(false)}
       />
     )}

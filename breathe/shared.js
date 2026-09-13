@@ -7,7 +7,7 @@ window.GearIcon = function GearIcon({ size = 18 }) {
   );
 };
 
-window.SettingsModal = function SettingsModal({ soundMode, setSoundMode, animationStyle, setAnimationStyle, excludeSoundModes, onClose }) {
+window.SettingsModal = function SettingsModal({ soundMode, setSoundMode, animationStyle, setAnimationStyle, excludeSoundModes, countdownSeconds, setCountdownSeconds, onClose }) {
   const excluded = excludeSoundModes || [];
   return (
     <div
@@ -31,7 +31,7 @@ window.SettingsModal = function SettingsModal({ soundMode, setSoundMode, animati
           }}>&times;</button>
         </div>
         <p style={{ fontSize: '0.85rem', color: 'var(--ink-soft)', marginTop: 0 }}>
-          Applies to every pattern. Saved on this device.
+          Applies to every pattern. Synced to your account.
         </p>
 
         <div style={{ margin: '1.25rem 0' }}>
@@ -57,6 +57,20 @@ window.SettingsModal = function SettingsModal({ soundMode, setSoundMode, animati
             ))}
           </div>
         </div>
+
+        {setCountdownSeconds && (
+          <div style={{ margin: '1.25rem 0' }}>
+            <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 600 }}>Countdown before starting</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              {window.COUNTDOWN_OPTIONS.map(opt => (
+                <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+                  <input type="radio" name="countdown" checked={countdownSeconds === opt.id} onChange={() => setCountdownSeconds(opt.id)} />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         <window.PrimaryButton onClick={onClose}>Done</window.PrimaryButton>
       </div>
