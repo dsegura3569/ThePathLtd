@@ -75,10 +75,6 @@ function useLiveWeather() {
   return state;
 }
 
-const STAT_DEFS_KEY = 'tmr_overview_stat_order_v1';
-const STAT_VISIBILITY_KEY = 'tmr_overview_stat_visibility_v1';
-const COURSE_PROFILE_STAT_ORDER_KEY = 'tmr_overview_course_profile_stat_order_v1';
-const COURSE_PROFILE_STAT_HIDDEN_KEY = 'tmr_overview_course_profile_stat_hidden_v1';
 
 function useRaceDayForecast() {
   const [state, setState] = React.useState({ status: 'loading' });
@@ -232,6 +228,7 @@ function RaceDayForecastWidget() {
 }
 
 function CourseProfileChart() {
+  const { state: blobState, setState: setBlobState } = React.useContext(window.BlobStateContext);
   const [hovered, setHovered] = React.useState(null);
   const [focusedSegment, setFocusedSegment] = React.useState(null);
   const samples = React.useMemo(() => buildFullCourseSamples(), []);
@@ -246,29 +243,15 @@ function CourseProfileChart() {
   // Min, rather than the row-major order that split those pairs diagonally.
   const courseProfileStatKeys = ['gain', 'max', 'maxClimb', 'loss', 'min', 'maxDescent'];
   const [showCourseProfileStatPanel, setShowCourseProfileStatPanel] = React.useState(false);
-  const [courseProfileStatOrder, setCourseProfileStatOrder] = React.useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(COURSE_PROFILE_STAT_ORDER_KEY));
-      if (Array.isArray(saved) && saved.every(k => courseProfileStatKeys.includes(k)) &&
-          courseProfileStatKeys.every(k => saved.includes(k))) {
-        return saved;
-      }
-    } catch (e) {}
-    return courseProfileStatKeys;
-  });
-  React.useEffect(() => {
-    try { localStorage.setItem(COURSE_PROFILE_STAT_ORDER_KEY, JSON.stringify(courseProfileStatOrder)); } catch (e) {}
-  }, [courseProfileStatOrder]);
-  const [courseProfileStatHidden, setCourseProfileStatHidden] = React.useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(COURSE_PROFILE_STAT_HIDDEN_KEY));
-      if (Array.isArray(saved)) return saved.filter(k => courseProfileStatKeys.includes(k));
-    } catch (e) {}
-    return [];
-  });
-  React.useEffect(() => {
-    try { localStorage.setItem(COURSE_PROFILE_STAT_HIDDEN_KEY, JSON.stringify(courseProfileStatHidden)); } catch (e) {}
-  }, [courseProfileStatHidden]);
+  const [courseProfileStatOrder, setCourseProfileStatOrder] = window.useBlobField(
+    blobState, setBlobState, 'courseProfileStatOrder', courseProfileStatKeys,
+    saved => (Array.isArray(saved) && saved.every(k => courseProfileStatKeys.includes(k)) &&
+      courseProfileStatKeys.every(k => saved.includes(k))) ? saved : undefined
+  );
+  const [courseProfileStatHidden, setCourseProfileStatHidden] = window.useBlobField(
+    blobState, setBlobState, 'courseProfileStatHidden', [],
+    saved => Array.isArray(saved) ? saved.filter(k => courseProfileStatKeys.includes(k)) : undefined
+  );
   function toggleCourseProfileStat(key) {
     setCourseProfileStatHidden(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   }
@@ -404,7 +387,7 @@ function CourseProfileChart() {
       </div>
 
       {showCourseProfileStatPanel && (
-        <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:12}}>
+        <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:12, maxWidth:460}}>
           <window.DragReorderList
             order={courseProfileStatOrder}
             setOrder={setCourseProfileStatOrder}
@@ -1011,6 +994,7 @@ function RaceInfoImportWidget({ onRaceDataChanged }) {
 }
 
 function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataChanged }) {
+  const { state: blobState, setState: setBlobState } = React.useContext(window.BlobStateContext);
   // Race starts 6:00am Saturday Aug 22, 2026, Mountain Time (MDT, UTC-6 in August)
   const activeRace = window.RACES[window.getCurrentRaceId()];
   const countdown = useCountdown(activeRace.startDate);
@@ -1058,31 +1042,16 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
   const defaultOrder = allStats.map(s => s.key);
 
   const [showStatPanel, setShowStatPanel] = React.useState(false);
-  const [statOrder, setStatOrder] = React.useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STAT_DEFS_KEY));
-      if (Array.isArray(saved) && saved.every(k => defaultOrder.includes(k)) &&
-          defaultOrder.every(k => saved.includes(k))) {
-        return saved;
-      }
-    } catch (e) {}
-    return defaultOrder;
-  });
+  const [statOrder, setStatOrder] = window.useBlobField(
+    blobState, setBlobState, 'statOrder', defaultOrder,
+    saved => (Array.isArray(saved) && saved.every(k => defaultOrder.includes(k)) &&
+      defaultOrder.every(k => saved.includes(k))) ? saved : undefined
+  );
 
-  React.useEffect(() => {
-    try { localStorage.setItem(STAT_DEFS_KEY, JSON.stringify(statOrder)); } catch (e) {}
-  }, [statOrder]);
-
-  const [statVisible, setStatVisible] = React.useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STAT_VISIBILITY_KEY));
-      if (saved && typeof saved === 'object') return saved;
-    } catch (e) {}
-    return {};
-  });
-  React.useEffect(() => {
-    try { localStorage.setItem(STAT_VISIBILITY_KEY, JSON.stringify(statVisible)); } catch (e) {}
-  }, [statVisible]);
+  const [statVisible, setStatVisible] = window.useBlobField(
+    blobState, setBlobState, 'statVisible', {},
+    saved => (saved && typeof saved === 'object') ? saved : undefined
+  );
   function isVisible(key) { return statVisible[key] !== false; }
   function toggleVisible(key) {
     setStatVisible(prev => ({ ...prev, [key]: prev[key] === false ? true : false }));
@@ -1090,9 +1059,6 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
 
   function resetStats() { setStatOrder(defaultOrder); setStatVisible({}); }
 
-  const CARD_ORDER_KEY = 'tmr_overview_card_order_v2';
-  const CARD_STATE_KEY = 'tmr_overview_card_state_v1';
-  const CUSTOM_CARDS_KEY = 'tmr_overview_custom_cards_v1';
   const builtinCards = [
     { id: 'packlist', n: '01', t: 'Pack List', d: 'What to portion into popsicle bags and drop bags before Saturday \u2014 gels, tailwind, salt caps, by pickup point.' },
     { id: 'raceplan', n: '02', t: 'Race Day Plan', d: 'Segment-by-segment pace, fuel, gear, and drop bag logistics for all 10 legs.' },
@@ -1121,32 +1087,16 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
     { id: 'courseProfile', label: 'Course Profile' },
     { id: 'raceInsights', label: 'Race Insights' },
   ];
-  const PAGE_SECTION_ORDER_KEY = 'tmr_overview_page_section_order_v1';
   const pageSectionDefaultOrder = PAGE_SECTIONS.map(s => s.id);
-  const [pageSectionOrder, setPageSectionOrder] = React.useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(PAGE_SECTION_ORDER_KEY));
-      if (Array.isArray(saved) && saved.length === pageSectionDefaultOrder.length &&
-          saved.every(id => pageSectionDefaultOrder.includes(id))) {
-        return saved;
-      }
-    } catch (e) {}
-    return pageSectionDefaultOrder;
-  });
-  React.useEffect(() => {
-    try { localStorage.setItem(PAGE_SECTION_ORDER_KEY, JSON.stringify(pageSectionOrder)); } catch (e) {}
-  }, [pageSectionOrder]);
-  const PAGE_SECTION_HIDDEN_KEY = 'tmr_overview_page_section_hidden_v1';
-  const [pageSectionHidden, setPageSectionHidden] = React.useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(PAGE_SECTION_HIDDEN_KEY));
-      if (Array.isArray(saved)) return saved.filter(id => pageSectionDefaultOrder.includes(id));
-    } catch (e) {}
-    return [];
-  });
-  React.useEffect(() => {
-    try { localStorage.setItem(PAGE_SECTION_HIDDEN_KEY, JSON.stringify(pageSectionHidden)); } catch (e) {}
-  }, [pageSectionHidden]);
+  const [pageSectionOrder, setPageSectionOrder] = window.useBlobField(
+    blobState, setBlobState, 'pageSectionOrder', pageSectionDefaultOrder,
+    saved => (Array.isArray(saved) && saved.length === pageSectionDefaultOrder.length &&
+      saved.every(id => pageSectionDefaultOrder.includes(id))) ? saved : undefined
+  );
+  const [pageSectionHidden, setPageSectionHidden] = window.useBlobField(
+    blobState, setBlobState, 'pageSectionHidden', [],
+    saved => Array.isArray(saved) ? saved.filter(id => pageSectionDefaultOrder.includes(id)) : undefined
+  );
   function togglePageSection(id) {
     setPageSectionHidden(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }
@@ -1166,26 +1116,17 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
   const [newCardDesc, setNewCardDesc] = React.useState('');
   const [newCardUrl, setNewCardUrl] = React.useState('');
 
-  const [customCards, setCustomCards] = React.useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(CUSTOM_CARDS_KEY));
-      if (Array.isArray(saved)) return saved;
-    } catch (e) {}
-    return [];
-  });
-  React.useEffect(() => {
-    try { localStorage.setItem(CUSTOM_CARDS_KEY, JSON.stringify(customCards)); } catch (e) {}
-  }, [customCards]);
+  const [customCards, setCustomCards] = window.useBlobField(
+    blobState, setBlobState, 'customCards', [],
+    saved => Array.isArray(saved) ? saved : undefined
+  );
 
   const cards = [...builtinCards, ...customCards.map(c => ({ ...c, isCustom: true }))];
 
-  const [cardOrder, setCardOrder] = React.useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(CARD_ORDER_KEY));
-      if (Array.isArray(saved)) return saved;
-    } catch (e) {}
-    return cardDefaultOrder;
-  });
+  const [cardOrder, setCardOrder] = window.useBlobField(
+    blobState, setBlobState, 'cardOrder', cardDefaultOrder,
+    saved => Array.isArray(saved) ? saved : undefined
+  );
   // reconcile order with whatever cards actually exist right now (new custom
   // cards appended at the end, removed/renamed ones dropped) without
   // clobbering the user's saved arrangement of everything else
@@ -1198,20 +1139,11 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
       return next.length === prev.length && next.every((id, i) => id === prev[i]) ? prev : next;
     });
   }, [customCards.length]);
-  React.useEffect(() => {
-    try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(cardOrder)); } catch (e) {}
-  }, [cardOrder]);
 
-  const [cardState, setCardState] = React.useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(CARD_STATE_KEY));
-      if (saved && typeof saved === 'object') return saved;
-    } catch (e) {}
-    return {};
-  });
-  React.useEffect(() => {
-    try { localStorage.setItem(CARD_STATE_KEY, JSON.stringify(cardState)); } catch (e) {}
-  }, [cardState]);
+  const [cardState, setCardState] = window.useBlobField(
+    blobState, setBlobState, 'cardState', {},
+    saved => (saved && typeof saved === 'object') ? saved : undefined
+  );
   function getCardState(id) { return cardState[id] || 'shown'; }
   function cycleCardState(id) {
     setCardState(prev => {
@@ -1286,7 +1218,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
       </section>
 
       {showPageLayoutPanel && (
-        <div style={{background:'var(--bg-card)', border:'1px solid var(--climb)', borderRadius:10, padding:12, marginBottom:20}}>
+        <div style={{background:'var(--bg-card)', border:'1px solid var(--climb)', borderRadius:10, padding:12, marginBottom:20, maxWidth:460}}>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
             <div style={{fontSize:12, color:'var(--ink-faint)'}}>Drag to reorder, or toggle to show/hide.</div>
             <button onClick={() => setShowPageLayoutPanel(false)} style={{
@@ -1365,7 +1297,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
         </div>
 
         {showStatPanel && (
-          <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:16}}>
+          <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:16, maxWidth:460}}>
             <window.DragReorderList
               order={statOrder}
               setOrder={setStatOrder}
@@ -1466,7 +1398,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
         </div>
 
         {showCardPanel && (
-          <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:20}}>
+          <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:20, maxWidth:520}}>
             <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:8}}>+ to show &middot; &minus; to minimize &middot; tap again to hide. Drag the handle to reorder.</div>
             <window.DragReorderList
               order={cardOrder}

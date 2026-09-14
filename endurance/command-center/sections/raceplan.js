@@ -156,7 +156,7 @@ function RaceDayPlanView() {
         </div>
 
         {showColumnPanel && (
-          <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginTop:10}}>
+          <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginTop:10, maxWidth:460}}>
             <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:8}}>Drag to reorder, or toggle to show/hide.</div>
             <window.DragReorderList
               order={columnOrder}
