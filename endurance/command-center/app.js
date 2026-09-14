@@ -391,23 +391,21 @@ function RacePicker({ raceId, onSelectRace }) {
   );
 }
 
-function getHiddenCardIds() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('tmr_overview_card_state_v1'));
-    if (saved && typeof saved === 'object') {
-      return Object.keys(saved).filter(id => saved[id] === 'hidden');
-    }
-  } catch (e) {}
+function getHiddenCardIds(cardState) {
+  if (cardState && typeof cardState === 'object') {
+    return Object.keys(cardState).filter(id => cardState[id] === 'hidden');
+  }
   return [];
 }
 
 function Nav({ active, setActive, open, setOpen, onGear, raceId, onSelectRace }) {
   const race = window.RACES[raceId];
   const { user, logout } = React.useContext(window.AuthContext);
+  const { state: blobState } = React.useContext(window.BlobStateContext);
   // Only 'overview' is always shown -- every other section corresponds to a
   // Race Insights card on Overview, so if that card's been hidden there (via
   // the manage-sections gear), it shouldn't still show up as a nav option.
-  const hiddenCardIds = getHiddenCardIds();
+  const hiddenCardIds = getHiddenCardIds(blobState.cardState);
   const visibleSections = SECTIONS.filter(s => s.id === 'overview' || !hiddenCardIds.includes(s.id));
   return (
     <React.Fragment>
@@ -499,9 +497,7 @@ function Footer({ raceId }) {
 // screenshot: showed 24hr target against a 15hr cutoff), since the
 // hardcoded default of 24 was never checked against whatever race was
 // actually loaded.
-const TARGETS_KEY_PREFIX = 'tmr_command_targets_v1_';
-
-function loadTargetsForRace(id) {
+function loadTargetsForRace(id, blobState) {
   const race = window.RACES[id];
   const cutoff = (race && race.cutoffHours) || 24;
   const defaults = {
@@ -517,14 +513,28 @@ function loadTargetsForRace(id) {
     gelRateShift: 0,
     customFuelItems: [],
   };
-  try {
-    const saved = JSON.parse(localStorage.getItem(TARGETS_KEY_PREFIX + id) || 'null');
-    if (saved) return { ...defaults, ...saved, targetHours: Math.min(saved.targetHours ?? defaults.targetHours, cutoff) };
-  } catch (e) {}
+  const saved = blobState && blobState.targetsByRace && blobState.targetsByRace[id];
+  if (saved) return { ...defaults, ...saved, targetHours: Math.min(saved.targetHours ?? defaults.targetHours, cutoff) };
   return defaults;
 }
 
 function App() {
+  const { state: blobState, setState: setBlobState } = React.useContext(window.BlobStateContext);
+  // races_registry.js's plain (non-component) functions can't call
+  // useContext themselves -- exposed here so selectRace/saveCustomRace/
+  // deleteCustomRace can still persist through the same setState the rest
+  // of the app uses, rather than keeping their own separate stale copy of
+  // the full blob and writing that back directly (which risks clobbering
+  // some other part of this same one-blob-per-app object).
+  window.__setEnduranceBlobState = setBlobState;
+  // Must run here, synchronously in the render body, not in a useEffect --
+  // effects fire after the first paint, too late for the raceId
+  // useState() initializer two lines down, which needs races already
+  // restored and the current race id already resolved by the time it
+  // runs. mountWithAuthGate guarantees blobState is fully loaded before
+  // App ever renders at all, which is what makes this safe to do here.
+  window.initRacesFromBlobState(blobState);
+
   const [active, setActive] = useState('overview');
   const [open, setOpen] = useState(false);
   const [openCardPanel, setOpenCardPanel] = useState(false);
@@ -538,23 +548,23 @@ function App() {
       }
     } catch (e) {}
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mount-only sync; handleSelectRace covers subsequent changes
-  const [targetHours, setTargetHours] = useState(() => loadTargetsForRace(raceId).targetHours);
-  const [targetCarb, setTargetCarb] = useState(() => loadTargetsForRace(raceId).targetCarb);
-  const [targetSodium, setTargetSodium] = useState(() => loadTargetsForRace(raceId).targetSodium);
-  const [targetWaterHr, setTargetWaterHr] = useState(() => loadTargetsForRace(raceId).targetWaterHr);
-  const [vestCapacity, setVestCapacity] = useState(() => loadTargetsForRace(raceId).vestCapacity);
-  const [vestCount, setVestCount] = useState(() => loadTargetsForRace(raceId).vestCount);
-  const [bladderCapacity, setBladderCapacity] = useState(() => loadTargetsForRace(raceId).bladderCapacity);
-  const [beltCapacity, setBeltCapacity] = useState(() => loadTargetsForRace(raceId).beltCapacity);
-  const [vestEnabled, setVestEnabled] = useState(() => loadTargetsForRace(raceId).vestEnabled);
-  const [bladderEnabled, setBladderEnabled] = useState(() => loadTargetsForRace(raceId).bladderEnabled);
-  const [beltEnabled, setBeltEnabled] = useState(() => loadTargetsForRace(raceId).beltEnabled);
-  const [handheldCapacity, setHandheldCapacity] = useState(() => loadTargetsForRace(raceId).handheldCapacity);
-  const [handheldEnabled, setHandheldEnabled] = useState(() => loadTargetsForRace(raceId).handheldEnabled);
-  const [vesselRanges, setVesselRanges] = useState(() => loadTargetsForRace(raceId).vesselRanges);
-  const [extraGear, setExtraGear] = useState(() => loadTargetsForRace(raceId).extraGear);
-  const [gelRateShift, setGelRateShift] = useState(() => loadTargetsForRace(raceId).gelRateShift);
-  const [customFuelItems, setCustomFuelItems] = useState(() => loadTargetsForRace(raceId).customFuelItems);
+  const [targetHours, setTargetHours] = useState(() => loadTargetsForRace(raceId, blobState).targetHours);
+  const [targetCarb, setTargetCarb] = useState(() => loadTargetsForRace(raceId, blobState).targetCarb);
+  const [targetSodium, setTargetSodium] = useState(() => loadTargetsForRace(raceId, blobState).targetSodium);
+  const [targetWaterHr, setTargetWaterHr] = useState(() => loadTargetsForRace(raceId, blobState).targetWaterHr);
+  const [vestCapacity, setVestCapacity] = useState(() => loadTargetsForRace(raceId, blobState).vestCapacity);
+  const [vestCount, setVestCount] = useState(() => loadTargetsForRace(raceId, blobState).vestCount);
+  const [bladderCapacity, setBladderCapacity] = useState(() => loadTargetsForRace(raceId, blobState).bladderCapacity);
+  const [beltCapacity, setBeltCapacity] = useState(() => loadTargetsForRace(raceId, blobState).beltCapacity);
+  const [vestEnabled, setVestEnabled] = useState(() => loadTargetsForRace(raceId, blobState).vestEnabled);
+  const [bladderEnabled, setBladderEnabled] = useState(() => loadTargetsForRace(raceId, blobState).bladderEnabled);
+  const [beltEnabled, setBeltEnabled] = useState(() => loadTargetsForRace(raceId, blobState).beltEnabled);
+  const [handheldCapacity, setHandheldCapacity] = useState(() => loadTargetsForRace(raceId, blobState).handheldCapacity);
+  const [handheldEnabled, setHandheldEnabled] = useState(() => loadTargetsForRace(raceId, blobState).handheldEnabled);
+  const [vesselRanges, setVesselRanges] = useState(() => loadTargetsForRace(raceId, blobState).vesselRanges);
+  const [extraGear, setExtraGear] = useState(() => loadTargetsForRace(raceId, blobState).extraGear);
+  const [gelRateShift, setGelRateShift] = useState(() => loadTargetsForRace(raceId, blobState).gelRateShift);
+  const [customFuelItems, setCustomFuelItems] = useState(() => loadTargetsForRace(raceId, blobState).customFuelItems);
   // Bumped whenever race data is edited in place (e.g. applying parsed race
   // info) so the active page remounts and picks up fresh data, the same way
   // switching races does -- switching raceId alone wouldn't detect an edit
@@ -565,13 +575,15 @@ function App() {
 
   // Persist targets for the current race whenever any of them change.
   useEffect(() => {
-    try {
-      localStorage.setItem(TARGETS_KEY_PREFIX + raceId, JSON.stringify({
-        targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, vestCount, bladderCapacity, beltCapacity,
-        vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, extraGear,
-        gelRateShift, customFuelItems,
-      }));
-    } catch (e) {}
+    setBlobState(prev => Object.assign({}, prev, {
+      targetsByRace: Object.assign({}, prev && prev.targetsByRace, {
+        [raceId]: {
+          targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, vestCount, bladderCapacity, beltCapacity,
+          vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, extraGear,
+          gelRateShift, customFuelItems,
+        },
+      }),
+    }));
   }, [targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, vestCount, bladderCapacity, beltCapacity,
       vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, extraGear,
       gelRateShift, customFuelItems, raceId]);
@@ -594,7 +606,7 @@ function App() {
 
   function handleSelectRace(id) {
     if (window.selectRace(id)) {
-      const loaded = loadTargetsForRace(id);
+      const loaded = loadTargetsForRace(id, blobState);
       setRaceId(id);
       setTargetHours(loaded.targetHours);
       setTargetCarb(loaded.targetCarb);
@@ -661,6 +673,7 @@ function App() {
 window.mountWithAuthGate(App, {
   toolName: 'thepath.ltd',
   toolTagline: 'Tools for endurance training, breathwork, and bodywork. Log in to see your races, or create an account to get started.',
+  blobApp: 'endurance',
   accent: '#E8943A',
   accentText: '#12151A',
   bg: '#12151A',

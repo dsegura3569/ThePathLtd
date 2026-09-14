@@ -36,46 +36,62 @@ const RACES = {
   },
 };
 
-const CURRENT_RACE_KEY = 'tmr_command_current_race_v1';
-const CUSTOM_RACES_KEY = 'tmr_command_custom_races_v1';
+// currentRaceId starts on the always-safe default and is only ever
+// actually resolved (custom races restored, ?race=/last-selected honored)
+// once initRacesFromBlobState runs -- see the comment there for why this
+// can't happen at module-load time anymore now that the data it needs
+// comes from an async blob fetch instead of synchronous localStorage.
+let currentRaceId = 'tmr';
+let baseSegments = RACES[currentRaceId].baseSegments;
+let gradeSegments = RACES[currentRaceId].gradeSegments;
+let racesInitialized = false;
 
-// Restore any previously-uploaded races BEFORE getStoredRaceId() runs below --
-// otherwise a custom race selected last session wouldn't exist in RACES yet
-// when we check whether the saved selection is valid, and we'd silently fall
-// back to TMR every time.
-(function restoreCustomRaces() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(CUSTOM_RACES_KEY) || '[]');
-    stored.forEach(r => { RACES[r.id] = r; });
-  } catch (e) {}
-})();
+// Called from App's render body (not a useEffect -- effects run after the
+// first paint, too late for the useState(() => getCurrentRaceId())
+// initializer elsewhere in app.js, which needs this to have already run
+// earlier in the SAME render pass) once mountWithAuthGate guarantees the
+// blob state has actually loaded. Safe to call on every render: the
+// racesInitialized guard makes everything after it a one-time effect
+// despite being invoked unconditionally from render.
+function initRacesFromBlobState(blobState) {
+  if (racesInitialized) return;
+  racesInitialized = true;
+  const state = blobState || {};
 
-function getStoredRaceId() {
+  (state.customRaces || []).forEach(r => { RACES[r.id] = r; });
+
+  let resolvedId = 'tmr';
   try {
     // A ?race=<id> link (e.g. from the endurance landing page's race list)
     // always wins over whatever was last selected -- someone clicking a
     // specific race card expects to land on THAT race, not wherever they
     // left off last time.
     const urlRace = new URLSearchParams(window.location.search).get('race');
-    if (urlRace && RACES[urlRace]) return urlRace;
+    if (urlRace && RACES[urlRace]) resolvedId = urlRace;
+    else if (state.currentRaceId && RACES[state.currentRaceId]) resolvedId = state.currentRaceId;
   } catch (e) {}
-  try {
-    const saved = localStorage.getItem(CURRENT_RACE_KEY);
-    if (saved && RACES[saved]) return saved;
-  } catch (e) {}
-  return 'tmr';
+
+  currentRaceId = resolvedId;
+  baseSegments = RACES[currentRaceId].baseSegments;
+  gradeSegments = RACES[currentRaceId].gradeSegments;
 }
 
-let currentRaceId = getStoredRaceId();
-let baseSegments = RACES[currentRaceId].baseSegments;
-let gradeSegments = RACES[currentRaceId].gradeSegments;
+// Persists a patch into the shared endurance blob state. Routes through
+// the same setState the React app itself uses (exposed by App -- see
+// app.js) rather than this file keeping its own separate cached copy of
+// the full state and writing that back directly, which risks clobbering
+// a change some other part of the app made to a *different* key in the
+// same one-blob-per-app object with a stale copy that never saw it.
+function saveToBlobState(patch) {
+  if (window.__setEnduranceBlobState) window.__setEnduranceBlobState(prev => Object.assign({}, prev, patch));
+}
 
 function selectRace(id) {
   if (!RACES[id]) return false;
   currentRaceId = id;
   baseSegments = RACES[id].baseSegments;
   gradeSegments = RACES[id].gradeSegments;
-  try { localStorage.setItem(CURRENT_RACE_KEY, id); } catch (e) {}
+  saveToBlobState({ currentRaceId: id });
   return true;
 }
 
@@ -84,32 +100,27 @@ function listRaces() {
 }
 
 function registerRace(raceConfig) {
-  // Used by the future GPX-upload flow to add a newly-configured race to
-  // the registry at runtime, and by anything restoring a previously
-  // uploaded race from localStorage on page load.
+  // Used by the GPX-upload flow to add a newly-configured race to the
+  // registry at runtime, and by initRacesFromBlobState restoring
+  // previously uploaded races on page load.
   RACES[raceConfig.id] = raceConfig;
 }
 
 // Custom (GPX-uploaded) races need to persist across page loads, unlike TMR
 // which is baked into the deployed files. Stored as plain JSON -- baseSegments/
 // gradeSegments are already plain data (no functions), so this round-trips
-// cleanly through localStorage.
+// cleanly through the blob.
 function saveCustomRace(raceConfig) {
   registerRace(raceConfig);
-  try {
-    const stored = JSON.parse(localStorage.getItem(CUSTOM_RACES_KEY) || '[]');
-    const next = [...stored.filter(r => r.id !== raceConfig.id), raceConfig];
-    localStorage.setItem(CUSTOM_RACES_KEY, JSON.stringify(next));
-  } catch (e) {}
+  saveToBlobState({
+    customRaces: [...Object.values(RACES).filter(r => r.id !== 'tmr' && r.id !== raceConfig.id), raceConfig],
+  });
 }
 
 function deleteCustomRace(id) {
   if (id === 'tmr') return false; // never delete the built-in race
   delete RACES[id];
-  try {
-    const stored = JSON.parse(localStorage.getItem(CUSTOM_RACES_KEY) || '[]');
-    localStorage.setItem(CUSTOM_RACES_KEY, JSON.stringify(stored.filter(r => r.id !== id)));
-  } catch (e) {}
+  saveToBlobState({ customRaces: Object.values(RACES).filter(r => r.id !== 'tmr') });
   if (currentRaceId === id) selectRace('tmr');
   return true;
 }
@@ -121,3 +132,4 @@ window.registerRace = registerRace;
 window.saveCustomRace = saveCustomRace;
 window.deleteCustomRace = deleteCustomRace;
 window.getCurrentRaceId = () => currentRaceId;
+window.initRacesFromBlobState = initRacesFromBlobState;
