@@ -1,5 +1,6 @@
 const COLUMN_DEFS = [
   { key:'clock', label:'Clock', cellStyle:() => cellStyle('var(--ink-faint)'), render: s => s.clockS.split(' ')[1] },
+  { key:'temp', label:'Temp', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.tempF != null ? `${s.tempF}\u00b0F` : '\u2014' },
   { key:'finishTime', label:'Finish Time', cellStyle:() => cellStyle('var(--ink-faint)'), render: s => s.clockE.split(' ')[1] },
   { key:'duration', label:'Duration', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.time },
   { key:'cutoff', label:'Cutoff', cellStyle:() => cellStyle('crimson', 600), render: s => s.cutoffClock },
@@ -20,33 +21,13 @@ const COLUMN_DEFS = [
   { key:'saltcaps', label:'Salt', cellStyle: s => cellStyle(s.saltCapType==='caffeine'?'var(--ok)':'var(--ink-dim)'), render: s => <React.Fragment>{s.saltCaps} {s.saltCapType==='caffeine'?'+caf':''}</React.Fragment> },
 ];
 const DEFAULT_COLUMN_ORDER = COLUMN_DEFS.map(c => c.key);
-const COLUMN_ORDER_KEY = 'tmr_segment_table_col_order_v2';
-const HIDDEN_COLUMNS_KEY = 'tmr_segment_table_hidden_cols_v1';
-
-function loadColumnOrder() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(COLUMN_ORDER_KEY));
-    if (Array.isArray(saved) && saved.length === DEFAULT_COLUMN_ORDER.length &&
-        saved.every(k => DEFAULT_COLUMN_ORDER.includes(k))) {
-      return saved;
-    }
-  } catch (e) {}
-  return DEFAULT_COLUMN_ORDER;
-}
-
-function loadHiddenColumns() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(HIDDEN_COLUMNS_KEY));
-    if (Array.isArray(saved)) return saved.filter(k => DEFAULT_COLUMN_ORDER.includes(k));
-  } catch (e) {}
-  return [];
-}
 
 function dropBagNum(seg) {
   return seg.dropBagNum || null;
 }
 
 function RaceDayPlanView() {
+  const { state: blobState, setState: setBlobState } = React.useContext(window.BlobStateContext);
   const { targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium, targetWaterHr, setTargetWaterHr, vestCapacity, setVestCapacity, vestCount, setVestCount, bladderCapacity, setBladderCapacity, beltCapacity, setBeltCapacity,
     vestEnabled, setVestEnabled, bladderEnabled, setBladderEnabled, beltEnabled, setBeltEnabled, handheldCapacity, setHandheldCapacity, handheldEnabled, setHandheldEnabled, vesselRanges, setVesselRanges,
     gelRateShift, setGelRateShift } = React.useContext(window.TargetHoursContext);
@@ -55,19 +36,38 @@ function RaceDayPlanView() {
     return (next) => setVesselRanges(prev => ({ ...prev, [key]: next }));
   }
   const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium, targetWaterHr, gelRateShift), [targetHours, targetCarb, targetSodium, targetWaterHr, gelRateShift]);
+  // Per-segment forecasted temp, reusing the same hourly-interpolation
+  // forecast Overview already fetches for Start/Finish temp (useRaceDayForecast,
+  // window-exported there) -- one segment's decimal-hour clock is the
+  // race's actual start time (parsed from startDate, not assumed 6am) plus
+  // the cumulative hours of every earlier segment, same approach as
+  // Overview's own startDecHour/finishDecHour rather than a separate one.
+  const forecast = window.useRaceDayForecast();
+  const raceForTemp = window.RACES[window.getCurrentRaceId()];
+  let raceStartDecHour = null;
+  if (raceForTemp.startDate) {
+    const m = raceForTemp.startDate.match(/T(\d{2}):(\d{2})/);
+    if (m) raceStartDecHour = parseInt(m[1], 10) + parseInt(m[2], 10) / 60;
+  }
+  const canForecast = raceStartDecHour !== null && typeof forecast.tempAtDecimalHour === 'function';
+  let cumHoursForTemp = 0;
+  segments.forEach(s => {
+    s.tempF = canForecast ? Math.round(forecast.tempAtDecimalHour(raceStartDecHour + cumHoursForTemp)) : null;
+    cumHoursForTemp += s.hours;
+  });
   const [active, setActive] = React.useState(1);
   const seg = segments.find(s => s.id === active);
   const [showColumnPanel, setShowColumnPanel] = React.useState(false);
   const [showAdvancedTargets, setShowAdvancedTargets] = React.useState(false);
-  const [columnOrder, setColumnOrder] = React.useState(loadColumnOrder);
-  const [hiddenColumns, setHiddenColumns] = React.useState(loadHiddenColumns);
-
-  React.useEffect(() => {
-    try { localStorage.setItem(COLUMN_ORDER_KEY, JSON.stringify(columnOrder)); } catch (e) {}
-  }, [columnOrder]);
-  React.useEffect(() => {
-    try { localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify(hiddenColumns)); } catch (e) {}
-  }, [hiddenColumns]);
+  const [columnOrder, setColumnOrder] = window.useBlobField(
+    blobState, setBlobState, 'segmentColumnOrder', DEFAULT_COLUMN_ORDER,
+    saved => (Array.isArray(saved) && saved.length === DEFAULT_COLUMN_ORDER.length &&
+      saved.every(k => DEFAULT_COLUMN_ORDER.includes(k))) ? saved : undefined
+  );
+  const [hiddenColumns, setHiddenColumns] = window.useBlobField(
+    blobState, setBlobState, 'segmentHiddenColumns', [],
+    saved => Array.isArray(saved) ? saved.filter(k => DEFAULT_COLUMN_ORDER.includes(k)) : undefined
+  );
 
   function toggleColumn(key) {
     setHiddenColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
