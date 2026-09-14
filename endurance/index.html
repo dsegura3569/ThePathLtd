@@ -305,6 +305,7 @@
       deleteBtn.addEventListener('click', () => {
         if (!confirm(onDelete.confirmMessage)) return;
         onDelete.run();
+        closePanel();
       });
 
       panel.querySelector('.panel-save').addEventListener('click', () => {
