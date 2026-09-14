@@ -1,21 +1,28 @@
 const COLUMN_DEFS = [
+  // Identity
+  { key:'segment', label:'Segment', cellStyle: s => cellStyle(dropBagNum(s) ? 'var(--db)' : 'var(--ink)', dropBagNum(s) ? 600 : 400), render: s => <React.Fragment>{s.from} &rarr; {s.to.split(' (')[0]}</React.Fragment> },
+  // Time / schedule
   { key:'clock', label:'Clock', cellStyle:() => highlightCellStyle(), render: s => s.clockS.split(' ')[1] },
-  { key:'temp', label:'Temp', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.tempF != null ? `${s.tempF}\u00b0F` : '\u2014' },
   { key:'finishTime', label:'Finish Time', cellStyle:() => highlightCellStyle(), render: s => s.clockE.split(' ')[1] },
   { key:'duration', label:'Duration', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.time },
   { key:'cutoff', label:'Cutoff', cellStyle:() => cellStyle('crimson', 600), render: s => s.cutoffClock },
-  { key:'segment', label:'Segment', cellStyle: s => cellStyle(dropBagNum(s) ? 'var(--db)' : 'var(--ink)', dropBagNum(s) ? 600 : 400), render: s => <React.Fragment>{s.from} &rarr; {s.to.split(' (')[0]}</React.Fragment> },
+  // Weather -- grouped with time since it's a function of when you're there
+  { key:'temp', label:'Temp (\u00b0F)', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.tempF != null ? `${s.tempF}\u00b0F` : '\u2014' },
+  // Distance / pace
   { key:'dist', label:'Dist', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => `${s.distReal.toFixed(1)}mi` },
-  { key:'pace', label:'Pace', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.avgPace },
+  { key:'pace', label:'AVG Pace', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.avgPace },
+  { key:'paceUp', label:'Pace \u2191', cellStyle:() => cellStyle('var(--climb)'), render: s => s.avgPaceUp !== null ? `${s.avgPaceUp}/mi` : '\u2014' },
+  { key:'paceDown', label:'Pace \u2193', cellStyle:() => cellStyle('var(--descent)'), render: s => s.avgPaceDown !== null ? `${s.avgPaceDown}/mi` : '\u2014' },
   { key:'mph', label:'Mph', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.avgMph },
+  // Grade / direction
   { key:'grade', label:'Avg Grade', cellStyle: s => cellStyle(parseFloat(s.avgGrade) >= 0 ? 'var(--climb)' : 'var(--descent)'), render: s => `${s.avgGrade}%` },
   { key:'gradeUp', label:'Grade \u2191', cellStyle:() => cellStyle('var(--climb)'), render: s => s.avgGradeUp !== null ? `+${s.avgGradeUp}%` : '\u2014' },
   { key:'gradeDown', label:'Grade \u2193', cellStyle:() => cellStyle('var(--descent)'), render: s => s.avgGradeDown !== null ? `${s.avgGradeDown}%` : '\u2014' },
-  { key:'paceUp', label:'Pace \u2191', cellStyle:() => cellStyle('var(--climb)'), render: s => s.avgPaceUp !== null ? `${s.avgPaceUp}/mi` : '\u2014' },
-  { key:'paceDown', label:'Pace \u2193', cellStyle:() => cellStyle('var(--descent)'), render: s => s.avgPaceDown !== null ? `${s.avgPaceDown}/mi` : '\u2014' },
   { key:'dir', label:'Dir', cellStyle: s => cellStyle(s.netDir==='climb'?'var(--climb)':'var(--descent)', 700), render: s => s.netDir==='climb'?'\u25B2':'\u25BC' },
+  // Elevation
   { key:'gain', label:'Gain', cellStyle:() => cellStyle('var(--climb)'), render: s => `+${s.segGain.toLocaleString()}ft` },
   { key:'loss', label:'Loss', cellStyle:() => cellStyle('var(--descent)'), render: s => `-${s.segLoss.toLocaleString()}ft` },
+  // Nutrition
   { key:'tailwind', label:'Tailwind', cellStyle:() => cellStyle('var(--climb)'), render: s => `${s.tailwind}g` },
   { key:'gels', label:'Gels', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.gels },
   { key:'saltcaps', label:'Salt', cellStyle: s => cellStyle(s.saltCapType==='caffeine'?'var(--ok)':'var(--ink-dim)'), render: s => <React.Fragment>{s.saltCaps} {s.saltCapType==='caffeine'?'+caf':''}</React.Fragment> },
