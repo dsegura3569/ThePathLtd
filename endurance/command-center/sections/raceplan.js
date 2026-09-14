@@ -1,7 +1,7 @@
 const COLUMN_DEFS = [
-  { key:'clock', label:'Clock', cellStyle:() => cellStyle('var(--ink-faint)'), render: s => s.clockS.split(' ')[1] },
+  { key:'clock', label:'Clock', cellStyle:() => highlightCellStyle(), render: s => s.clockS.split(' ')[1] },
   { key:'temp', label:'Temp', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.tempF != null ? `${s.tempF}\u00b0F` : '\u2014' },
-  { key:'finishTime', label:'Finish Time', cellStyle:() => cellStyle('var(--ink-faint)'), render: s => s.clockE.split(' ')[1] },
+  { key:'finishTime', label:'Finish Time', cellStyle:() => highlightCellStyle(), render: s => s.clockE.split(' ')[1] },
   { key:'duration', label:'Duration', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.time },
   { key:'cutoff', label:'Cutoff', cellStyle:() => cellStyle('crimson', 600), render: s => s.cutoffClock },
   { key:'segment', label:'Segment', cellStyle: s => cellStyle(dropBagNum(s) ? 'var(--db)' : 'var(--ink)', dropBagNum(s) ? 600 : 400), render: s => <React.Fragment>{s.from} &rarr; {s.to.split(' (')[0]}</React.Fragment> },
@@ -375,4 +375,10 @@ function RaceDayPlanView() {
   );
 }
 function cellStyle(color, weight=400){ return {padding:'8px 12px', fontSize:12, color, fontWeight:weight, borderBottom:'1px solid var(--line)'}; }
+function highlightCellStyle(){
+  return {
+    padding:'8px 12px', fontSize:12, color:'var(--ink)', fontWeight:700,
+    borderBottom:'1px solid var(--line)', background:'var(--climb)1a',
+  };
+}
 window.RaceDayPlanView = RaceDayPlanView;
