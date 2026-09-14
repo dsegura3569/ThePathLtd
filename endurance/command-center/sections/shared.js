@@ -152,24 +152,40 @@ function gradeLabel(g) {
 }
 
 function VesselPlanCompact({ seg, vessels, bags, labelColor }) {
+  const totalWater = vessels.reduce((a, v) => a + v.water, 0);
   return (
     <div style={{marginBottom:14}}>
-      <SmallLabel color={labelColor || 'var(--climb)'}>
-        Vessel plan &mdash; {seg.tailwind}g tailwind total, refill at every aid station
-      </SmallLabel>
-      <div style={{background:'var(--bg-raised)', borderRadius:10, padding:'2px 14px', marginTop:8}}>
+      <SmallLabel color={labelColor || 'var(--climb)'}>Vessel plan</SmallLabel>
+
+      <div style={{
+        display:'flex', flexWrap:'wrap', gap:20, alignItems:'center', padding:'10px 16px',
+        background:'var(--bg-raised)', borderRadius:10, marginTop:8, marginBottom:10,
+      }}>
+        <div>
+          <span style={{fontSize:17, fontFamily:'var(--display)', fontWeight:600, color:'var(--climb)'}}>{seg.tailwind}g</span>
+          <span style={{fontSize:11, color:'var(--ink-faint)', marginLeft:6}}>tailwind</span>
+        </div>
+        <div>
+          <span style={{fontSize:17, fontFamily:'var(--display)', fontWeight:600, color:'#4A9FE8'}}>{Math.round(totalWater)}ml</span>
+          <span style={{fontSize:11, color:'var(--ink-faint)', marginLeft:6}}>water</span>
+        </div>
+        <div style={{fontSize:11.5, color:'var(--ink-faint)', marginLeft:'auto'}}>Refill at every aid station</div>
+      </div>
+
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:10}}>
         {vessels.map((v, i) => (
-          <div key={i} style={{
-            display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0',
-            borderTop: i>0 ? '1px solid var(--line)' : 'none', fontSize:13,
-          }}>
-            <span style={{color:'var(--ink-dim)'}}>{v.name} <span style={{color:'var(--ink-faint)', fontSize:11}}>({v.capacity}ml)</span></span>
-            <span style={{fontWeight:600, color: v.tailwindMl > 0 ? 'var(--climb)' : 'var(--ink-faint)'}}>
-              {v.tailwindMl > 0 ? `+${v.tailwindG.toFixed(0)}g tailwind` : 'water only'} <span style={{color:'var(--ink-faint)', fontWeight:400, fontSize:11}}>&middot; {Math.round(v.water)}ml</span>
-            </span>
+          <div key={i} style={{background:'var(--bg-raised)', borderRadius:10, padding:'10px 14px'}}>
+            <div style={{fontSize:12.5, color:'var(--ink-dim)', marginBottom:5}}>
+              {v.name} <span style={{color:'var(--ink-faint)', fontSize:11}}>({v.capacity}ml)</span>
+            </div>
+            <div style={{fontWeight:600, fontSize:13, color: v.tailwindMl > 0 ? 'var(--climb)' : 'var(--ink-faint)'}}>
+              {v.tailwindMl > 0 ? `+${v.tailwindG.toFixed(0)}g tailwind` : 'water only'}
+            </div>
+            <div style={{fontSize:11, color:'var(--ink-faint)', marginTop:2}}>{Math.round(v.water)}ml</div>
           </div>
         ))}
       </div>
+
       {bags.length > 0 && (
         <div style={{fontSize:11.5, color:'var(--ink-faint)', marginTop:8}}>
           Popsicle bags: {bags.map(b => `${b.grams}g (${b.vessel})`).join(', ')}
@@ -473,6 +489,29 @@ window.GearIcon = function GearIcon({ size = 16 }) {
 
 window.DragHandle = DragHandle;
 window.DragReorderList = DragReorderList;
+// Common pattern repeated many times across overview.js/raceplan.js: a
+// piece of UI preference (order, hidden-set, custom list) that reads its
+// initial value from the shared blob state with some validation/fallback,
+// and writes itself back whenever it changes. One hook instead of a
+// separate useState+useEffect pair per preference.
+//
+// sanitize(saved) receives whatever's currently stored under `key` (or
+// undefined if nothing's been saved yet) and should return a valid value
+// to use, or undefined to fall back to defaultValue -- e.g. checking an
+// array still matches the current set of known ids before trusting it.
+function useBlobField(blobState, setBlobState, key, defaultValue, sanitize) {
+  const [value, setValue] = React.useState(() => {
+    const saved = blobState ? blobState[key] : undefined;
+    const clean = sanitize ? sanitize(saved) : saved;
+    return clean !== undefined ? clean : defaultValue;
+  });
+  React.useEffect(() => {
+    setBlobState(prev => Object.assign({}, prev, { [key]: value }));
+  }, [value]);
+  return [value, setValue];
+}
+window.useBlobField = useBlobField;
+
 window.SectionHeader = SectionHeader;
 window.StatBox = StatBox;
 window.SmallLabel = SmallLabel;

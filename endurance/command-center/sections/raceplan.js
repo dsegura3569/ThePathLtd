@@ -33,6 +33,39 @@ function dropBagNum(seg) {
   return seg.dropBagNum || null;
 }
 
+// Builds one consolidated list of what to actually do at this aid station,
+// instead of three separate fields that didn't talk to each other: itemized
+// pickup/dropoff (TMR only -- hand-entered per drop bag, since a GPX file
+// can't know what you packed), a Socks box that only ever appeared at drop
+// bag stops, and a Bladder/water box that always said the same fixed
+// sentence regardless of the segment or whether the person even carries a
+// bladder. When there's no itemized pickup (any GPX-imported race, every
+// segment), this now checks the segment's actual dropBagNum instead of
+// silently assuming "no drop bag" -- that was the bug: the same fallback
+// text appeared whether or not the segment actually had a drop bag, since
+// nothing here ever looked at dropBagNum(seg) in the first place.
+function buildAidStationActions(seg, bladderEnabled) {
+  const actions = [];
+  const dbNum = dropBagNum(seg);
+
+  if (seg.pickup.length > 0) {
+    seg.pickup.forEach(item => actions.push({ label: 'Pick up', value: item }));
+  } else if (dbNum) {
+    actions.push({ label: 'Pick up', value: `Drop Bag #${dbNum} \u2014 check what you packed` });
+  }
+
+  seg.dropoff.forEach(item => actions.push({ label: 'Drop off', value: item }));
+
+  const refillTargets = bladderEnabled ? 'bottles & bladder' : 'bottles';
+  actions.push({ label: 'Refill', value: `${refillTargets} with water` });
+
+  if (dbNum) {
+    actions.push({ label: 'Socks', value: seg.socks || 'Fresh pair in the drop bag' });
+  }
+
+  return actions;
+}
+
 function RaceDayPlanView() {
   const { state: blobState, setState: setBlobState } = React.useContext(window.BlobStateContext);
   const { targetHours, setTargetHours, targetCarb, setTargetCarb, targetSodium, setTargetSodium, targetWaterHr, setTargetWaterHr, vestCapacity, setVestCapacity, vestCount, setVestCount, bladderCapacity, setBladderCapacity, beltCapacity, setBeltCapacity,
@@ -63,6 +96,11 @@ function RaceDayPlanView() {
     cumHoursForTemp += s.hours;
   });
   const [active, setActive] = React.useState(1);
+  const detailCardRef = React.useRef(null);
+  function selectSegment(id) {
+    setActive(id);
+    if (detailCardRef.current) detailCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
   const seg = segments.find(s => s.id === active);
   const [showColumnPanel, setShowColumnPanel] = React.useState(false);
   const [showAdvancedTargets, setShowAdvancedTargets] = React.useState(false);
@@ -198,7 +236,7 @@ function RaceDayPlanView() {
             </thead>
             <tbody>
               {segments.map(s=>(
-                <tr key={s.id} onClick={()=>setActive(s.id)} style={{cursor:'pointer', background: active===s.id ? s.color+'14' : 'transparent'}}>
+                <tr key={s.id} onClick={()=>selectSegment(s.id)} style={{cursor:'pointer', background: active===s.id ? s.color+'14' : 'transparent'}}>
                   {columnOrder.filter(key => !hiddenColumns.includes(key)).map(key => (
                     <td key={key} style={COLUMN_DEFS.find(c => c.key === key).cellStyle(s)}>
                       {COLUMN_DEFS.find(c => c.key === key).render(s)}
@@ -234,7 +272,7 @@ function RaceDayPlanView() {
         </div>
       </div>
 
-      <div style={{border:`1.5px solid ${seg.color}55`, borderRadius:16, overflow:'hidden', background:'var(--bg-card)'}}>
+      <div ref={detailCardRef} style={{border:`1.5px solid ${seg.color}55`, borderRadius:16, overflow:'hidden', background:'var(--bg-card)'}}>
         <div style={{background:seg.color+'14', padding:'20px 22px', borderBottom:`1px solid ${seg.color}30`}}>
           <div style={{display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:10}}>
             <div>
@@ -268,9 +306,11 @@ function RaceDayPlanView() {
         </div>
 
         <div style={{padding:'20px 22px'}}>
-          <div style={{fontSize:13, color:'var(--ink-dim)', background:'var(--bg-raised)', borderRadius:10, padding:'12px 16px', marginBottom:14, lineHeight:1.6}}>
-            &#127777; {seg.conditions}
-          </div>
+          {seg.conditions && (
+            <div style={{fontSize:13, color:'var(--ink-dim)', background:'var(--bg-raised)', borderRadius:10, padding:'12px 16px', marginBottom:14, lineHeight:1.6}}>
+              &#127777; {seg.conditions}
+            </div>
+          )}
           {seg.gradeShift && (
             <div style={{fontSize:13, color:'#FBBF24', background:'#FBBF2414', border:'1px solid #FBBF2440', borderRadius:10, padding:'12px 16px', marginBottom:14, lineHeight:1.6}}>
               &#9889; Significant grade shift &mdash; {seg.gradeShift}
@@ -298,24 +338,7 @@ function RaceDayPlanView() {
           <div style={{marginBottom:16}}>
             <SmallLabel color="var(--db)">&#128230; At this aid station</SmallLabel>
             <div style={{background:'var(--bg-raised)', borderRadius:10, padding:'4px 16px', marginTop:8}}>
-              {seg.pickup.length > 0
-                ? seg.pickup.map((item,i)=><InfoRow key={'p'+i} label="Pick up" value={item} />)
-                : <InfoRow label="Pick up" value="Refill water &amp; bladder &mdash; no drop bag this stop" />
-              }
-              {seg.dropoff.map((item,i)=><InfoRow key={'d'+i} label="Drop off" value={item} />)}
-            </div>
-          </div>
-
-          <div style={{display:'grid', gridTemplateColumns: dropBagNum(seg) ? '1fr 1fr' : '1fr', gap:10, marginBottom:16}}>
-            {dropBagNum(seg) && (
-              <div style={{background:'var(--bg-raised)', borderRadius:10, padding:'12px 14px'}}>
-                <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:4}}>&#129440; Socks</div>
-                <div style={{fontSize:13, color:'var(--ink)'}}>{seg.socks}</div>
-              </div>
-            )}
-            <div style={{background:'var(--bg-raised)', borderRadius:10, padding:'12px 14px'}}>
-              <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:4}}>&#128167; Bladder/water</div>
-              <div style={{fontSize:13, color:'var(--ink)'}}>{seg.bladder}</div>
+              {buildAidStationActions(seg, bladderEnabled).map((a, i) => <InfoRow key={i} label={a.label} value={a.value} />)}
             </div>
           </div>
 
