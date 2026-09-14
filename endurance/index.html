@@ -192,8 +192,6 @@
 </div>
 <script>
   const STAT_LABELS = { distance: 'Distance', vertGain: 'Vert Gain', terrain: 'Terrain', cutoff: 'Cutoff' };
-  const OVERRIDES_KEY = 'tmr_command_race_overrides_v1';
-
   // Per-race customizations (renamed title, hidden built-in stats, extra
   // custom stat fields, or a soft "hidden" flag for the hardcoded TMR card,
   // which can't be deleted the way a real data record can) live in their
@@ -201,13 +199,13 @@
   // the exact same override mechanism applies whether the underlying race
   // is the hardcoded TMR card or a GPX-uploaded one.
   function getOverrides() {
-    try { return JSON.parse(localStorage.getItem(OVERRIDES_KEY) || '{}'); } catch (e) { return {}; }
+    return (window.blobState && window.blobState.raceOverrides) || {};
   }
   function getOverride(id) { return getOverrides()[id] || {}; }
   function saveOverride(id, patch) {
     const all = getOverrides();
-    all[id] = Object.assign({}, all[id], patch);
-    localStorage.setItem(OVERRIDES_KEY, JSON.stringify(all));
+    const next = Object.assign({}, all, { [id]: Object.assign({}, all[id], patch) });
+    window.saveBlobState(Object.assign({}, window.blobState, { raceOverrides: next }));
   }
 
   // Applies whatever override exists for this race -- renamed title,
@@ -355,15 +353,14 @@
     });
   }
 
-  // Custom (GPX-uploaded) races live in the same origin's localStorage the
+  // Custom (GPX-uploaded) races live in the same blob-backed state the
   // dashboard itself writes to -- read the same key here and append a card
   // per race, so this list reflects reality instead of staying frozen at
-  // just TMR.
-  (function renderCustomRaceCards() {
-    let customRaces = [];
-    try {
-      customRaces = JSON.parse(localStorage.getItem('tmr_command_custom_races_v1') || '[]');
-    } catch (e) { return; }
+  // just TMR. Runs on blobstateready (not immediately at script-parse
+  // time) since window.blobState isn't populated until the vanilla auth
+  // gate's blob fetch actually resolves.
+  function renderCustomRaceCards() {
+    const customRaces = (window.blobState && window.blobState.customRaces) || [];
 
     const list = document.getElementById('race-list');
 
@@ -438,22 +435,22 @@
       list.appendChild(card);
     });
     sortRaceCards();
-  })();
+  }
+  window.addEventListener('blobstateready', renderCustomRaceCards);
 
   // Mirrors deleteCustomRace() in the dashboard's races_registry.js, but kept
   // independent here rather than loading that whole file -- it depends on
   // TMR's large hardcoded segment data files, which this landing page has
   // no other reason to load just for a delete button.
   function deleteCustomRaceFromStorage(id) {
-    try {
-      const stored = JSON.parse(localStorage.getItem('tmr_command_custom_races_v1') || '[]');
-      localStorage.setItem('tmr_command_custom_races_v1', JSON.stringify(stored.filter(r => r.id !== id)));
-      // if this was the currently-selected race, clear that pointer too so
-      // the dashboard doesn't try to resume a race that no longer exists
-      if (localStorage.getItem('tmr_command_current_race_v1') === id) {
-        localStorage.removeItem('tmr_command_current_race_v1');
-      }
-    } catch (e) {}
+    const stored = (window.blobState && window.blobState.customRaces) || [];
+    const patch = { customRaces: stored.filter(r => r.id !== id) };
+    // if this was the currently-selected race, clear that pointer too so
+    // the dashboard doesn't try to resume a race that no longer exists
+    if (window.blobState && window.blobState.currentRaceId === id) {
+      patch.currentRaceId = null;
+    }
+    window.saveBlobState(Object.assign({}, window.blobState, patch));
   }
 
   // Order the race list: upcoming races first (soonest start date first),
@@ -541,12 +538,14 @@
   setInterval(updateCountdowns, 1000);
 </script>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="/blob-client.js"></script>
 <script src="/auth-gate-vanilla.js"></script>
 <script>
   window.initVanillaAuthGate({
     contentSelector: '.container',
     toolName: 'thepath.ltd',
     toolTagline: 'Tools for endurance training, breathwork, and bodywork. Log in to see your races, or create an account to get started.',
+    blobApp: 'endurance',
     accent: '#B85C38',
     accentText: '#FBF7EF',
     bg: '#F8F1E4',
