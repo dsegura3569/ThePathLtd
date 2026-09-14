@@ -21,6 +21,7 @@
   unconfirmed. Each individual tool below has its own login gate.
 -->
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="/blob-client.js"></script>
 <style>
   :root{
     --bg: #241A12;
@@ -167,19 +168,24 @@
     const nameEl = document.getElementById('race-widget-name');
     const countdownEl = document.getElementById('race-widget-countdown');
     let tickTimer = null;
+    let raceBlobState = null;
+    let blobLoaded = false;
+    async function loadBlobOnce() {
+      if (blobLoaded) return;
+      blobLoaded = true;
+      raceBlobState = await window.BlobClient.load('endurance');
+    }
 
     function getUpcomingRaces() {
       const races = [
         { name: 'Telluride Mountain Run \u2014 65 Mile', startDate: '2026-08-22T06:00:00-06:00', href: '/endurance/command-center/?race=tmr' },
       ];
-      try {
-        const custom = JSON.parse(localStorage.getItem('tmr_command_custom_races_v1') || '[]');
-        custom.forEach(r => {
-          if (r.startDate) {
-            races.push({ name: r.name, startDate: r.startDate, href: '/endurance/command-center/?race=' + encodeURIComponent(r.id) });
-          }
-        });
-      } catch (e) {}
+      const custom = (raceBlobState && raceBlobState.customRaces) || [];
+      custom.forEach(r => {
+        if (r.startDate) {
+          races.push({ name: r.name, startDate: r.startDate, href: '/endurance/command-center/?race=' + encodeURIComponent(r.id) });
+        }
+      });
       const now = Date.now();
       return races
         .filter(r => new Date(r.startDate).getTime() > now)
@@ -212,8 +218,8 @@
       tickTimer = setInterval(tick, 1000);
     }
 
-    // Logged-out visitors (including a brand new browser with nothing in
-    // localStorage) get an illustrative sample race instead of real data
+    // Logged-out visitors (including a brand new browser with no saved
+    // state) get an illustrative sample race instead of real data
     // or an empty state -- fixed 45 days out from whenever the page loads
     // so the countdown always reads as a plausible upcoming race.
     function renderMock() {
@@ -235,8 +241,9 @@
       nameEl.textContent = 'Create a race \u2192';
     }
 
-    function render(loggedIn) {
+    async function render(loggedIn) {
       if (!loggedIn) { renderMock(); return; }
+      await loadBlobOnce();
       const upcoming = getUpcomingRaces();
       if (upcoming.length) {
         widgetEl.href = upcoming[0].href;
@@ -248,7 +255,7 @@
 
     window.netlifyIdentity.on('init', (user) => render(!!user));
     window.netlifyIdentity.on('login', () => render(true));
-    window.netlifyIdentity.on('logout', () => render(false));
+    window.netlifyIdentity.on('logout', () => { blobLoaded = false; raceBlobState = null; render(false); });
   })();
 
   (function initBreathWidget() {
