@@ -156,7 +156,7 @@
       bar.appendChild(btn);
     }
     window.netlifyIdentity.on('init', (user) => { user ? renderLoggedIn(user) : renderLoggedOut(); });
-    window.netlifyIdentity.on('login', (user) => renderLoggedIn(user));
+    window.netlifyIdentity.on('login', (user) => { window.netlifyIdentity.close(); renderLoggedIn(user); });
     window.netlifyIdentity.on('logout', () => renderLoggedOut());
     window.netlifyIdentity.init();
   })();
