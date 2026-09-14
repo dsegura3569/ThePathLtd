@@ -377,10 +377,6 @@ function RacePicker({ raceId, onSelectRace }) {
           {races.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
       )}
-      <button onClick={() => setShowModal(true)} title="Add a race" aria-label="Add a race" style={{
-        width:32, height:32, borderRadius:8, border:'1px solid var(--line)', background:'var(--bg-raised)',
-        color:'var(--climb)', fontSize:16, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-      }}>+</button>
       {showModal && (
         <AddRaceModal
           onClose={closeModal}

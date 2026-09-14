@@ -508,26 +508,12 @@ function PaceTargetsWidget() {
   }
   const gearSelectStyle = { background:'var(--bg-raised)', border:'1px solid var(--line)', borderRadius:6, color:'var(--ink)', fontSize:12, padding:'5px 6px' };
   return (
-    <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
-      <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:16}}>
-        <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase', flex:1}}>
-          Pace &amp; Nutrition Targets
-        </div>
-        <button onClick={() => setShowAdvanced(v => !v)} aria-label="Edit targets, gear, and nutrition" title="Edit targets, gear, and nutrition" style={{
-          width:30, height:30, borderRadius:8, border:'1px solid var(--line)',
-          background: showAdvanced ? 'var(--climb)' : 'var(--bg-raised)', color: showAdvanced ? '#12151A' : 'var(--ink-faint)', cursor:'pointer',
-          display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
-        }}>&#9881;&#65039;</button>
+    <div style={{padding:'20px 0', borderBottom:'1px solid var(--line)'}}>
+      <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:16}}>
+        Pace &amp; Nutrition Targets
       </div>
 
-      {!showAdvanced && (
-        <div style={{fontSize:13, color:'var(--ink-dim)'}}>
-          {targetHours}hr finish target &middot; {targetCarb}g carb/hr &middot; {targetSodium}mg salt/hr
-        </div>
-      )}
-
-      {showAdvanced && (
-        <div>
+      <div>
           <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 40, rowGap: 16, marginBottom: 20 }}>
             <TargetStepper label="Target finish time" value={targetHours} setValue={setTargetHours} min={1} max={window.RACES[window.getCurrentRaceId()].cutoffHours} step={0.5} unit="hr" note={`${window.RACES[window.getCurrentRaceId()].cutoffHours}hr official cutoff`} />
             <TargetStepper label="Target carb intake" value={targetCarb} setValue={setTargetCarb} min={50} max={120} step={5} unit="g/hr" />
@@ -600,10 +586,9 @@ function PaceTargetsWidget() {
             padding:'8px 14px', borderRadius:8, border:'1px dashed var(--line)', background:'none',
             color:'var(--climb)', fontSize:12.5, fontWeight:600, cursor:'pointer',
           }}>+ Add gear item</button>
-          </div>
         </div>
-      )}
-    </section>
+      </div>
+    </div>
   );
 }
 
@@ -1121,8 +1106,10 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
   // Profile, Race Insights), separate from reordering/hiding the individual
   // cards inside Race Insights or the individual stats inside Conditions.
   const PAGE_SECTIONS = [
+    { id: 'header', label: 'Race Header' },
     { id: 'countdown', label: 'Countdown' },
     { id: 'conditions', label: 'Conditions' },
+    { id: 'raceDayForecast', label: 'Race Day Forecast' },
     { id: 'courseProfile', label: 'Course Profile' },
     { id: 'raceInsights', label: 'Race Insights' },
   ];
@@ -1145,10 +1132,12 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
     if (externalCardPanelOpen !== undefined) setShowPageLayoutPanel(externalCardPanelOpen);
   }, [externalCardPanelOpen]);
 
-  // Race Config (Drop Bag Locations, Race Date/Time/Cutoff, Import Race Info) --
-  // tucked behind its own gear toggle instead of always showing inline, since
-  // it's one-time setup rather than something checked on every visit.
-  const [showRaceConfigPanel, setShowRaceConfigPanel] = React.useState(false);
+  // Pace & Nutrition Targets and Race Config (Drop Bag Locations, Race
+  // Date/Time/Cutoff, Import Race Info) -- both tucked behind one shared
+  // gear toggle instead of taking up permanent space on Overview, since
+  // both are occasional setup/adjustment rather than something checked on
+  // every visit.
+  const [showRaceSettingsPanel, setShowRaceSettingsPanel] = React.useState(false);
   const [showAddForm, setShowAddForm] = React.useState(false);
   const [editingCardId, setEditingCardId] = React.useState(null);
   const [newCardTitle, setNewCardTitle] = React.useState('');
@@ -1235,26 +1224,13 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
 
   return (
     <div>
-      <section style={{padding:'20px 0 24px', borderBottom:'1px solid var(--line)'}}>
-        <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--climb)', letterSpacing:'0.08em', marginBottom:10}}>
-          {activeRace.name.toUpperCase()} &middot; {window.formatRaceStartLabel(activeRace).toUpperCase()}
-        </div>
-        <div style={{display:'flex', alignItems:'center', gap:16, flexWrap:'wrap'}}>
-          <h1 style={{
-            fontFamily:'var(--display)', fontWeight:700, fontSize:'clamp(18px, 2.6vw, 24px)',
-            lineHeight:1.2, letterSpacing:'-0.01em', margin:0, whiteSpace:'nowrap',
-          }}>
-            <span style={{color:'var(--climb)'}}>{activeRace.distance.toFixed(1)}mi</span> &middot; <span style={{color:'var(--climb)'}}>{activeRace.vertGain.toLocaleString()}ft</span> of climbing &middot; one race day.
-          </h1>
-          <button onClick={()=>goTo('raceplan')} style={{
-            background:'var(--climb)', color:'#12151A', border:'none', borderRadius:8,
-            padding:'8px 16px', fontFamily:'var(--display)', fontWeight:600, fontSize:13,
-            cursor:'pointer', whiteSpace:'nowrap',
-          }}>
-            Open race day plan &rarr;
-          </button>
-        </div>
-      </section>
+      <div style={{display:'flex', justifyContent:'flex-end', marginBottom:4}}>
+        <button onClick={() => setShowPageLayoutPanel(v => !v)} aria-label="Reorder or hide sections" title="Reorder or hide page sections" style={{
+          background:'none', border:'1px solid var(--line)', borderRadius:6, width:28, height:28,
+          color: showPageLayoutPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer',
+          display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
+        }}>⚙️</button>
+      </div>
 
       {showPageLayoutPanel && (
         <div style={{background:'var(--bg-card)', border:'1px solid var(--climb)', borderRadius:10, padding:12, marginBottom:20, maxWidth:460}}>
@@ -1288,19 +1264,42 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
 
       <div style={{display:'flex', flexDirection:'column'}}>
 
+      <div style={{order: pageSectionOrder.indexOf('header'), display: pageSectionHidden.includes('header') ? 'none' : undefined}}>
+      <section style={{padding:'20px 0 24px', borderBottom:'1px solid var(--line)'}}>
+        <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--climb)', letterSpacing:'0.08em', marginBottom:10}}>
+          {activeRace.name.toUpperCase()} &middot; {window.formatRaceStartLabel(activeRace).toUpperCase()}
+        </div>
+        <div style={{display:'flex', alignItems:'center', gap:16, flexWrap:'wrap'}}>
+          <h1 style={{
+            fontFamily:'var(--display)', fontWeight:700, fontSize:'clamp(18px, 2.6vw, 24px)',
+            lineHeight:1.2, letterSpacing:'-0.01em', margin:0, whiteSpace:'nowrap',
+          }}>
+            <span style={{color:'var(--climb)'}}>{activeRace.distance.toFixed(1)}mi</span> &middot; <span style={{color:'var(--climb)'}}>{activeRace.vertGain.toLocaleString()}ft</span> of climbing &middot; one race day.
+          </h1>
+          <button onClick={()=>goTo('raceplan')} style={{
+            background:'var(--climb)', color:'#12151A', border:'none', borderRadius:8,
+            padding:'8px 16px', fontFamily:'var(--display)', fontWeight:600, fontSize:13,
+            cursor:'pointer', whiteSpace:'nowrap',
+          }}>
+            Open race day plan &rarr;
+          </button>
+        </div>
+      </section>
+      </div>
+
       <div style={{order: pageSectionOrder.indexOf('countdown'), display: pageSectionHidden.includes('countdown') ? 'none' : undefined}}>
       {countdown ? (
-        <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
-          <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginBottom:16, letterSpacing:'0.08em', textTransform:'uppercase'}}>
+        <section style={{padding:'16px 0', borderBottom:'1px solid var(--line)', display:'flex', alignItems:'center', gap:24, flexWrap:'wrap'}}>
+          <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase', whiteSpace:'nowrap'}}>
             Countdown to Start
           </div>
-          <div style={{display:'flex', gap:28, flexWrap:'wrap', marginBottom:0}}>
+          <div style={{display:'flex', gap:18, flexWrap:'wrap'}}>
             {[['days','Days','var(--climb)'],['hours','Hours','var(--descent)'],['minutes','Min','var(--db)'],['seconds','Sec','var(--ok)']].map(([key,label,color]) => (
-              <div key={key}>
-                <div style={{fontFamily:'var(--display)', fontSize:32, fontWeight:700, color:color}}>
+              <div key={key} style={{display:'flex', alignItems:'baseline', gap:5}}>
+                <span style={{fontFamily:'var(--display)', fontSize:19, fontWeight:700, color:color}}>
                   {String(countdown[key]).padStart(2,'0')}
-                </div>
-                <div style={{fontFamily:'var(--mono)', fontSize:10, color:'var(--ink-faint)', textTransform:'uppercase', letterSpacing:'0.05em'}}>{label}</div>
+                </span>
+                <span style={{fontFamily:'var(--mono)', fontSize:10, color:'var(--ink-faint)', textTransform:'uppercase', letterSpacing:'0.05em'}}>{label}</span>
               </div>
             ))}
           </div>
@@ -1366,34 +1365,34 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
           {orderedStats.filter(s => s.isWeather).map(s => <StatTile key={s.key} s={s} goTo={goTo} />)}
         </div>
       </section>
+      </div>
 
+      <div style={{order: pageSectionOrder.indexOf('raceDayForecast'), display: pageSectionHidden.includes('raceDayForecast') ? 'none' : undefined}}>
       <RaceDayForecastWidget />
       </div>
 
       <div style={{order: pageSectionOrder.indexOf('courseProfile'), display: pageSectionHidden.includes('courseProfile') ? 'none' : undefined}}>
       <CourseProfileChart />
-      <PaceTargetsWidget />
+      </div>
 
-      <section style={{padding: showRaceConfigPanel ? '20px 0 0' : '20px 0', borderBottom: showRaceConfigPanel ? 'none' : '1px solid var(--line)'}}>
-        <div style={{display:'flex', alignItems:'center', gap:8}}>
-          <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase', flex:1}}>
-            Race Config
-          </div>
-          <button onClick={() => setShowRaceConfigPanel(v => !v)} aria-label="Race config" title="Drop bag locations, race date/time/cutoff, import race info" style={{
-            background:'none', border:'1px solid var(--line)', borderRadius:6, width:28, height:28,
-            color: showRaceConfigPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer',
-            display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
-          }}>⚙️</button>
+      <section style={{padding:'16px 0', borderBottom: showRaceSettingsPanel ? 'none' : '1px solid var(--line)', display:'flex', alignItems:'center', gap:8}}>
+        <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase', flex:1}}>
+          Race Settings
         </div>
+        <button onClick={() => setShowRaceSettingsPanel(v => !v)} aria-label="Pace, nutrition, and race config" title="Pace & nutrition targets, drop bag locations, race date/time/cutoff, import race info" style={{
+          background:'none', border:'1px solid var(--line)', borderRadius:6, width:28, height:28,
+          color: showRaceSettingsPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer',
+          display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
+        }}>⚙️</button>
       </section>
 
-      {showRaceConfigPanel && (
-        <>
+      {showRaceSettingsPanel && (
+        <div style={{borderBottom:'1px solid var(--line)'}}>
+          <PaceTargetsWidget />
           <DropBagConfigWidget onRaceDataChanged={onRaceDataChanged} />
           <RaceInfoImportWidget onRaceDataChanged={onRaceDataChanged} />
-        </>
+        </div>
       )}
-      </div>
 
       <div style={{order: pageSectionOrder.indexOf('raceInsights'), display: pageSectionHidden.includes('raceInsights') ? 'none' : undefined}}>
       <section ref={cardSectionRef} style={{padding:'48px 0 20px'}}>
