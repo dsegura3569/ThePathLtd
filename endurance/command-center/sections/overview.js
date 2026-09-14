@@ -227,6 +227,45 @@ function RaceDayForecastWidget() {
   );
 }
 
+// A Course & Conditions stat tile. When s.linkTo is set (Aid stations ->
+// raceplan, Drop bags -> packlist), the whole tile becomes a button that
+// jumps to that section -- keyboard-accessible via Enter/Space like any
+// other button, with a subtle arrow and hover tint as the visual hint that
+// it goes somewhere, rather than looking identical to the plain stats
+// around it.
+function StatTile({ s, goTo }) {
+  const clickable = !!s.linkTo;
+  const [hover, setHover] = React.useState(false);
+  return (
+    <div
+      onClick={clickable ? () => goTo(s.linkTo) : undefined}
+      onMouseEnter={clickable ? () => setHover(true) : undefined}
+      onMouseLeave={clickable ? () => setHover(false) : undefined}
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goTo(s.linkTo); } } : undefined}
+      style={{
+        background: clickable && hover ? 'var(--bg-raised)' : 'var(--bg)', padding:'20px 16px',
+        cursor: clickable ? 'pointer' : 'default', position:'relative',
+        transition:'background 0.15s ease',
+      }}
+    >
+      <div style={{fontFamily:'var(--display)', fontSize:26, fontWeight:700, color:'var(--ink)'}}>
+        {s.value}<span style={{fontSize:14, color:'var(--ink-faint)', marginLeft:4}}>{s.unit}</span>
+        {clickable && <span style={{fontSize:14, color:'var(--climb)', marginLeft:6, opacity: hover ? 1 : 0.5}}>&rarr;</span>}
+      </div>
+      <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginTop:6, textTransform:'uppercase', letterSpacing:'0.05em'}}>
+        {s.label}
+      </div>
+      {s.sub && (
+        <div style={{fontFamily:'var(--mono)', fontSize:10, color: s.subColor || 'var(--ink-faint)', marginTop:4}}>
+          {s.sub}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CourseProfileChart() {
   const { state: blobState, setState: setBlobState } = React.useContext(window.BlobStateContext);
   const [hovered, setHovered] = React.useState(null);
@@ -1008,8 +1047,8 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
   const staticStats = [
     { key: 'distance', label: 'Distance', value: activeRace.distance.toFixed(1), unit: 'mi' },
     { key: 'vert', label: 'Vert gain', value: activeRace.vertGain.toLocaleString(), unit: 'ft' },
-    { key: 'aid', label: 'Aid stations', value: `${baseSegments.length - 1}`, unit: '' },
-    { key: 'bags', label: 'Drop bags', value: `${dropBagSegs.length}`, unit: '', sub: dropBagSegs.length ? `Mi ${dropBagSegs.map(s => s.miE).join(', ')}` : undefined },
+    { key: 'aid', label: 'Aid stations', value: `${baseSegments.length - 1}`, unit: '', linkTo: 'raceplan' },
+    { key: 'bags', label: 'Drop bags', value: `${dropBagSegs.length}`, unit: '', sub: dropBagSegs.length ? `Mi ${dropBagSegs.map(s => s.miE).join(', ')}` : undefined, linkTo: 'packlist' },
     { key: 'range', label: 'Elevation range', value: `${courseStats.min.toLocaleString()}\u2013${courseStats.max.toLocaleString()}`, unit: 'ft' },
     { key: 'avgalt', label: 'Avg altitude', value: avgAltitude.toLocaleString(), unit: 'ft' },
     { key: 'cutoff', label: 'Cutoff', value: `${activeRace.cutoffHours}`, unit: 'hr' },
@@ -1321,38 +1360,10 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
         )}
 
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:1, background:'var(--line)', marginBottom: orderedStats.some(s => s.isWeather) ? 1 : 0}}>
-          {orderedStats.filter(s => !s.isWeather).map(s => (
-            <div key={s.key} style={{background:'var(--bg)', padding:'20px 16px'}}>
-              <div style={{fontFamily:'var(--display)', fontSize:26, fontWeight:700, color:'var(--ink)'}}>
-                {s.value}<span style={{fontSize:14, color:'var(--ink-faint)', marginLeft:4}}>{s.unit}</span>
-              </div>
-              <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginTop:6, textTransform:'uppercase', letterSpacing:'0.05em'}}>
-                {s.label}
-              </div>
-              {s.sub && (
-                <div style={{fontFamily:'var(--mono)', fontSize:10, color: s.subColor || 'var(--ink-faint)', marginTop:4}}>
-                  {s.sub}
-                </div>
-              )}
-            </div>
-          ))}
+          {orderedStats.filter(s => !s.isWeather).map(s => <StatTile key={s.key} s={s} goTo={goTo} />)}
         </div>
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:1, background:'var(--line)'}}>
-          {orderedStats.filter(s => s.isWeather).map(s => (
-            <div key={s.key} style={{background:'var(--bg)', padding:'20px 16px'}}>
-              <div style={{fontFamily:'var(--display)', fontSize:26, fontWeight:700, color:'var(--ink)'}}>
-                {s.value}<span style={{fontSize:14, color:'var(--ink-faint)', marginLeft:4}}>{s.unit}</span>
-              </div>
-              <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', marginTop:6, textTransform:'uppercase', letterSpacing:'0.05em'}}>
-                {s.label}
-              </div>
-              {s.sub && (
-                <div style={{fontFamily:'var(--mono)', fontSize:10, color: s.subColor || 'var(--ink-faint)', marginTop:4}}>
-                  {s.sub}
-                </div>
-              )}
-            </div>
-          ))}
+          {orderedStats.filter(s => s.isWeather).map(s => <StatTile key={s.key} s={s} goTo={goTo} />)}
         </div>
       </section>
 
