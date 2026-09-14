@@ -67,22 +67,24 @@ window.mountWithAuthGate = function mountWithAuthGate(AppComponent, opts) {
     const [blobState, setBlobStateRaw] = React.useState(null); // null = not loaded yet; {} once loaded with nothing saved
 
     React.useEffect(() => {
+      let blobLoaded = false;
+      async function loadBlobOnce() {
+        if (blobLoaded || !opts.blobApp) return;
+        blobLoaded = true;
+        const loaded = await window.BlobClient.load(opts.blobApp);
+        setBlobStateRaw(loaded);
+      }
       async function handleInit(u) {
         setUser(u);
-        if (u && opts.blobApp) {
-          const loaded = await window.BlobClient.load(opts.blobApp);
-          setBlobStateRaw(loaded);
-        }
+        if (u) await loadBlobOnce();
         setReady(true);
       }
       function handleLogin(u) {
         setUser(u);
         window.netlifyIdentity.close();
-        if (opts.blobApp) {
-          window.BlobClient.load(opts.blobApp).then(setBlobStateRaw);
-        }
+        loadBlobOnce();
       }
-      function handleLogout() { setUser(null); setBlobStateRaw(null); }
+      function handleLogout() { setUser(null); setBlobStateRaw(null); blobLoaded = false; }
       window.netlifyIdentity.on('init', handleInit);
       window.netlifyIdentity.on('login', handleLogin);
       window.netlifyIdentity.on('logout', handleLogout);

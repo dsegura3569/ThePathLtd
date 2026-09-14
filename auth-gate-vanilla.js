@@ -64,7 +64,10 @@ window.initVanillaAuthGate = function initVanillaAuthGate(opts) {
     if (opts.blobApp) window.BlobClient.save(opts.blobApp, next);
   };
 
+  let appShown = false;
   async function showApp() {
+    if (appShown) return;
+    appShown = true;
     if (opts.blobApp) {
       window.blobState = await window.BlobClient.load(opts.blobApp);
     }
@@ -73,6 +76,7 @@ window.initVanillaAuthGate = function initVanillaAuthGate(opts) {
     window.dispatchEvent(new CustomEvent('blobstateready'));
   }
   function showLogin() {
+    appShown = false;
     loadingEl.style.display = 'none';
     loginEl.style.display = 'block';
     gate.style.display = 'flex';

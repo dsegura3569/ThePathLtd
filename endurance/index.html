@@ -365,6 +365,14 @@
 
     const list = document.getElementById('race-list');
 
+    // Safe to call more than once (e.g. if blobstateready ever fires more
+    // than once in a session) -- clear any custom cards from a previous
+    // render before appending fresh ones, rather than accumulating
+    // duplicates. Only targets dynamically-created cards (all of which get
+    // data-race-id set below); the static TMR card in the HTML is left
+    // alone entirely.
+    list.querySelectorAll('.race-card[data-race-id]:not([data-race-id="tmr"])').forEach(el => el.remove());
+
     // TMR's own gear panel + any saved overrides (rename, hidden stats,
     // extra fields, or a soft "removed from list" flag).
     const tmrCard = list.querySelector('.race-card[data-race-id="tmr"]');
@@ -407,6 +415,7 @@
       card.setAttribute('tabindex', '0');
       card.setAttribute('role', 'link');
       card.setAttribute('data-href', `/endurance/command-center/?race=${encodeURIComponent(race.id)}`);
+      card.setAttribute('data-race-id', race.id);
       if (race.startDate) card.setAttribute('data-start-date', race.startDate);
       if (race.resultsUrl) card.setAttribute('data-results-url', race.resultsUrl);
       card.innerHTML = `
