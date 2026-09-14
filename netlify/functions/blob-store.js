@@ -32,7 +32,7 @@ exports.handler = async (event, context) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Unknown app. Expected one of: ' + ALLOWED_APPS.join(', ') }) };
   }
 
-  const store = getStore({ name: app, consistency: 'strong' });
+  const store = getStore({ name: app });
   const STATE_KEY = 'state';
 
   if (event.httpMethod === 'GET') {
