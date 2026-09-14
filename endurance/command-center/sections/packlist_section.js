@@ -56,6 +56,15 @@ function buildPackingData(segments, vesselConfig) {
   });
 }
 
+function TotalStat({ label, value, color }) {
+  return (
+    <div>
+      <div style={{ fontSize: 20, fontFamily: 'var(--display)', fontWeight: 600, color }}>{value}</div>
+      <div style={{ fontSize: 10.5, fontFamily: 'var(--mono)', color: 'var(--ink-faint)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>{label}</div>
+    </div>
+  );
+}
+
 function PackCard({ point }) {
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 18, marginBottom: 18 }}>
@@ -64,59 +73,61 @@ function PackCard({ point }) {
         Covers segments {point.segRange[0]}–{point.segRange[1]} &middot; {point.segs.map(s => s.time).join(' + ')}
       </div>
 
-      {/* Gels */}
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--climb)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
-          SIS GO Gels — {point.gelsTotal} total
-        </div>
-        {point.gelsBySeg.map((g, i) => (
-          <div key={i} style={{ fontSize: 13, color: 'var(--ink-dim)', padding: '3px 0' }}>
-            Seg {g.seg}: <strong style={{ color: 'var(--ink)' }}>{g.count}</strong> &middot; <span style={{ color: 'var(--ink-faint)' }}>{g.label}</span>
-          </div>
-        ))}
+      {/* Totals, grouped together in one row instead of scattered as a
+          per-category heading repeated three/four times down the card. */}
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', gap: 28, padding: '14px 18px',
+        background: 'var(--bg, rgba(255,255,255,0.035))', border: '1px solid var(--line)',
+        borderRadius: 10, marginBottom: 20,
+      }}>
+        <TotalStat label="SIS GO Gels" value={point.gelsTotal} color="var(--climb)" />
+        {point.tailwindTotal > 0 && <TotalStat label="Tailwind" value={`${point.tailwindTotal}g`} color="var(--climb)" />}
+        {point.saltOriginalTotal > 0 && <TotalStat label="SaltStick" value={point.saltOriginalTotal} color="#4A9FE8" />}
+        {point.saltCaffeineTotal > 0 && <TotalStat label="SaltStick +caf" value={point.saltCaffeineTotal} color="var(--ok, #3CB897)" />}
       </div>
 
-      {/* Tailwind popsicle bags */}
-      {point.tailwindBags.length > 0 && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--climb)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
-            Tailwind popsicle bags — {point.tailwindTotal}g total
-          </div>
-          {point.tailwindBags.map((b, i) => (
-            <div key={i} style={{ fontSize: 13, color: 'var(--ink-dim)', padding: '3px 0' }}>
-              Seg {b.seg}: <strong style={{ color: 'var(--ink)' }}>{b.grams}g</strong> &rarr; {b.vessel}
+      {/* Then each segment, once, with everything it needs packed together
+          -- gels/tailwind/salt for Seg 4 all live in the Seg 4 tile, rather
+          than Seg 4 appearing three separate times across three separate
+          category lists you have to cross-reference by eye. Grid instead
+          of a single column so this actually uses a wide card's width. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
+        {point.segs.map(s => {
+          const segTailwind = point.tailwindBags.filter(b => b.seg === s.id);
+          const segSaltOriginal = point.saltOriginal.find(x => x.seg === s.id);
+          const segSaltCaffeine = point.saltCaffeine.find(x => x.seg === s.id);
+          const hasAnything = s.gels > 0 || segTailwind.length > 0 || segSaltOriginal || segSaltCaffeine;
+          if (!hasAnything) return null;
+          return (
+            <div key={s.id} style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: dropBagNum(s) ? 'var(--db)' : 'var(--ink)' }}>Seg {s.id}</div>
+              <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginBottom: 9 }}>{s.from} &rarr; {s.to.split(' (')[0]} &middot; {s.time}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {s.gels > 0 && (
+                  <div style={{ fontSize: 13, color: 'var(--ink-dim)' }}>
+                    <strong style={{ color: 'var(--climb)' }}>{s.gels}</strong> gel{s.gels === 1 ? '' : 's'}
+                  </div>
+                )}
+                {segTailwind.map((b, i) => (
+                  <div key={i} style={{ fontSize: 13, color: 'var(--ink-dim)' }}>
+                    <strong style={{ color: 'var(--climb)' }}>{b.grams}g</strong> tailwind &rarr; {b.vessel}
+                  </div>
+                ))}
+                {segSaltOriginal && (
+                  <div style={{ fontSize: 13, color: 'var(--ink-dim)' }}>
+                    <strong style={{ color: '#4A9FE8' }}>{segSaltOriginal.count}</strong> SaltStick &middot; every ~{segSaltOriginal.freqMin}min
+                  </div>
+                )}
+                {segSaltCaffeine && (
+                  <div style={{ fontSize: 13, color: 'var(--ink-dim)' }}>
+                    <strong style={{ color: 'var(--ok, #3CB897)' }}>{segSaltCaffeine.count}</strong> SaltStick +caf &middot; every ~{segSaltCaffeine.freqMin}min
+                  </div>
+                )}
+              </div>
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Salt caps original */}
-      {point.saltOriginal.length > 0 && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: '#4A9FE8', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
-            SaltStick capsules — {point.saltOriginalTotal} total
-          </div>
-          {point.saltOriginal.map((s, i) => (
-            <div key={i} style={{ fontSize: 13, color: 'var(--ink-dim)', padding: '3px 0' }}>
-              Seg {s.seg}: <strong style={{ color: 'var(--ink)' }}>{s.count}</strong> &middot; every ~{s.freqMin}min
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Salt caps caffeine */}
-      {point.saltCaffeine.length > 0 && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--ok, #3CB897)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
-            SaltStick +caffeine — {point.saltCaffeineTotal} total
-          </div>
-          {point.saltCaffeine.map((s, i) => (
-            <div key={i} style={{ fontSize: 13, color: 'var(--ink-dim)', padding: '3px 0' }}>
-              Seg {s.seg}: <strong style={{ color: 'var(--ink)' }}>{s.count}</strong> &middot; every ~{s.freqMin}min
-            </div>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 }
