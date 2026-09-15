@@ -82,17 +82,28 @@ function RaceDayPlanView() {
   // race's actual start time (parsed from startDate, not assumed 6am) plus
   // the cumulative hours of every earlier segment, same approach as
   // Overview's own startDecHour/finishDecHour rather than a separate one.
-  const forecast = window.useRaceDayForecast();
+  //
+  // Temp is elevation-adjusted per segment (not just the race's start
+  // elevation applied everywhere) -- a course with real vert gain can run
+  // meaningfully colder at altitude than at the trailhead, so each
+  // segment's own elevation (elevS, matching the same point the Clock
+  // column already represents -- segment start) gets requested from
+  // Open-Meteo's statistical downscaling.
+  const segmentElevationsFt = React.useMemo(
+    () => [...new Set(segments.map(s => Math.round(s.elevS)))],
+    [segments]
+  );
+  const forecast = window.useRaceDayForecast(segmentElevationsFt);
   const raceForTemp = window.RACES[window.getCurrentRaceId()];
   let raceStartDecHour = null;
   if (raceForTemp.startDate) {
     const m = raceForTemp.startDate.match(/T(\d{2}):(\d{2})/);
     if (m) raceStartDecHour = parseInt(m[1], 10) + parseInt(m[2], 10) / 60;
   }
-  const canForecast = raceStartDecHour !== null && typeof forecast.tempAtDecimalHour === 'function';
+  const canForecast = raceStartDecHour !== null && typeof forecast.tempAtElevationAndHour === 'function';
   let cumHoursForTemp = 0;
   segments.forEach(s => {
-    s.tempF = canForecast ? Math.round(forecast.tempAtDecimalHour(raceStartDecHour + cumHoursForTemp)) : null;
+    s.tempF = canForecast ? Math.round(forecast.tempAtElevationAndHour(s.elevS, raceStartDecHour + cumHoursForTemp)) : null;
     cumHoursForTemp += s.hours;
   });
   const [active, setActive] = React.useState(1);

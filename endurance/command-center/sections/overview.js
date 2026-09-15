@@ -76,18 +76,44 @@ function useLiveWeather() {
 }
 
 
-function useRaceDayForecast() {
+function useRaceDayForecast(extraElevationsFt) {
   const [state, setState] = React.useState({ status: 'loading' });
+  // Stable dependency key -- extraElevationsFt is a fresh array each render
+  // otherwise, which would re-fetch on every render rather than only when
+  // the actual elevations requested change.
+  const elevKey = (extraElevationsFt || []).map(e => Math.round(e)).sort((a, b) => a - b).join(',');
   React.useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
         const { lat: START_LAT, lon: START_LON } = getStartCoords();
         const raceDate = window.RACES[window.getCurrentRaceId()].startDate.slice(0, 10);
-        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${START_LAT}&longitude=${START_LON}&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m&start_date=${raceDate}&end_date=${raceDate}&temperature_unit=fahrenheit&timezone=America%2FDenver`);
+        const extras = elevKey ? elevKey.split(',').map(Number) : [];
+        const baseUrl = 'https://api.open-meteo.com/v1/forecast';
+        const commonParams = `daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m&start_date=${raceDate}&end_date=${raceDate}&temperature_unit=fahrenheit&timezone=America%2FDenver`;
+        let url;
+        if (extras.length) {
+          // Same point repeated once per elevation -- 'nan' for the first
+          // (native/default downscaling, identical to the no-extras case)
+          // plus one override per requested elevation, feet converted to
+          // meters since that's the unit Open-Meteo's elevation parameter
+          // expects (unlike the rest of this app, which is feet throughout).
+          const lats = [START_LAT, ...extras.map(() => START_LAT)].join(',');
+          const lons = [START_LON, ...extras.map(() => START_LON)].join(',');
+          const elevs = ['nan', ...extras.map(ft => Math.round(ft / 3.28084))].join(',');
+          url = `${baseUrl}?latitude=${lats}&longitude=${lons}&elevation=${elevs}&${commonParams}`;
+        } else {
+          url = `${baseUrl}?latitude=${START_LAT}&longitude=${START_LON}&${commonParams}`;
+        }
+        const res = await fetch(url);
         if (!res.ok) throw new Error('bad response');
-        const data = await res.json();
+        const raw = await res.json();
         if (cancelled) return;
+        // Multi-location requests return a JSON array (one entry per
+        // point, same shape as the single-location object) rather than a
+        // single merged object -- confirmed against Open-Meteo's own docs,
+        // not assumed. The base/native point is always entry 0 either way.
+        const data = Array.isArray(raw) ? raw[0] : raw;
         if (!data.daily || data.daily.temperature_2m_max[0] == null) {
           setState({ status: 'unavailable' }); // race day likely outside forecast range
           return;
@@ -115,6 +141,29 @@ function useRaceDayForecast() {
           if (t0 == null || t1 == null) return null;
           return t0 + (t1 - t0) * frac;
         }
+        // Elevation-adjusted lookup: finds the response entry whose
+        // requested elevation is closest to the one asked for (exact match
+        // in practice, since callers request the same values that were
+        // fetched), then interpolates that series by hour the same way.
+        let tempAtElevationAndHour = null;
+        if (Array.isArray(raw) && raw.length > 1) {
+          const points = raw.slice(1).map((entry, i) => ({ elevationFt: extras[i], hourlyTemps: entry.hourly.temperature_2m }));
+          tempAtElevationAndHour = function (elevationFt, decHour) {
+            let closest = points[0];
+            let bestDiff = Math.abs(points[0].elevationFt - elevationFt);
+            for (const p of points) {
+              const diff = Math.abs(p.elevationFt - elevationFt);
+              if (diff < bestDiff) { bestDiff = diff; closest = p; }
+            }
+            const clamped = Math.max(0, Math.min(23.999, decHour));
+            const h0 = Math.floor(clamped);
+            const h1 = Math.min(23, h0 + 1);
+            const frac = clamped - h0;
+            const t0 = closest.hourlyTemps[h0], t1 = closest.hourlyTemps[h1];
+            if (t0 == null || t1 == null) return null;
+            return t0 + (t1 - t0) * frac;
+          };
+        }
         setState({
           status: 'ok',
           high: Math.round(data.daily.temperature_2m_max[0]),
@@ -124,6 +173,7 @@ function useRaceDayForecast() {
           sunrise: fmtTimeStr(data.daily.sunrise[0]),
           sunset: fmtTimeStr(data.daily.sunset[0]),
           tempAtDecimalHour,
+          tempAtElevationAndHour,
         });
       } catch (e) {
         if (!cancelled) setState({ status: 'error' });
@@ -131,7 +181,7 @@ function useRaceDayForecast() {
     }
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [elevKey]);
   return state;
 }
 
