@@ -650,6 +650,7 @@ function DropBagConfigWidget({ onRaceDataChanged }) {
     dropBag: !!(s.amenities && s.amenities.dropBag),
     crew: !!(s.amenities && s.amenities.crew),
     pacer: !!s.pacer,
+    noAid: !!(s.amenities && s.amenities.noAid),
     name: s.to,
     mile: String(s.miE),
   })));
@@ -659,7 +660,19 @@ function DropBagConfigWidget({ onRaceDataChanged }) {
   const hasAny = rows.some(r => r.dropBag || r.crew || r.pacer);
 
   function toggle(i, field) {
-    setRows(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: !r[field] } : r));
+    setRows(prev => prev.map((r, idx) => {
+      if (idx !== i) return r;
+      const next = { ...r, [field]: !r[field] };
+      // No Aid means exactly that -- no drop bag, no crew, no pacer access
+      // either, so these are mutually exclusive rather than independently
+      // toggleable in a way that could claim both at once.
+      if (field === 'noAid' && next.noAid) {
+        next.dropBag = false; next.crew = false; next.pacer = false;
+      } else if (field !== 'noAid' && next[field]) {
+        next.noAid = false;
+      }
+      return next;
+    }));
     setSaved(false);
   }
 
@@ -704,7 +717,7 @@ function DropBagConfigWidget({ onRaceDataChanged }) {
       freshBase.forEach((s, i) => {
         const old = segments[i];
         if (old) {
-          s.amenities = { ...s.amenities, dropBag: rows[i].dropBag, crew: rows[i].crew };
+          s.amenities = { ...s.amenities, dropBag: rows[i].dropBag, crew: rows[i].crew, noAid: rows[i].noAid };
           s.pacer = rows[i].pacer;
           s.cutoffClock = old.cutoffClock; s.cutoffHours = old.cutoffHours;
           s.conditions = old.conditions; s.note = old.note;
@@ -719,7 +732,7 @@ function DropBagConfigWidget({ onRaceDataChanged }) {
       race.totalLoss = freshBase.reduce((a, s) => a + s.segLoss, 0);
     } else {
       segments.forEach((s, i) => {
-        s.amenities = { ...s.amenities, dropBag: rows[i].dropBag, crew: rows[i].crew };
+        s.amenities = { ...s.amenities, dropBag: rows[i].dropBag, crew: rows[i].crew, noAid: rows[i].noAid };
         s.pacer = rows[i].pacer;
 
         // Each aid station name is shared between two places: this segment's
@@ -800,6 +813,9 @@ function DropBagConfigWidget({ onRaceDataChanged }) {
             </label>
             <label style={{display:'flex', alignItems:'center', gap:5, fontSize:12, color:'var(--ink-dim)', cursor:'pointer'}}>
               <input type="checkbox" checked={rows[i].pacer} onChange={() => toggle(i, 'pacer')} /> Pacer
+            </label>
+            <label style={{display:'flex', alignItems:'center', gap:5, fontSize:12, color: rows[i].noAid ? 'crimson' : 'var(--ink-dim)', cursor:'pointer'}}>
+              <input type="checkbox" checked={rows[i].noAid} onChange={() => toggle(i, 'noAid')} /> No Aid
             </label>
           </div>
         ))}

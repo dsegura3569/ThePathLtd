@@ -153,7 +153,7 @@ function gradeLabel(g) {
 
 function VesselPlanCompact({ seg, vessels, bags, labelColor }) {
   const totalWater = vessels.reduce((a, v) => a + v.water, 0);
-  const carryingOver = /\(no aid\)/i.test(seg.from || '') && (seg.mixDilutedMl || 0) === 0 && (seg.mixPlainMl || 0) === 0;
+  const carryingOver = (seg.mixDilutedMl || 0) === 0 && (seg.mixPlainMl || 0) === 0;
   if (carryingOver) {
     return (
       <div style={{marginBottom:14}}>

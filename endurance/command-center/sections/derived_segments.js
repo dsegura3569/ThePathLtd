@@ -247,7 +247,14 @@ function computeDerivedSegments(targetTotalHours, targetCarbHr = BASE_CARB_HR, t
   let carryDiluted = 0, carryPlain = 0, carryTailwind = 0;
   let mixOwnerIdx = null;
   segs.forEach((s, i) => {
-    const startsAfterNoAid = /\(no aid\)/i.test(s.from || '');
+    // amenities.noAid lives on the previous segment (segs[i-1].to is the
+    // same physical station as this segment's .from) since amenities
+    // describe the station a segment ends at, same convention as
+    // dropBag/crew. Falls back to a name-text check only when the
+    // structured flag isn't set -- covers a race saved before this
+    // checkbox existed, without needing it re-saved first.
+    const prevAmenities = i > 0 ? segs[i - 1].amenities : null;
+    const startsAfterNoAid = (prevAmenities && prevAmenities.noAid === true) || /\(no aid\)/i.test(s.from || '');
     if (startsAfterNoAid && mixOwnerIdx !== null) {
       carryDiluted += s.dilutedMl;
       carryPlain += s.plainMl;
