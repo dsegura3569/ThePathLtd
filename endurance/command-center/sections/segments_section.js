@@ -87,9 +87,133 @@ function SegmentsView() {
   const gradeChartH = 200;
   const zeroY = gradeChartH * 0.5;
 
+  // Whole-course overview (merged in from the former separate Grade
+  // Explorer tab): same 0.1-mile samples flattened across all segments,
+  // not scoped to whichever one is currently active above -- this is
+  // deliberately "the entire course at once", the complementary view to
+  // stepping through one leg at a time.
+  const [showWholeCourse, setShowWholeCourse] = React.useState(false);
+  const [wcOrder, setWcOrder] = React.useState('course'); // 'course' | 'grade'
+  const [wcHovered, setWcHovered] = React.useState(null);
+  const wcSamples = React.useMemo(() => buildFullCourseSamples(), []);
+  const wcClimbingMiles = React.useMemo(() => Math.round(wcSamples.filter(s => s.grade > 0).length / 10 * 10) / 10, [wcSamples]);
+  const wcDescendingMiles = React.useMemo(() => Math.round(wcSamples.filter(s => s.grade < 0).length / 10 * 10) / 10, [wcSamples]);
+  const wcFlatMiles = React.useMemo(() => Math.round(wcSamples.filter(s => s.grade === 0).length / 10 * 10) / 10, [wcSamples]);
+  const wcCoverageMi = wcSamples.length / 10;
+  const wcDisplaySamples = React.useMemo(() => {
+    if (wcOrder === 'course') return wcSamples;
+    return [...wcSamples].sort((a, b) => a.grade - b.grade);
+  }, [wcSamples, wcOrder]);
+  const wcMaxAbs = Math.max(...wcSamples.map(s => Math.abs(s.grade)), 25);
+  const wcChartH = 240;
+  const wcLegend = [
+    { label: "\u226520% up", c: "#7B1010" }, { label: "15\u201320%", c: "#A32D2D" },
+    { label: "8\u201315%", c: "#E8943A" }, { label: "0\u20138%", c: "#3CB897" },
+    { label: "0\u20138% down", c: "#7DD3FC" }, { label: "8\u201315% down", c: "#4A9FE8" },
+    { label: "15\u201320% down", c: "#1460A8" }, { label: "\u226520% down", c: "#0C3B6E" },
+  ];
+
   return (
     <div style={{ paddingBottom: 60 }}>
-      <SectionHeader eyebrow="03" title="Segments" sub={`Course broken into legs \u00b7 step through start to finish \u00b7 official aid station miles + ultraPacer elevation \u00b7 ${targetHours}hr target (adjust on Race Day Plan) \u00b7 expand any segment for the full 0.1-mile grade breakdown`} />
+      <SectionHeader eyebrow="03" title="Segments" sub={`Course broken into legs \u00b7 step through start to finish, or expand the whole-course overview below \u00b7 official aid station miles + ultraPacer elevation \u00b7 ${targetHours}hr target (adjust on Race Day Plan)`} />
+
+      <button onClick={() => setShowWholeCourse(v => !v)} style={{
+        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        background: 'var(--bg-raised)', border: '1px solid var(--line)', borderRadius: 10,
+        padding: '12px 16px', marginBottom: showWholeCourse ? 16 : 24, cursor: 'pointer', color: 'var(--ink)',
+      }}>
+        <span style={{ fontSize: 13, fontWeight: 600 }}>
+          {showWholeCourse ? 'Hide' : 'Show'} whole-course overview (all segments at once, sortable by grade)
+        </span>
+        <span style={{ color: 'var(--ink-faint)', fontSize: 13 }}>{showWholeCourse ? '\u2212' : '+'}</span>
+      </button>
+
+      {showWholeCourse && (
+        <div style={{ marginBottom: 28 }}>
+          <div style={{display:'flex', gap:8, marginBottom:20}}>
+            <button onClick={() => setWcOrder('course')} style={{
+              flex:1, padding:'10px 14px', borderRadius:10, border:`1.5px solid ${wcOrder==='course' ? 'var(--climb)' : 'var(--line)'}`,
+              background: wcOrder==='course' ? 'var(--climb)15' : 'var(--bg-card)', color: wcOrder==='course' ? 'var(--climb)' : 'var(--ink-dim)',
+              cursor:'pointer', fontFamily:'var(--display)', fontWeight:600, fontSize:14,
+            }}>Course order (start &rarr; finish)</button>
+            <button onClick={() => setWcOrder('grade')} style={{
+              flex:1, padding:'10px 14px', borderRadius:10, border:`1.5px solid ${wcOrder==='grade' ? 'var(--climb)' : 'var(--line)'}`,
+              background: wcOrder==='grade' ? 'var(--climb)15' : 'var(--bg-card)', color: wcOrder==='grade' ? 'var(--climb)' : 'var(--ink-dim)',
+              cursor:'pointer', fontFamily:'var(--display)', fontWeight:600, fontSize:14,
+            }}>By grade (&minus; &rarr; +)</button>
+          </div>
+
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:10, marginBottom:20}}>
+            <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:12, padding:16}}>
+              <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase'}}>Climbing (&gt;0%)</div>
+              <div style={{fontFamily:'var(--display)', fontSize:22, fontWeight:700, color:'var(--climb)', marginTop:4}}>{wcClimbingMiles} mi</div>
+              <div style={{fontSize:11, color:'var(--ink-faint)', marginTop:2}}>{Math.round(wcClimbingMiles/wcCoverageMi*100)}% of course</div>
+            </div>
+            <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:12, padding:16}}>
+              <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase'}}>Descending (&lt;0%)</div>
+              <div style={{fontFamily:'var(--display)', fontSize:22, fontWeight:700, color:'var(--descent)', marginTop:4}}>{wcDescendingMiles} mi</div>
+              <div style={{fontSize:11, color:'var(--ink-faint)', marginTop:2}}>{Math.round(wcDescendingMiles/wcCoverageMi*100)}% of course</div>
+            </div>
+            <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:12, padding:16}}>
+              <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase'}}>Flat (0%)</div>
+              <div style={{fontFamily:'var(--display)', fontSize:22, fontWeight:700, color:'#3CB897', marginTop:4}}>{wcFlatMiles} mi</div>
+              <div style={{fontSize:11, color:'var(--ink-faint)', marginTop:2}}>{Math.round(wcFlatMiles/wcCoverageMi*100)}% of course</div>
+            </div>
+          </div>
+
+          <div style={{position:'relative', height:wcChartH+40, background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:12, padding:12, overflowX:'auto', marginBottom:12}}>
+            <div style={{position:'relative', height:wcChartH, minWidth: wcDisplaySamples.length * 4, display:'flex', alignItems:'flex-end', gap:1}}>
+              <div style={{position:'absolute', left:0, right:0, top:wcChartH/2, borderTop:'1px solid var(--ink-faint)'}} />
+              {wcDisplaySamples.map((d, i) => {
+                const h = Math.min(Math.abs(d.grade) / wcMaxAbs, 1) * (wcChartH/2 - 8);
+                const isPos = d.grade >= 0;
+                return (
+                  <div
+                    key={i}
+                    onMouseEnter={() => setWcHovered(i)}
+                    onMouseLeave={() => setWcHovered(null)}
+                    style={{
+                      width:3, flexShrink:0, height:Math.max(h,1),
+                      background: gradeColor(d.grade), opacity: wcHovered===null || wcHovered===i ? 1 : 0.35,
+                      alignSelf: isPos ? 'flex-end' : 'flex-start',
+                      marginTop: isPos ? 0 : wcChartH/2,
+                      marginBottom: isPos ? wcChartH/2 : 0,
+                      cursor:'pointer',
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:16, textAlign:'center'}}>
+            {wcOrder === 'course' ? 'Mile 0 (Start) \u2192 Finish \u2014 scroll to see full course' : 'Sorted steepest descent \u2192 steepest climb \u2014 scroll to see full range'}
+          </div>
+
+          {wcHovered !== null && wcDisplaySamples[wcHovered] && (
+            <div style={{background:'var(--bg-raised)', borderRadius:10, padding:'12px 16px', marginBottom:16, display:'flex', gap:20, flexWrap:'wrap'}}>
+              <div><span style={{fontSize:11, color:'var(--ink-faint)'}}>Mile </span><strong>{wcDisplaySamples[wcHovered].mile}</strong></div>
+              <div><span style={{fontSize:11, color:'var(--ink-faint)'}}>Elevation </span><strong>{wcDisplaySamples[wcHovered].elev.toLocaleString()}ft</strong></div>
+              <div><span style={{fontSize:11, color:'var(--ink-faint)'}}>Grade </span><strong style={{color:gradeColor(wcDisplaySamples[wcHovered].grade)}}>{wcDisplaySamples[wcHovered].grade > 0 ? '+' : ''}{wcDisplaySamples[wcHovered].grade}%</strong></div>
+              <div><span style={{fontSize:11, color:'var(--ink-faint)'}}>{gradeLabel(wcDisplaySamples[wcHovered].grade)}</span></div>
+            </div>
+          )}
+
+          <div style={{display:'flex', flexWrap:'wrap', gap:'6px 16px', marginBottom:20}}>
+            {wcLegend.map(l => (
+              <div key={l.label} style={{display:'flex', alignItems:'center', gap:6, fontSize:11.5, color:'var(--ink-dim)'}}>
+                <span style={{width:11, height:11, borderRadius:3, background:l.c, display:'inline-block'}} />
+                {l.label}
+              </div>
+            ))}
+          </div>
+
+          <div style={{fontSize:13, color:'var(--ink-dim)', lineHeight:1.6}}>
+            Course tops out at <strong>+{Math.max(...wcSamples.map(s=>s.grade)).toFixed(1)}%</strong> and <strong>{Math.min(...wcSamples.map(s=>s.grade)).toFixed(1)}%</strong> &mdash;
+            the tallest concentration sits in the 8&ndash;15% climb and descent zones, the bulk of the course being steep-but-sustainable grade rather than rare extreme spikes.
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <button onClick={() => go(-1)} disabled={active === 1} style={{

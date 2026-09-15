@@ -54,12 +54,11 @@ const SECTIONS = [
   { id: 'packlist', label: 'Pack List', eyebrow: '01' },
   { id: 'raceplan', label: 'Race Day Plan', eyebrow: '02' },
   { id: 'segments', label: 'Segments', eyebrow: '03' },
-  { id: 'gradeExplorer', label: 'Grade Explorer', eyebrow: '04' },
-  { id: 'treadmill', label: 'Treadmill Legs', eyebrow: '05' },
-  { id: 'vertcalc', label: 'Vert Calculator', eyebrow: '06' },
-  { id: 'history', label: 'Race History', eyebrow: '07' },
-  { id: 'comparison', label: 'Race Comparison', eyebrow: '08' },
-  { id: 'hillreps', label: 'Hill Reps', eyebrow: '09' },
+  { id: 'treadmill', label: 'Treadmill Legs', eyebrow: '04' },
+  { id: 'vertcalc', label: 'Vert Calculator', eyebrow: '05' },
+  { id: 'history', label: 'Race History', eyebrow: '06' },
+  { id: 'comparison', label: 'Race Comparison', eyebrow: '07' },
+  { id: 'hillreps', label: 'Hill Reps', eyebrow: '08' },
 ];
 
 function AddRaceModal({ onClose, onRaceSelected }) {
@@ -634,7 +633,6 @@ function App() {
     packlist: window.PackListView,
     raceplan: window.RaceDayPlanView,
     segments: window.SegmentsView,
-    gradeExplorer: window.GradeExplorerView,
     treadmill: window.TreadmillView,
     vertcalc: window.VertCalcView,
     history: window.RaceHistoryView,
