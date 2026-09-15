@@ -150,7 +150,7 @@ function computeDerivedSegments(targetTotalHours, targetCarbHr = BASE_CARB_HR, t
   });
 
   let dropBagCounter = 0;
-  return baseSegments.map((s, i) => {
+  const segs = baseSegments.map((s, i) => {
     const hours = hoursList[i];
     const { startClock, endClock } = clockRanges[i];
     const clockS = fmtClock(startClock);
@@ -230,6 +230,48 @@ function computeDerivedSegments(targetTotalHours, targetCarbHr = BASE_CARB_HR, t
       avgPaceDown: fmtPace(ud.avgPaceDownMin),
     };
   });
+
+  // A "(No Aid)" station is a real point on the course (the segments table,
+  // gel/salt targets, and pacing are all still correct as computed above --
+  // you still eat and drink through that stretch) but not a place you can
+  // actually stop, dump, and mix a fresh batch of tailwind or top off plain
+  // water. mixDilutedMl/mixPlainMl/mixTailwind represent what to actually
+  // mix into a flask AT the start of a segment -- separate from
+  // dilutedMl/plainMl/tailwind, which stay as "consumed during this
+  // segment" and are unaffected (still correct for the segments table and
+  // hourly targets either way). A segment starting right after a No Aid
+  // station carries its need forward into whichever earlier segment last
+  // had a real aid station, rather than assuming a remix opportunity that
+  // doesn't exist; chained No Aid stations (unlikely here, but not assumed
+  // away) carry forward correctly since this walks in course order.
+  let carryDiluted = 0, carryPlain = 0, carryTailwind = 0;
+  let mixOwnerIdx = null;
+  segs.forEach((s, i) => {
+    const startsAfterNoAid = /\(no aid\)/i.test(s.from || '');
+    if (startsAfterNoAid && mixOwnerIdx !== null) {
+      carryDiluted += s.dilutedMl;
+      carryPlain += s.plainMl;
+      carryTailwind += s.tailwind;
+      s.mixDilutedMl = 0; s.mixPlainMl = 0; s.mixTailwind = 0;
+    } else {
+      if (mixOwnerIdx !== null) {
+        segs[mixOwnerIdx].mixDilutedMl = carryDiluted;
+        segs[mixOwnerIdx].mixPlainMl = carryPlain;
+        segs[mixOwnerIdx].mixTailwind = carryTailwind;
+      }
+      mixOwnerIdx = i;
+      carryDiluted = s.dilutedMl;
+      carryPlain = s.plainMl;
+      carryTailwind = s.tailwind;
+    }
+  });
+  if (mixOwnerIdx !== null) {
+    segs[mixOwnerIdx].mixDilutedMl = carryDiluted;
+    segs[mixOwnerIdx].mixPlainMl = carryPlain;
+    segs[mixOwnerIdx].mixTailwind = carryTailwind;
+  }
+
+  return segs;
 }
 
 window.computeDerivedSegments = computeDerivedSegments;

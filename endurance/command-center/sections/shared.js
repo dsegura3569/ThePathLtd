@@ -153,6 +153,17 @@ function gradeLabel(g) {
 
 function VesselPlanCompact({ seg, vessels, bags, labelColor }) {
   const totalWater = vessels.reduce((a, v) => a + v.water, 0);
+  const carryingOver = /\(no aid\)/i.test(seg.from || '') && (seg.mixDilutedMl || 0) === 0 && (seg.mixPlainMl || 0) === 0;
+  if (carryingOver) {
+    return (
+      <div style={{marginBottom:14}}>
+        <SmallLabel color={labelColor || 'var(--climb)'}>Vessel plan</SmallLabel>
+        <div style={{fontSize:13, color:'var(--ink-dim)', background:'var(--bg-raised)', borderRadius:10, padding:'12px 16px', marginTop:8}}>
+          No aid at {seg.from} &mdash; carrying what you mixed at the last real aid station through this stretch. Nothing new to mix here.
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{marginBottom:14}}>
       <SmallLabel color={labelColor || 'var(--climb)'}>Vessel plan</SmallLabel>
@@ -319,8 +330,8 @@ function vesselPlan(seg, capacities) {
   const BLADDER = c.bladder ?? 2000;
   const BELT = c.belt ?? 650;
   const HANDHELD = c.handheld ?? 0;
-  const diluted = seg.dilutedMl;
-  const plain = seg.plainMl;
+  const diluted = seg.mixDilutedMl ?? seg.dilutedMl;
+  const plain = seg.mixPlainMl ?? seg.plainMl;
   const vessels = [];
 
   // One named slot per flask actually carried (A, B, C...) rather than a
