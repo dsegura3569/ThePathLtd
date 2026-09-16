@@ -423,8 +423,13 @@ function PackListView({ goToRaceSettings }) {
 
       {(vesselRows.length > 0 || extraGear.length > 0) && (
         <div style={{ marginBottom: 24 }}>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
-            Gear
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-faint)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              Gear
+            </div>
+            <span onClick={goToRaceSettings} style={{ fontSize: 11, color: 'var(--climb)', textDecoration: 'underline', cursor: 'pointer' }}>
+              + add/remove gear
+            </span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 10 }}>
             {vesselRows.map(v => {
