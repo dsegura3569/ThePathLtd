@@ -452,38 +452,88 @@ function DragHandle() {
 // renderRow gets the drag handle already positioned; just render the rest
 // of the row's content after it.
 function DragReorderList({ order, setOrder, renderLabel, extraControls }) {
-  const dragIndex = React.useRef(null);
-  const [overIndex, setOverIndex] = React.useState(null);
+  const dragIndexRef = React.useRef(null);
+  const overIndexRef = React.useRef(null);
+  const rowRefs = React.useRef([]);
+  const [dragIndexState, setDragIndexState] = React.useState(null);
+  const [overIndexState, setOverIndexState] = React.useState(null);
 
-  function handleDrop() {
-    if (dragIndex.current === null || overIndex === null || dragIndex.current === overIndex) {
-      dragIndex.current = null; setOverIndex(null); return;
-    }
-    setOrder(prev => {
-      const next = [...prev];
-      const [moved] = next.splice(dragIndex.current, 1);
-      next.splice(overIndex, 0, moved);
-      return next;
+  function cleanup() {
+    window.removeEventListener('pointermove', handleMove);
+    window.removeEventListener('pointerup', handleUp);
+    window.removeEventListener('pointercancel', handleUp);
+    dragIndexRef.current = null;
+    overIndexRef.current = null;
+    setDragIndexState(null);
+    setOverIndexState(null);
+  }
+
+  function handleMove(e) {
+    const y = e.clientY;
+    let closestIdx = null, closestDist = Infinity, closestRect = null;
+    rowRefs.current.forEach((el, idx) => {
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      const dist = Math.abs(y - mid);
+      if (dist < closestDist) { closestDist = dist; closestIdx = idx; closestRect = rect; }
     });
-    dragIndex.current = null; setOverIndex(null);
+    if (closestIdx === null) return;
+    // Which half of that row the pointer is in decides before-vs-after --
+    // otherwise dropping anywhere in the bottom half of a row still lands
+    // before it, which reads as "inaccurate" when you're aiming to drop
+    // something directly under a specific row.
+    const rowMid = closestRect.top + closestRect.height / 2;
+    let target = y < rowMid ? closestIdx : closestIdx + 1;
+    // Dragging downward past its own start removes one slot ahead of the
+    // target, so the "after" target needs pulling back by one to still
+    // land in the right spot once the splice-out happens.
+    if (dragIndexRef.current !== null && target > dragIndexRef.current) target -= 1;
+    target = Math.max(0, Math.min(order.length - 1, target));
+    if (target !== overIndexRef.current) {
+      overIndexRef.current = target;
+      setOverIndexState(target);
+    }
+  }
+
+  function handleUp() {
+    const from = dragIndexRef.current, to = overIndexRef.current;
+    if (from !== null && to !== null && from !== to) {
+      setOrder(prev => {
+        const next = [...prev];
+        const [moved] = next.splice(from, 1);
+        next.splice(to, 0, moved);
+        return next;
+      });
+    }
+    cleanup();
+  }
+
+  function handlePointerDown(e, i) {
+    e.preventDefault();
+    dragIndexRef.current = i;
+    overIndexRef.current = i;
+    setDragIndexState(i);
+    setOverIndexState(i);
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+    window.addEventListener('pointercancel', handleUp);
   }
 
   return order.map((key, i) => (
     <div
       key={key}
-      draggable
-      onDragStart={() => { dragIndex.current = i; }}
-      onDragOver={e => { e.preventDefault(); if (overIndex !== i) setOverIndex(i); }}
-      onDragEnd={handleDrop}
-      onDrop={e => { e.preventDefault(); handleDrop(); }}
+      ref={el => { rowRefs.current[i] = el; }}
       style={{
         display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0',
         borderTop: i > 0 ? '1px solid var(--line)' : 'none',
-        background: overIndex === i ? 'var(--bg-raised)' : 'transparent',
-        opacity: dragIndex.current === i ? 0.4 : 1,
+        background: overIndexState === i ? 'var(--bg-raised)' : 'transparent',
+        opacity: dragIndexState === i ? 0.4 : 1,
       }}
     >
-      <DragHandle />
+      <div onPointerDown={e => handlePointerDown(e, i)} style={{ cursor: 'grab', touchAction: 'none', display: 'flex' }}>
+        <DragHandle />
+      </div>
       <span style={{ flex: 1, fontSize: 13, color: 'var(--ink)' }}>{renderLabel(key, i)}</span>
       {extraControls && extraControls(key, i)}
     </div>

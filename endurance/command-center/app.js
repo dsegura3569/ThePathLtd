@@ -422,11 +422,13 @@ function Nav({ active, setActive, open, setOpen, onGear, raceId, onSelectRace })
             </div>
             <div style={{display:'flex', alignItems:'center', gap:10}}>
               <RacePicker raceId={raceId} onSelectRace={onSelectRace} />
-              <button onClick={onGear} aria-label="Overview settings" title="Overview settings" style={{
-                background:'none', border:'1px solid var(--line)', borderRadius:8, width:36, height:36,
-                color:'var(--ink-faint)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-                fontSize:16,
-              }}>⚙️</button>
+              {active === 'overview' && (
+                <button onClick={onGear} aria-label="Overview settings" title="Overview settings" style={{
+                  background:'none', border:'1px solid var(--line)', borderRadius:8, width:36, height:36,
+                  color:'var(--ink-faint)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:16,
+                }}>⚙️</button>
+              )}
             </div>
           </div>
         </div>

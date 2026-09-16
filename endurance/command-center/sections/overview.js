@@ -1183,6 +1183,9 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
   // entry in the page-layout list below (draggable/hideable like any other
   // section) rather than a separate toggle.
   const [showPageLayoutPanel, setShowPageLayoutPanel] = React.useState(false);
+  const [expandPageLayout, setExpandPageLayout] = React.useState(true);
+  const [expandConditionsStats, setExpandConditionsStats] = React.useState(true);
+  const [expandCourseProfileStats, setExpandCourseProfileStats] = React.useState(true);
   React.useEffect(() => {
     if (externalCardPanelOpen !== undefined) setShowPageLayoutPanel(externalCardPanelOpen);
   }, [externalCardPanelOpen]);
@@ -1305,7 +1308,12 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
               }}>&#10005;</button>
             </div>
 
-            <div style={{fontSize:11, fontFamily:'var(--mono)', color:'var(--climb)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8}}>Page Layout</div>
+            <div onClick={() => setExpandPageLayout(v => !v)} style={{display:'flex', alignItems:'center', gap:6, cursor:'pointer', marginBottom:8}}>
+              <span style={{fontSize:10, color:'var(--ink-faint)', transform: expandPageLayout ? 'rotate(90deg)' : 'none', transition:'transform 0.15s', display:'inline-block'}}>&#9656;</span>
+              <div style={{fontSize:11, fontFamily:'var(--mono)', color:'var(--climb)', textTransform:'uppercase', letterSpacing:'0.05em'}}>Page Layout</div>
+            </div>
+            {expandPageLayout && (
+              <>
             <div style={{fontSize:12, color:'var(--ink-faint)', marginBottom:8}}>Drag to reorder sections, or toggle to show/hide.</div>
             <window.DragReorderList
               order={pageSectionOrder}
@@ -1323,11 +1331,18 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
               }}
             />
             <button onClick={() => { setPageSectionOrder(pageSectionDefaultOrder); setPageSectionHidden([]); }} style={{
-              marginTop:8, marginBottom:24, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
+              marginTop:8, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
               border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
             }}>Reset to default order</button>
+              </>
+            )}
 
-            <div style={{fontSize:11, fontFamily:'var(--mono)', color:'var(--climb)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8, borderTop:'1px solid var(--line)', paddingTop:20}}>Course &amp; Conditions Stats</div>
+            <div onClick={() => setExpandConditionsStats(v => !v)} style={{display:'flex', alignItems:'center', gap:6, cursor:'pointer', marginBottom:8, borderTop:'1px solid var(--line)', paddingTop:20, marginTop:24}}>
+              <span style={{fontSize:10, color:'var(--ink-faint)', transform: expandConditionsStats ? 'rotate(90deg)' : 'none', transition:'transform 0.15s', display:'inline-block'}}>&#9656;</span>
+              <div style={{fontSize:11, fontFamily:'var(--mono)', color:'var(--climb)', textTransform:'uppercase', letterSpacing:'0.05em'}}>Course &amp; Conditions Stats</div>
+            </div>
+            {expandConditionsStats && (
+              <>
             <window.DragReorderList
               order={statOrder}
               setOrder={setStatOrder}
@@ -1344,11 +1359,18 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
               }}
             />
             <button onClick={resetStats} style={{
-              marginTop:8, marginBottom:24, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
+              marginTop:8, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
               border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
             }}>Reset to default order</button>
+              </>
+            )}
 
-            <div style={{fontSize:11, fontFamily:'var(--mono)', color:'var(--climb)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8, borderTop:'1px solid var(--line)', paddingTop:20}}>Course Profile Stats</div>
+            <div onClick={() => setExpandCourseProfileStats(v => !v)} style={{display:'flex', alignItems:'center', gap:6, cursor:'pointer', marginBottom:8, borderTop:'1px solid var(--line)', paddingTop:20, marginTop:24}}>
+              <span style={{fontSize:10, color:'var(--ink-faint)', transform: expandCourseProfileStats ? 'rotate(90deg)' : 'none', transition:'transform 0.15s', display:'inline-block'}}>&#9656;</span>
+              <div style={{fontSize:11, fontFamily:'var(--mono)', color:'var(--climb)', textTransform:'uppercase', letterSpacing:'0.05em'}}>Course Profile Stats</div>
+            </div>
+            {expandCourseProfileStats && (
+              <>
             <window.DragReorderList
               order={courseProfileStatOrder}
               setOrder={setCourseProfileStatOrder}
@@ -1368,6 +1390,8 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
               marginTop:8, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
               border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
             }}>Reset to default order</button>
+              </>
+            )}
           </div>
         </>
       )}
