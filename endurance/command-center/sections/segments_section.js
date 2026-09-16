@@ -71,15 +71,6 @@ function SegmentsView({ goToRaceSettings }) {
 
   const hasDropBag = rangeSegs.some(s => /drop bag|\(db\d\)/i.test(s.to)) || rangeGradeSegs.some(s => /drop bag|\(db\d\)/i.test(s.to));
 
-  function go(delta) {
-    setRange_(prev => {
-      const next = prev.start + delta;
-      if (next >= 1 && next + prev.size - 1 <= total) return { start: next, size: prev.size };
-      return prev;
-    });
-    setHovered(null);
-  }
-
   function setZoom(newSizeOrFn) {
     setRange_(prev => {
       const requestedSize = typeof newSizeOrFn === 'function' ? newSizeOrFn(prev.size) : newSizeOrFn;
@@ -171,7 +162,6 @@ function SegmentsView({ goToRaceSettings }) {
     },
   ];
   const metricKeys = metricDefs.map(m => m.key);
-  const [showMetricsPanel, setShowMetricsPanel] = React.useState(false);
   const [metricsOrder, setMetricsOrder] = window.useBlobField(
     blobState, setBlobState, 'trailExplorerMetricsOrder', metricKeys,
     saved => (Array.isArray(saved) && saved.every(k => metricKeys.includes(k)) && metricKeys.every(k => saved.includes(k))) ? saved : undefined
@@ -181,6 +171,31 @@ function SegmentsView({ goToRaceSettings }) {
     saved => Array.isArray(saved) ? saved.filter(k => metricKeys.includes(k)) : undefined
   );
   const orderedMetrics = metricsOrder.map(k => metricDefs.find(m => m.key === k)).filter(Boolean).filter(m => !metricsHidden.includes(m.key));
+
+  // One gear for everything on this page below the chart -- Start/End
+  // cards, cutoff, metrics, fuel & hydration, vessel plan, and the data
+  // table are all draggable/hideable from here, instead of scattering a
+  // separate gear per widget.
+  const WIDGET_SECTIONS = [
+    { id: 'startEnd', label: 'Start/End cards' },
+    { id: 'cutoff', label: 'Cutoff & aid stations' },
+    { id: 'metrics', label: 'Metrics' },
+    { id: 'fuelHydration', label: 'Fuel & Hydration' },
+    { id: 'vesselPlan', label: 'Vessel Plan' },
+    { id: 'dataTable', label: 'Mile-by-mile data table' },
+  ];
+  const widgetDefaultOrder = WIDGET_SECTIONS.map(s => s.id);
+  const [widgetOrder, setWidgetOrder] = window.useBlobField(
+    blobState, setBlobState, 'trailExplorerWidgetOrder', widgetDefaultOrder,
+    saved => (Array.isArray(saved) && saved.length === widgetDefaultOrder.length && saved.every(id => widgetDefaultOrder.includes(id))) ? saved : undefined
+  );
+  const [widgetHidden, setWidgetHidden] = window.useBlobField(
+    blobState, setBlobState, 'trailExplorerWidgetHidden', [],
+    saved => Array.isArray(saved) ? saved.filter(id => widgetDefaultOrder.includes(id)) : undefined
+  );
+  function widgetStyle(id) { return { order: widgetOrder.indexOf(id), display: widgetHidden.includes(id) ? 'none' : undefined }; }
+  const [showPageGear, setShowPageGear] = React.useState(false);
+
 
   // Detailed grade chart's own scale -- independent of the elevation
   // profile chart above, since grade (%) and elevation (ft) are different
@@ -226,7 +241,7 @@ function SegmentsView({ goToRaceSettings }) {
     const markers = [];
     const seenMiles = new Set();
     if (gradeSegments[0].miS >= gSeg.miS && gradeSegments[0].miS <= lastGSeg.miE) {
-      markers.push({ mile: gradeSegments[0].miS, name: gradeSegments[0].from, amenities: {}, pacer: false, hasDropBag: false });
+      markers.push({ mile: gradeSegments[0].miS, name: gradeSegments[0].from, amenities: {}, pacer: false, hasDropBag: false, segId: gradeSegments[0].id });
       seenMiles.add(gradeSegments[0].miS);
     }
     gradeSegments.forEach((s, idx) => {
@@ -237,6 +252,7 @@ function SegmentsView({ goToRaceSettings }) {
           amenities: (correspondingSeg && correspondingSeg.amenities) || {},
           pacer: !!(correspondingSeg && correspondingSeg.pacer),
           hasDropBag: !!(correspondingSeg && correspondingSeg.amenities && correspondingSeg.amenities.dropBag),
+          segId: s.id,
         });
         seenMiles.add(s.miE);
       }
@@ -260,73 +276,99 @@ function SegmentsView({ goToRaceSettings }) {
   }
 
   return (
-    <div style={{ paddingBottom: 60 }}>
-      <SectionHeader eyebrow="03" title="Trail Explorer" sub={
-        <>Full course by default, or pick any segment (or range of segments) below &middot; official aid station miles + ultraPacer elevation &middot; {targetHours}hr target (
-          <span onClick={goToRaceSettings} style={{ color: 'var(--climb)', textDecoration: 'underline', cursor: 'pointer' }}>adjust in Race Settings</span>
-        )</>
-      } />
+    <div style={{ paddingBottom: 60, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <SectionHeader eyebrow="03" title="Trail Explorer" sub={
+          <>{targetHours}hr target (
+            <span onClick={goToRaceSettings} style={{ color: 'var(--climb)', textDecoration: 'underline', cursor: 'pointer' }}>adjust in Race Settings</span>
+          )</>
+        } />
+        <button onClick={() => setShowPageGear(v => !v)} aria-label="Trail Explorer settings" title="Move, reorder, or hide widgets on this page" style={{
+          background: 'none', border: '1px solid var(--line)', borderRadius: 6, width: 28, height: 28, flexShrink: 0, marginTop: 4,
+          color: showPageGear ? 'var(--climb)' : 'var(--ink-faint)', cursor: 'pointer', fontSize: 14,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>&#9881;&#65039;</button>
+      </div>
 
-      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8, marginBottom: 16 }}>
-        {segments.map(s => {
-          const inRange = s.id >= rangeStart && s.id <= rangeEnd;
-          return (
-            <button
-              key={s.id}
-              onClick={(e) => selectChip(s.id, e.shiftKey)}
-              title="Click to select, shift-click to select a range"
-              style={{
-                flexShrink: 0, padding: '6px 12px', borderRadius: 8,
-                border: `1.5px solid ${inRange ? 'var(--climb)' : 'var(--line)'}`,
-                background: inRange ? 'var(--climb)1f' : 'var(--bg-card)',
-                color: inRange ? 'var(--climb)' : 'var(--ink-dim)',
-                cursor: 'pointer', fontSize: 11, fontFamily: 'var(--mono)', whiteSpace: 'nowrap',
+      {showPageGear && (
+        <>
+          <div onClick={() => setShowPageGear(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999 }} />
+          <div style={{
+            position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(420px, 92vw)', zIndex: 1000,
+            background: 'var(--bg-card)', borderLeft: '1px solid var(--line)', boxShadow: '-8px 0 28px rgba(0,0,0,0.45)',
+            overflowY: 'auto', padding: 16,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ fontFamily: 'var(--display)', fontWeight: 600, fontSize: 16 }}>Trail Explorer Settings</div>
+              <button onClick={() => setShowPageGear(false)} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>&#10005;</button>
+            </div>
+
+            <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--climb)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Page Widgets</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 8 }}>Drag to reorder, or toggle to show/hide.</div>
+            <window.DragReorderList
+              order={widgetOrder}
+              setOrder={setWidgetOrder}
+              renderLabel={id => WIDGET_SECTIONS.find(x => x.id === id).label}
+              extraControls={id => {
+                const vis = !widgetHidden.includes(id);
+                return (
+                  <button onClick={() => setWidgetHidden(prev => vis ? [...prev, id] : prev.filter(x => x !== id))} aria-label={vis ? 'Hide widget' : 'Show widget'} style={{
+                    width: 26, height: 26, borderRadius: 6, border: '1px solid var(--line)',
+                    background: vis ? 'var(--climb)' : 'var(--bg-raised)',
+                    color: vis ? '#12151A' : 'var(--ink-faint)', cursor: 'pointer', fontSize: 16, lineHeight: 1,
+                  }}>{vis ? '\u2212' : '+'}</button>
+                );
               }}
-            >Seg {s.id}</button>
-          );
-        })}
-      </div>
+            />
+            <button onClick={() => { setWidgetOrder(widgetDefaultOrder); setWidgetHidden([]); }} style={{
+              marginTop: 8, marginBottom: 24, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--ink-faint)', background: 'none',
+              border: 'none', textDecoration: 'underline', cursor: 'pointer', padding: 0,
+            }}>Reset to default</button>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <button onClick={() => go(-1)} disabled={rangeStart === 1} style={{
-          width: 40, height: 40, borderRadius: 10, border: '1px solid var(--line)',
-          background: 'var(--bg-raised)', color: rangeStart === 1 ? 'var(--ink-faint)' : 'var(--ink)',
-          cursor: rangeStart === 1 ? 'not-allowed' : 'pointer', fontSize: 16,
-        }}>&larr;</button>
+            <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--climb)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, borderTop: '1px solid var(--line)', paddingTop: 20 }}>Metrics</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 8 }}>Which stats show in the Metrics widget, and in what order.</div>
+            <window.DragReorderList
+              order={metricsOrder}
+              setOrder={setMetricsOrder}
+              renderLabel={key => metricDefs.find(x => x.key === key).label}
+              extraControls={key => {
+                const vis = !metricsHidden.includes(key);
+                return (
+                  <button onClick={() => setMetricsHidden(prev => vis ? [...prev, key] : prev.filter(k => k !== key))} aria-label={vis ? 'Hide metric' : 'Show metric'} style={{
+                    width: 26, height: 26, borderRadius: 6, border: '1px solid var(--line)',
+                    background: vis ? 'var(--climb)' : 'var(--bg-raised)',
+                    color: vis ? '#12151A' : 'var(--ink-faint)', cursor: 'pointer', fontSize: 16, lineHeight: 1,
+                  }}>{vis ? '\u2212' : '+'}</button>
+                );
+              }}
+            />
+            <button onClick={() => { setMetricsOrder(metricKeys); setMetricsHidden([]); }} style={{
+              marginTop: 8, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--ink-faint)', background: 'none',
+              border: 'none', textDecoration: 'underline', cursor: 'pointer', padding: 0,
+            }}>Reset to default</button>
+          </div>
+        </>
+      )}
 
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-faint)' }}>
-            {isSingle ? `SEGMENT ${rangeStart} OF ${total}` : rangeSize === total ? `FULL COURSE \u00b7 ${total} SEGMENTS` : `SEGMENTS ${rangeStart}\u2013${rangeEnd} OF ${total}`}
-          </div>
-          <div style={{ fontFamily: 'var(--display)', fontSize: 20, fontWeight: 600, marginTop: 2 }}>
-            {gSeg.from} &rarr; {lastGSeg.to}
-          </div>
+      <div style={{ textAlign: 'center', marginBottom: 6 }}>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-faint)' }}>
+          {isSingle ? `SEGMENT ${rangeStart} OF ${total}` : rangeSize === total ? `FULL COURSE \u00b7 ${total} SEGMENTS` : `SEGMENTS ${rangeStart}\u2013${rangeEnd} OF ${total}`}
         </div>
-
-        <button onClick={() => go(1)} disabled={rangeEnd === total} style={{
-          width: 40, height: 40, borderRadius: 10, border: '1px solid var(--line)',
-          background: 'var(--bg-raised)', color: rangeEnd === total ? 'var(--ink-faint)' : 'var(--ink)',
-          cursor: rangeEnd === total ? 'not-allowed' : 'pointer', fontSize: 16,
-        }}>&rarr;</button>
+        <div style={{ fontFamily: 'var(--display)', fontSize: 20, fontWeight: 600, marginTop: 2 }}>
+          {gSeg.from} &rarr; {lastGSeg.to}
+        </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
-        <button onClick={() => setZoom(s => s - 1)} disabled={rangeSize === 1} title="Zoom in (fewer segments)" style={{
-          width: 30, height: 30, borderRadius: 8, border: '1px solid var(--line)', background: 'var(--bg-raised)',
-          color: rangeSize === 1 ? 'var(--ink-faint)' : 'var(--ink)', cursor: rangeSize === 1 ? 'not-allowed' : 'pointer', fontSize: 15,
-        }}>&minus;</button>
-        <span style={{ fontSize: 11, color: 'var(--ink-faint)', fontFamily: 'var(--mono)', minWidth: 130, textAlign: 'center' }}>
-          {rangeSize} segment{rangeSize === 1 ? '' : 's'} selected
-        </span>
-        <button onClick={() => setZoom(s => s + 1)} disabled={rangeSize === total} title="Zoom out (more segments)" style={{
-          width: 30, height: 30, borderRadius: 8, border: '1px solid var(--line)', background: 'var(--bg-raised)',
-          color: rangeSize === total ? 'var(--ink-faint)' : 'var(--ink)', cursor: rangeSize === total ? 'not-allowed' : 'pointer', fontSize: 15,
-        }}>+</button>
-        <button onClick={() => setZoom(total)} disabled={rangeSize === total} style={{
-          marginLeft: 8, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--climb)', background: 'none',
-          border: 'none', textDecoration: 'underline', cursor: rangeSize === total ? 'default' : 'pointer', padding: 0,
-          opacity: rangeSize === total ? 0.4 : 1,
-        }}>Zoom to full course</button>
+      <div style={{ textAlign: 'center', marginBottom: 16 }}>
+        <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>Click a marker below to select a segment, shift-click another to select a range.</span>
+        {rangeSize !== total && (
+          <>
+            {' \u00b7 '}
+            <span onClick={() => setZoom(total)} style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--climb)', textDecoration: 'underline', cursor: 'pointer' }}>
+              Zoom to full course
+            </span>
+          </>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -383,12 +425,15 @@ function SegmentsView({ goToRaceSettings }) {
               fill={gSeg.color} opacity="0.12"
             />
             {aidStationMarkers.map((m, i) => {
+              const closest = rangeData.reduce((best, d) => Math.abs(d.mile - m.mile) < Math.abs(best.mile - m.mile) ? d : best, rangeData[0]);
               const x = mileToPercent(m.mile, rangeData);
+              const y = chartH - ((closest.elev - minElev) / range) * (chartH - 10) - 5;
+              const color = m.hasDropBag ? 'var(--db)' : 'var(--climb)';
               return (
-                <line key={'aid'+i} x1={x} x2={x} y1={5} y2={chartH - 5}
-                  stroke={m.hasDropBag ? 'var(--db)' : 'var(--ink-faint)'} strokeWidth={m.hasDropBag ? 1.4 : 0.8}
-                  strokeDasharray={m.hasDropBag ? undefined : '2,2'} vectorEffect="non-scaling-stroke"
-                  style={{ cursor: 'pointer' }}
+                <circle key={'aid'+i} cx={x} cy={y} r={m.hasDropBag ? 3.4 : 2.6}
+                  fill={color} stroke="var(--bg-card)" strokeWidth={0.8}
+                  vectorEffect="non-scaling-stroke" style={{ cursor: 'pointer' }}
+                  onClick={(e) => selectChip(m.segId, e.shiftKey)}
                   onMouseEnter={() => setMarkerHovered({ type: 'aid', ...m })}
                   onMouseLeave={() => setMarkerHovered(null)}
                 />
@@ -399,7 +444,7 @@ function SegmentsView({ goToRaceSettings }) {
               const y = chartH - ((p.elev - minElev) / range) * (chartH - 10) - 5;
               return (
                 <circle key={'pt'+i} cx={x} cy={y} r={2.2}
-                  fill={p.kind === 'high' ? 'var(--climb)' : 'var(--descent)'} stroke="var(--bg-card)" strokeWidth={0.8}
+                  fill={p.kind === 'high' ? '#E8484A' : '#4A9FE8'} stroke="var(--bg-card)" strokeWidth={0.8}
                   vectorEffect="non-scaling-stroke" style={{ cursor: 'pointer' }}
                   onMouseEnter={() => setMarkerHovered({ type: p.kind, mile: p.mile, elev: p.elev })}
                   onMouseLeave={() => setMarkerHovered(null)}
@@ -410,13 +455,13 @@ function SegmentsView({ goToRaceSettings }) {
           {markerHovered && (
             <div style={{
               position: 'absolute', left: `${mileToPercent(markerHovered.mile, rangeData)}%`, top: 8, transform: 'translateX(-50%)',
-              background: 'var(--bg-raised)', border: `1px solid ${markerHovered.type === 'aid' ? (markerHovered.hasDropBag ? 'var(--db)' : 'var(--ink-faint)') : markerHovered.type === 'high' ? 'var(--climb)' : 'var(--descent)'}`,
+              background: 'var(--bg-raised)', border: `1px solid ${markerHovered.type === 'aid' ? (markerHovered.hasDropBag ? 'var(--db)' : 'var(--climb)') : markerHovered.type === 'high' ? '#E8484A' : '#4A9FE8'}`,
               borderRadius: 8, padding: '8px 10px', fontSize: 10.5, color: 'var(--ink)',
               whiteSpace: 'nowrap', zIndex: 20, pointerEvents: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
             }}>
               {markerHovered.type === 'aid' ? (
                 <>
-                  <div style={{ fontWeight: 700, color: markerHovered.hasDropBag ? 'var(--db)' : 'var(--ink)' }}>{markerHovered.name}</div>
+                  <div style={{ fontWeight: 700, color: markerHovered.hasDropBag ? 'var(--db)' : 'var(--climb)' }}>{markerHovered.name}</div>
                   <div style={{ color: 'var(--ink-faint)' }}>Mile {markerHovered.mile}</div>
                   <div style={{ display: 'flex', gap: 5, marginTop: 4, flexWrap: 'wrap', maxWidth: 180 }}>
                     {markerHovered.amenities.water && <AmenityBadge label="Water" />}
@@ -428,7 +473,7 @@ function SegmentsView({ goToRaceSettings }) {
                 </>
               ) : (
                 <>
-                  <div style={{ fontWeight: 700, color: markerHovered.type === 'high' ? 'var(--climb)' : 'var(--descent)' }}>{markerHovered.type === 'high' ? 'High point' : 'Low point'}</div>
+                  <div style={{ fontWeight: 700, color: markerHovered.type === 'high' ? '#E8484A' : '#4A9FE8' }}>{markerHovered.type === 'high' ? 'High point' : 'Low point'}</div>
                   <div>{markerHovered.elev.toLocaleString()} ft</div>
                   <div style={{ color: 'var(--ink-faint)' }}>Mile {markerHovered.mile}</div>
                 </>
@@ -451,14 +496,14 @@ function SegmentsView({ goToRaceSettings }) {
               </div>
             );
           })}
-          <div style={{ position: 'absolute', left: 44, right: 12, top: 12, bottom: 44, display: 'flex', alignItems: 'center', gap: 1, overflowX: chartData.length > 80 ? 'auto' : 'visible' }}>
+          <div style={{ position: 'absolute', left: 44, right: 12, top: 12, bottom: 44, display: 'flex', alignItems: 'center', gap: chartData.length > 200 ? 0 : 1 }}>
             {chartData.map((d, i) => {
               const isPos = d.grade >= 0;
               const barH = Math.abs(d.grade) / maxAbsGrade * (gradeChartH * 0.45);
               const color = gradeColor(d.grade);
               const isHov = hovered === i;
               return (
-                <div key={i} style={{ flex: chartData.length > 80 ? '0 0 4px' : 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', position: 'relative' }}
+                <div key={i} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', position: 'relative' }}
                   onMouseEnter={() => setHovered(i)}
                   onMouseLeave={() => setHovered(null)}
                   onTouchStart={() => setHovered(i === hovered ? null : i)}
@@ -493,11 +538,12 @@ function SegmentsView({ goToRaceSettings }) {
                 const x = mileToPercent(m.mile, chartData);
                 return (
                   <div key={'aid' + i}
+                    onClick={(e) => selectChip(m.segId, e.shiftKey)}
                     onMouseEnter={() => setMarkerHovered({ type: 'aid', ...m })}
                     onMouseLeave={() => setMarkerHovered(null)}
                     style={{
                       position: 'absolute', left: `${x}%`, top: 0, bottom: 0, width: 1,
-                      borderLeft: `${m.hasDropBag ? 1.4 : 0.8}px ${m.hasDropBag ? 'solid' : 'dashed'} ${m.hasDropBag ? 'var(--db)' : 'var(--ink-faint)'}`,
+                      borderLeft: `${m.hasDropBag ? 2 : 1.4}px solid ${m.hasDropBag ? 'var(--db)' : 'var(--climb)'}`,
                       pointerEvents: 'auto', cursor: 'pointer',
                     }}
                   />
@@ -511,7 +557,7 @@ function SegmentsView({ goToRaceSettings }) {
                     onMouseLeave={() => setMarkerHovered(null)}
                     style={{
                       position: 'absolute', left: `${x}%`, top: '50%', width: 8, height: 8, marginLeft: -4, marginTop: -4,
-                      borderRadius: '50%', background: p.kind === 'high' ? 'var(--climb)' : 'var(--descent)',
+                      borderRadius: '50%', background: p.kind === 'high' ? '#E8484A' : '#4A9FE8',
                       border: '1px solid var(--bg-card)', pointerEvents: 'auto', cursor: 'pointer',
                     }}
                   />
@@ -520,13 +566,13 @@ function SegmentsView({ goToRaceSettings }) {
               {markerHovered && (
                 <div style={{
                   position: 'absolute', left: `${mileToPercent(markerHovered.mile, chartData)}%`, top: -8, transform: 'translate(-50%, -100%)',
-                  background: 'var(--bg-raised)', border: `1px solid ${markerHovered.type === 'aid' ? (markerHovered.hasDropBag ? 'var(--db)' : 'var(--ink-faint)') : markerHovered.type === 'high' ? 'var(--climb)' : 'var(--descent)'}`,
+                  background: 'var(--bg-raised)', border: `1px solid ${markerHovered.type === 'aid' ? (markerHovered.hasDropBag ? 'var(--db)' : 'var(--climb)') : markerHovered.type === 'high' ? '#E8484A' : '#4A9FE8'}`,
                   borderRadius: 8, padding: '8px 10px', fontSize: 10.5, color: 'var(--ink)',
                   whiteSpace: 'nowrap', zIndex: 20, boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
                 }}>
                   {markerHovered.type === 'aid' ? (
                     <>
-                      <div style={{ fontWeight: 700, color: markerHovered.hasDropBag ? 'var(--db)' : 'var(--ink)' }}>{markerHovered.name}</div>
+                      <div style={{ fontWeight: 700, color: markerHovered.hasDropBag ? 'var(--db)' : 'var(--climb)' }}>{markerHovered.name}</div>
                       <div style={{ color: 'var(--ink-faint)' }}>Mile {markerHovered.mile}</div>
                       <div style={{ display: 'flex', gap: 5, marginTop: 4, flexWrap: 'wrap', maxWidth: 180 }}>
                         {markerHovered.amenities.water && <AmenityBadge label="Water" />}
@@ -538,7 +584,7 @@ function SegmentsView({ goToRaceSettings }) {
                     </>
                   ) : (
                     <>
-                      <div style={{ fontWeight: 700, color: markerHovered.type === 'high' ? 'var(--climb)' : 'var(--descent)' }}>{markerHovered.type === 'high' ? 'High point' : 'Low point'}</div>
+                      <div style={{ fontWeight: 700, color: markerHovered.type === 'high' ? '#E8484A' : '#4A9FE8' }}>{markerHovered.type === 'high' ? 'High point' : 'Low point'}</div>
                       <div>{markerHovered.elev.toLocaleString()} ft</div>
                       <div style={{ color: 'var(--ink-faint)' }}>Mile {markerHovered.mile}</div>
                     </>
@@ -585,6 +631,7 @@ function SegmentsView({ goToRaceSettings }) {
         </div>
       </div>
 
+      <div style={widgetStyle('startEnd')}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 14 }}>
           <SmallLabel>Start</SmallLabel>
@@ -606,7 +653,9 @@ function SegmentsView({ goToRaceSettings }) {
           )}
         </div>
       </div>
+      </div>
 
+      <div style={widgetStyle('cutoff')}>
       <div style={{
         background: rangeMarginOk ? 'var(--bg-card)' : 'rgba(232,148,58,0.1)',
         border: `1px solid ${rangeMarginOk ? 'var(--line)' : 'var(--climb)'}`,
@@ -641,46 +690,16 @@ function SegmentsView({ goToRaceSettings }) {
           {rangeAidStations.length} aid station{rangeAidStations.length === 1 ? '' : 's'} in this range {'\u2014'} marked on the chart below (<span style={{ color: 'var(--db)' }}>purple</span> = drop bag); hover a marker for name, mile, and amenities.
         </div>
       )}
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <SmallLabel>Metrics</SmallLabel>
-        <button onClick={() => setShowMetricsPanel(v => !v)} aria-label="Customize metrics" title="Reorder or hide metrics" style={{
-          marginLeft: 'auto', background: 'none', border: '1px solid var(--line)', borderRadius: 6, width: 26, height: 26,
-          color: showMetricsPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor: 'pointer', fontSize: 13,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>&#9881;&#65039;</button>
       </div>
 
-      {showMetricsPanel && (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 10, padding: 12, marginBottom: 16, maxWidth: 460 }}>
-          <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 8 }}>Drag to reorder, or toggle to show/hide.</div>
-          <window.DragReorderList
-            order={metricsOrder}
-            setOrder={setMetricsOrder}
-            renderLabel={key => metricDefs.find(x => x.key === key).label}
-            extraControls={key => {
-              const vis = !metricsHidden.includes(key);
-              return (
-                <button onClick={() => setMetricsHidden(prev => vis ? [...prev, key] : prev.filter(k => k !== key))} aria-label={vis ? 'Hide metric' : 'Show metric'} style={{
-                  width: 26, height: 26, borderRadius: 6, border: '1px solid var(--line)',
-                  background: vis ? 'var(--climb)' : 'var(--bg-raised)',
-                  color: vis ? '#12151A' : 'var(--ink-faint)', cursor: 'pointer', fontSize: 16, lineHeight: 1,
-                }}>{vis ? '\u2212' : '+'}</button>
-              );
-            }}
-          />
-          <button onClick={() => { setMetricsOrder(metricKeys); setMetricsHidden([]); }} style={{
-            marginTop: 10, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--ink-faint)', background: 'none',
-            border: 'none', textDecoration: 'underline', cursor: 'pointer', padding: 0,
-          }}>Reset to default</button>
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginBottom: 28 }}>
+      <div style={widgetStyle('metrics')}>
+      <SmallLabel>Metrics</SmallLabel>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginTop: 8, marginBottom: 28 }}>
         {orderedMetrics.map(m => <StatBox key={m.key} label={m.label} value={m.value} sub={m.sub} color={m.color} />)}
       </div>
+      </div>
 
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: 28, ...widgetStyle('fuelHydration') }}>
         <SmallLabel>Fuel &amp; Hydration</SmallLabel>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginTop: 10, marginBottom: 14 }}>
           <StatBox label="Carbs/hr" value={`${pSeg.actualCarbHr}g`} sub={isSingle ? undefined : 'target rate, constant'} />
@@ -743,6 +762,7 @@ function SegmentsView({ goToRaceSettings }) {
         </div>
       </div>
 
+      <div style={widgetStyle('vesselPlan')}>
       {isSingle ? (
         <VesselPlanCompact seg={pSeg} vessels={vessels} bags={popsicleBagsForVessels(vessels)} labelColor={undefined} />
       ) : (
@@ -750,7 +770,9 @@ function SegmentsView({ goToRaceSettings }) {
           Vessel-by-vessel packing depends on exactly where you mix and refill, which varies stop to stop — see Pack List for the full carrying plan for each aid-to-aid stretch in this range.
         </div>
       )}
+      </div>
 
+      <div style={widgetStyle('dataTable')}>
       <button onClick={() => setShowDetail(v => !v)} style={{
         width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         background: 'var(--bg-raised)', border: '1px solid var(--line)', borderRadius: 10,
@@ -791,6 +813,7 @@ function SegmentsView({ goToRaceSettings }) {
           </div>
         </div>
       )}
+      </div>
 
       {pSeg.conditions && (
         <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 14 }}>{pSeg.conditions}</div>
