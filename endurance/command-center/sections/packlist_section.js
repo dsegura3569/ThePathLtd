@@ -65,12 +65,26 @@ function TotalStat({ label, value, color }) {
   );
 }
 
-function PackCard({ point }) {
+function PackCard({ point, tempRange }) {
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 18, marginBottom: 18 }}>
-      <div style={{ fontFamily: 'var(--display)', fontSize: 18, fontWeight: 600, marginBottom: 2 }}>{point.label}</div>
-      <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 16 }}>
-        Covers segments {point.segRange[0]}–{point.segRange[1]} &middot; {point.segs.map(s => s.time).join(' + ')}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+        <div>
+          <div style={{ fontFamily: 'var(--display)', fontSize: 18, fontWeight: 600, marginBottom: 2 }}>{point.label}</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 16 }}>
+            Covers segments {point.segRange[0]}–{point.segRange[1]} &middot; {point.segs.map(s => s.time).join(' + ')}
+          </div>
+        </div>
+        {tempRange && (
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ fontFamily: 'var(--display)', fontSize: 20, fontWeight: 600 }}>
+              {tempRange.low === tempRange.high ? `${tempRange.low}\u00b0F` : (
+                <><span style={{ color: '#4A9FE8' }}>{tempRange.low}\u00b0</span><span style={{ color: 'var(--ink-faint)', fontSize: 14 }}>&ndash;</span><span style={{ color: 'var(--climb)' }}>{tempRange.high}\u00b0F</span></>
+              )}
+            </div>
+            <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--ink-faint)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Forecast, this leg</div>
+          </div>
+        )}
       </div>
 
       {/* Totals, grouped together in one row instead of scattered as a
@@ -143,6 +157,20 @@ function PackListView() {
   };
   const packing = React.useMemo(() => buildPackingData(segments, vesselConfig), [segments, vestCapacity, vestCount, bladderCapacity, beltCapacity, vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges]);
 
+  // Elevations needed for the temp range shown on each pack card below --
+  // start and end elevation of every point, so a card spanning a big climb
+  // shows that its finish is meaningfully colder than its start, not just
+  // one single-point estimate for the whole stretch.
+  const packPointElevations = React.useMemo(() => {
+    const elevs = new Set();
+    packing.forEach(point => {
+      const firstSeg = point.segs[0], lastSeg = point.segs[point.segs.length - 1];
+      if (firstSeg) elevs.add(Math.round(firstSeg.elevS));
+      if (lastSeg) elevs.add(Math.round(lastSeg.elevE));
+    });
+    return [...elevs];
+  }, [packing]);
+
   const grandGels = packing.reduce((s, p) => s + p.gelsTotal, 0);
   const grandTailwind = packing.reduce((s, p) => s + p.tailwindTotal, 0);
   const grandSaltOrig = packing.reduce((s, p) => s + p.saltOriginalTotal, 0);
@@ -172,12 +200,13 @@ function PackListView() {
   const combinedSodium = totalSodium + customSodiumTotal;
   const combinedCalories = totalCalories + Math.round(customCarbTotal * 4);
   const fuelSelectStyle = { background:'var(--bg-raised)', border:'1px solid var(--line)', borderRadius:6, color:'var(--ink)', fontSize:12, padding:'5px 6px' };
+  const [showFuelPanel, setShowFuelPanel] = React.useState(false);
 
   // --- Gear summary: vessels + extra gear, with pickup/dropoff labels and
   // live dawn/cold suggestions where the person asked for a forecast check. ---
   const race = window.RACES[window.getCurrentRaceId()];
   const raceSegments = race.baseSegments;
-  const forecast = window.useRaceDayForecast();
+  const forecast = window.useRaceDayForecast(packPointElevations);
   let raceStartDecHour = null;
   if (race.startDate) {
     const m = race.startDate.match(/T(\d{2}):(\d{2})/);
@@ -252,6 +281,9 @@ function PackListView() {
     <div style={{ paddingBottom: 60 }}>
       <SectionHeader eyebrow="01" title="Pack List" sub={`Everything to portion and label before Saturday &middot; ${targetHours}hr target (adjust on Race Day Plan)`} />
 
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
+        Totals &mdash; whole race
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8, marginBottom: 24 }}>
         <StatBox label="Gels" value={
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -293,9 +325,23 @@ function PackListView() {
       </div>
 
       <div style={{ background: 'var(--bg-raised)', borderRadius: 10, padding: '14px 16px', marginBottom: 24 }}>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
-          Additional Fuel &amp; Electrolytes
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: showFuelPanel ? 10 : 0 }}>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', flex: 1 }}>
+            Additional Fuel &amp; Electrolytes
+          </div>
+          <button onClick={() => setShowFuelPanel(v => !v)} aria-label={showFuelPanel ? 'Collapse' : 'Expand'} style={{
+            background: 'none', border: '1px solid var(--line)', borderRadius: 6, width: 26, height: 26,
+            color: showFuelPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor: 'pointer', fontSize: 13,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>&#9881;&#65039;</button>
         </div>
+        {!showFuelPanel && customFuelItems.length > 0 && (
+          <div style={{ fontSize: 12, color: 'var(--ink-dim)' }}>
+            {customFuelItems.length} item{customFuelItems.length === 1 ? '' : 's'} added &mdash; {customCarbTotal}g carbs, {customSodiumTotal}mg sodium{customCaffeineTotal > 0 ? `, ${customCaffeineTotal}mg caffeine` : ''} already folded into the totals above.
+          </div>
+        )}
+        {showFuelPanel && (
+          <>
         {customFuelItems.map(it => (
           <div key={it.id} style={{ background: 'var(--bg-card)', borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
@@ -326,47 +372,63 @@ function PackListView() {
             (combined: {combinedCarbs}g carbs, {combinedSodium}mg sodium).
           </div>
         )}
+          </>
+        )}
       </div>
 
       {(vesselRows.length > 0 || extraGear.length > 0) && (
-        <div style={{ background: 'var(--bg-raised)', borderRadius: 10, padding: '14px 16px', marginBottom: 24 }}>
+        <div style={{ marginBottom: 24 }}>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
             Gear
           </div>
-          {vesselRows.map(v => {
-            const fromLabel = v.range && v.range.from != null ? pointLabel(v.range.from, 'pickup') : null;
-            const toLabel = v.range && v.range.to != null ? pointLabel(v.range.to, 'dropoff') : null;
-            return (
-              <div key={v.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '6px 0', borderTop: '1px solid var(--line)', fontSize: 13 }}>
-                <span style={{ color: 'var(--ink)' }}>{v.label} <span style={{ color: 'var(--ink-faint)', fontSize: 11 }}>({v.capacity}ml)</span></span>
-                <span style={{ color: 'var(--ink-faint)', fontSize: 11.5, textAlign: 'right' }}>
-                  {fromLabel || toLabel ? `${fromLabel ? `from ${fromLabel}` : 'whole race'}${toLabel ? ` \u2192 ${toLabel}` : ''}` : 'whole race'}
-                </span>
-              </div>
-            );
-          })}
-          {extraGear.map(g => {
-            const sugg = gearSuggestion(g);
-            return (
-              <div key={g.id} style={{ padding: '6px 0', borderTop: '1px solid var(--line)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 13 }}>
-                  <span style={{ color: 'var(--ink)' }}>{g.name || 'Untitled item'}</span>
-                  <span style={{ color: 'var(--ink-faint)', fontSize: 11.5, textAlign: 'right' }}>
-                    {pointLabel(g.pickupSegmentId, 'pickup')} &rarr; {pointLabel(g.dropoffSegmentId, 'dropoff')}
-                  </span>
-                </div>
-                {sugg && (
-                  <div style={{ fontSize: 11, marginTop: 2, color: sugg.suggested ? 'var(--climb)' : 'var(--ink-faint)' }}>
-                    {sugg.suggested ? '\u2713 Suggested' : 'Not needed'} &mdash; {sugg.note}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 10 }}>
+            {vesselRows.map(v => {
+              const fromLabel = v.range && v.range.from != null ? pointLabel(v.range.from, 'pickup') : null;
+              const toLabel = v.range && v.range.to != null ? pointLabel(v.range.to, 'dropoff') : null;
+              return (
+                <div key={v.key} style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px' }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{v.label}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginTop: 2 }}>{v.capacity}ml</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--ink-dim)', marginTop: 8 }}>
+                    {fromLabel || toLabel ? `${fromLabel ? `from ${fromLabel}` : 'whole race'}${toLabel ? ` \u2192 ${toLabel}` : ''}` : 'whole race'}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                </div>
+              );
+            })}
+            {extraGear.map(g => {
+              const sugg = gearSuggestion(g);
+              return (
+                <div key={g.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px' }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{g.name || 'Untitled item'}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginTop: 2 }}>
+                    {pointLabel(g.pickupSegmentId, 'pickup')} &rarr; {pointLabel(g.dropoffSegmentId, 'dropoff')}
+                  </div>
+                  {sugg && (
+                    <div style={{ fontSize: 11, marginTop: 8, color: sugg.suggested ? 'var(--climb)' : 'var(--ink-faint)' }}>
+                      {sugg.suggested ? '\u2713 Suggested' : 'Not needed'} &mdash; {sugg.note}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
-      {packing.map(point => <PackCard key={point.key} point={point} />)}
+      {packing.map(point => {
+        const firstSeg = point.segs[0], lastSeg = point.segs[point.segs.length - 1];
+        let tempRange = null;
+        if (forecast.status === 'ok' && typeof forecast.tempAtElevationAndHour === 'function' && raceStartDecHour != null && firstSeg && lastSeg) {
+          const startHour = raceStartDecHour + (firstSeg.modeledArrivalHours - firstSeg.hours);
+          const endHour = raceStartDecHour + lastSeg.modeledArrivalHours;
+          const startTemp = forecast.tempAtElevationAndHour(firstSeg.elevS, startHour);
+          const endTemp = forecast.tempAtElevationAndHour(lastSeg.elevE, endHour);
+          if (startTemp != null && endTemp != null) {
+            tempRange = { low: Math.round(Math.min(startTemp, endTemp)), high: Math.round(Math.max(startTemp, endTemp)) };
+          }
+        }
+        return <PackCard key={point.key} point={point} tempRange={tempRange} />;
+      })}
 
       <div style={{ background: 'var(--bg-raised)', borderRadius: 10, padding: '14px 16px', fontSize: 13, color: 'var(--ink-dim)', lineHeight: 1.6 }}>
         <strong style={{ color: 'var(--ink)' }}>Contingency &mdash; carry on you the whole race, not tied to a specific bag.</strong>
