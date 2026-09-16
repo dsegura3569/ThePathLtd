@@ -48,7 +48,7 @@ function SegmentsView() {
   const { targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, vestCount, bladderCapacity, beltCapacity,
     vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, gelRateShift } = React.useContext(window.TargetHoursContext);
   const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium, targetWaterHr, gelRateShift), [targetHours, targetCarb, targetSodium, targetWaterHr, gelRateShift]);
-  const [range_, setRange_] = React.useState({ start: 1, size: 1 });
+  const [range_, setRange_] = React.useState(() => ({ start: 1, size: segments.length })); // whole course by default
   const rangeStart = range_.start, rangeSize = range_.size;
   const [showDetail, setShowDetail] = React.useState(false);
   const [hovered, setHovered] = React.useState(null);
@@ -87,6 +87,23 @@ function SegmentsView() {
       if (newStart + clampedSize - 1 > total) newStart = total - clampedSize + 1;
       return { start: newStart, size: clampedSize };
     });
+    setHovered(null);
+  }
+
+  // Segment chips: click one to select just that segment (and anchor it for
+  // a future shift-click); shift-click a second one to select everything
+  // between the anchor and that click, in either direction -- same
+  // interaction file browsers and spreadsheets use for range selection.
+  const [lastClickedChip, setLastClickedChip] = React.useState(1);
+  function selectChip(segId, shiftKey) {
+    if (shiftKey) {
+      const from = Math.min(lastClickedChip, segId);
+      const to = Math.max(lastClickedChip, segId);
+      setRange_({ start: from, size: to - from + 1 });
+    } else {
+      setRange_({ start: segId, size: 1 });
+      setLastClickedChip(segId);
+    }
     setHovered(null);
   }
 
@@ -142,26 +159,24 @@ function SegmentsView() {
   const gradeChartH = 200;
   const zeroY = gradeChartH * 0.5;
 
-  // Whole-course overview (merged in from the former separate Grade
-  // Explorer tab): same 0.1-mile samples flattened across all segments,
-  // not scoped to whichever one is currently active above -- this is
-  // deliberately "the entire course at once", the complementary view to
-  // stepping through one leg at a time.
-  const [showWholeCourse, setShowWholeCourse] = React.useState(false);
-  const [wcOrder, setWcOrder] = React.useState('course'); // 'course' | 'grade'
-  const [wcHovered, setWcHovered] = React.useState(null);
-  const wcSamples = React.useMemo(() => buildFullCourseSamples(), []);
-  const wcClimbingMiles = React.useMemo(() => Math.round(wcSamples.filter(s => s.grade > 0).length / 10 * 10) / 10, [wcSamples]);
-  const wcDescendingMiles = React.useMemo(() => Math.round(wcSamples.filter(s => s.grade < 0).length / 10 * 10) / 10, [wcSamples]);
-  const wcFlatMiles = React.useMemo(() => Math.round(wcSamples.filter(s => s.grade === 0).length / 10 * 10) / 10, [wcSamples]);
-  const wcCoverageMi = wcSamples.length / 10;
-  const wcDisplaySamples = React.useMemo(() => {
-    if (wcOrder === 'course') return wcSamples;
-    return [...wcSamples].sort((a, b) => a.grade - b.grade);
-  }, [wcSamples, wcOrder]);
-  const wcMaxAbs = Math.max(...wcSamples.map(s => Math.abs(s.grade)), 25);
-  const wcChartH = 240;
-  const wcLegend = [
+  // Unified chart: one visual for whatever range is selected above (single
+  // segment, several, or the whole course), toggling between a smooth
+  // elevation line ("course profile") and the colored, sortable grade bars
+  // ("grade profile") -- replaces what used to be two separate systems (a
+  // simple per-range elevation chart, and a separate always-whole-course
+  // sortable bar chart merged in from the old Grade Explorer tab).
+  const [chartMode, setChartMode] = React.useState('course'); // 'course' | 'grade'
+  const [gradeOrder, setGradeOrder] = React.useState('course'); // 'course' | 'climbToDescent' | 'descentToClimb'
+  const chartData = React.useMemo(() => {
+    if (gradeOrder === 'climbToDescent') return [...rangeData].sort((a, b) => b.grade - a.grade);
+    if (gradeOrder === 'descentToClimb') return [...rangeData].sort((a, b) => a.grade - b.grade);
+    return rangeData;
+  }, [rangeData, gradeOrder]);
+  const climbingMiles = Math.round(rangeData.filter(s => s.grade > 0).length / 10 * 10) / 10;
+  const descendingMiles = Math.round(rangeData.filter(s => s.grade < 0).length / 10 * 10) / 10;
+  const flatMiles = Math.round(rangeData.filter(s => s.grade === 0).length / 10 * 10) / 10;
+  const coverageMi = rangeData.length / 10;
+  const gradeLegend = [
     { label: "\u226520% up", c: "#7B1010" }, { label: "15\u201320%", c: "#A32D2D" },
     { label: "8\u201315%", c: "#E8943A" }, { label: "0\u20138%", c: "#3CB897" },
     { label: "0\u20138% down", c: "#7DD3FC" }, { label: "8\u201315% down", c: "#4A9FE8" },
@@ -170,105 +185,27 @@ function SegmentsView() {
 
   return (
     <div style={{ paddingBottom: 60 }}>
-      <SectionHeader eyebrow="03" title="Segments" sub={`Course broken into legs \u00b7 step through start to finish, or expand the whole-course overview below \u00b7 official aid station miles + ultraPacer elevation \u00b7 ${targetHours}hr target (adjust on Race Day Plan)`} />
+      <SectionHeader eyebrow="03" title="Trail Explorer" sub={`Full course by default, or pick any segment (or range of segments) below \u00b7 official aid station miles + ultraPacer elevation \u00b7 ${targetHours}hr target (adjust on Race Day Plan)`} />
 
-      <button onClick={() => setShowWholeCourse(v => !v)} style={{
-        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: 'var(--bg-raised)', border: '1px solid var(--line)', borderRadius: 10,
-        padding: '12px 16px', marginBottom: showWholeCourse ? 16 : 24, cursor: 'pointer', color: 'var(--ink)',
-      }}>
-        <span style={{ fontSize: 13, fontWeight: 600 }}>
-          {showWholeCourse ? 'Hide' : 'Show'} whole-course overview (all segments at once, sortable by grade)
-        </span>
-        <span style={{ color: 'var(--ink-faint)', fontSize: 13 }}>{showWholeCourse ? '\u2212' : '+'}</span>
-      </button>
-
-      {showWholeCourse && (
-        <div style={{ marginBottom: 28 }}>
-          <div style={{display:'flex', gap:8, marginBottom:20}}>
-            <button onClick={() => setWcOrder('course')} style={{
-              flex:1, padding:'10px 14px', borderRadius:10, border:`1.5px solid ${wcOrder==='course' ? 'var(--climb)' : 'var(--line)'}`,
-              background: wcOrder==='course' ? 'var(--climb)15' : 'var(--bg-card)', color: wcOrder==='course' ? 'var(--climb)' : 'var(--ink-dim)',
-              cursor:'pointer', fontFamily:'var(--display)', fontWeight:600, fontSize:14,
-            }}>Course order (start &rarr; finish)</button>
-            <button onClick={() => setWcOrder('grade')} style={{
-              flex:1, padding:'10px 14px', borderRadius:10, border:`1.5px solid ${wcOrder==='grade' ? 'var(--climb)' : 'var(--line)'}`,
-              background: wcOrder==='grade' ? 'var(--climb)15' : 'var(--bg-card)', color: wcOrder==='grade' ? 'var(--climb)' : 'var(--ink-dim)',
-              cursor:'pointer', fontFamily:'var(--display)', fontWeight:600, fontSize:14,
-            }}>By grade (&minus; &rarr; +)</button>
-          </div>
-
-          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:10, marginBottom:20}}>
-            <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:12, padding:16}}>
-              <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase'}}>Climbing (&gt;0%)</div>
-              <div style={{fontFamily:'var(--display)', fontSize:22, fontWeight:700, color:'var(--climb)', marginTop:4}}>{wcClimbingMiles} mi</div>
-              <div style={{fontSize:11, color:'var(--ink-faint)', marginTop:2}}>{Math.round(wcClimbingMiles/wcCoverageMi*100)}% of course</div>
-            </div>
-            <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:12, padding:16}}>
-              <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase'}}>Descending (&lt;0%)</div>
-              <div style={{fontFamily:'var(--display)', fontSize:22, fontWeight:700, color:'var(--descent)', marginTop:4}}>{wcDescendingMiles} mi</div>
-              <div style={{fontSize:11, color:'var(--ink-faint)', marginTop:2}}>{Math.round(wcDescendingMiles/wcCoverageMi*100)}% of course</div>
-            </div>
-            <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:12, padding:16}}>
-              <div style={{fontSize:11, color:'var(--ink-faint)', fontFamily:'var(--mono)', textTransform:'uppercase'}}>Flat (0%)</div>
-              <div style={{fontFamily:'var(--display)', fontSize:22, fontWeight:700, color:'#3CB897', marginTop:4}}>{wcFlatMiles} mi</div>
-              <div style={{fontSize:11, color:'var(--ink-faint)', marginTop:2}}>{Math.round(wcFlatMiles/wcCoverageMi*100)}% of course</div>
-            </div>
-          </div>
-
-          <div style={{position:'relative', height:wcChartH+40, background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:12, padding:12, overflowX:'auto', marginBottom:12}}>
-            <div style={{position:'relative', height:wcChartH, minWidth: wcDisplaySamples.length * 4, display:'flex', alignItems:'flex-end', gap:1}}>
-              <div style={{position:'absolute', left:0, right:0, top:wcChartH/2, borderTop:'1px solid var(--ink-faint)'}} />
-              {wcDisplaySamples.map((d, i) => {
-                const h = Math.min(Math.abs(d.grade) / wcMaxAbs, 1) * (wcChartH/2 - 8);
-                const isPos = d.grade >= 0;
-                return (
-                  <div
-                    key={i}
-                    onMouseEnter={() => setWcHovered(i)}
-                    onMouseLeave={() => setWcHovered(null)}
-                    style={{
-                      width:3, flexShrink:0, height:Math.max(h,1),
-                      background: gradeColor(d.grade), opacity: wcHovered===null || wcHovered===i ? 1 : 0.35,
-                      alignSelf: isPos ? 'flex-end' : 'flex-start',
-                      marginTop: isPos ? 0 : wcChartH/2,
-                      marginBottom: isPos ? wcChartH/2 : 0,
-                      cursor:'pointer',
-                    }}
-                  />
-                );
-              })}
-            </div>
-          </div>
-
-          <div style={{fontSize:11, color:'var(--ink-faint)', marginBottom:16, textAlign:'center'}}>
-            {wcOrder === 'course' ? 'Mile 0 (Start) \u2192 Finish \u2014 scroll to see full course' : 'Sorted steepest descent \u2192 steepest climb \u2014 scroll to see full range'}
-          </div>
-
-          {wcHovered !== null && wcDisplaySamples[wcHovered] && (
-            <div style={{background:'var(--bg-raised)', borderRadius:10, padding:'12px 16px', marginBottom:16, display:'flex', gap:20, flexWrap:'wrap'}}>
-              <div><span style={{fontSize:11, color:'var(--ink-faint)'}}>Mile </span><strong>{wcDisplaySamples[wcHovered].mile}</strong></div>
-              <div><span style={{fontSize:11, color:'var(--ink-faint)'}}>Elevation </span><strong>{wcDisplaySamples[wcHovered].elev.toLocaleString()}ft</strong></div>
-              <div><span style={{fontSize:11, color:'var(--ink-faint)'}}>Grade </span><strong style={{color:gradeColor(wcDisplaySamples[wcHovered].grade)}}>{wcDisplaySamples[wcHovered].grade > 0 ? '+' : ''}{wcDisplaySamples[wcHovered].grade}%</strong></div>
-              <div><span style={{fontSize:11, color:'var(--ink-faint)'}}>{gradeLabel(wcDisplaySamples[wcHovered].grade)}</span></div>
-            </div>
-          )}
-
-          <div style={{display:'flex', flexWrap:'wrap', gap:'6px 16px', marginBottom:20}}>
-            {wcLegend.map(l => (
-              <div key={l.label} style={{display:'flex', alignItems:'center', gap:6, fontSize:11.5, color:'var(--ink-dim)'}}>
-                <span style={{width:11, height:11, borderRadius:3, background:l.c, display:'inline-block'}} />
-                {l.label}
-              </div>
-            ))}
-          </div>
-
-          <div style={{fontSize:13, color:'var(--ink-dim)', lineHeight:1.6}}>
-            Course tops out at <strong>+{Math.max(...wcSamples.map(s=>s.grade)).toFixed(1)}%</strong> and <strong>{Math.min(...wcSamples.map(s=>s.grade)).toFixed(1)}%</strong> &mdash;
-            the tallest concentration sits in the 8&ndash;15% climb and descent zones, the bulk of the course being steep-but-sustainable grade rather than rare extreme spikes.
-          </div>
-        </div>
-      )}
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8, marginBottom: 16 }}>
+        {segments.map(s => {
+          const inRange = s.id >= rangeStart && s.id <= rangeEnd;
+          return (
+            <button
+              key={s.id}
+              onClick={(e) => selectChip(s.id, e.shiftKey)}
+              title="Click to select, shift-click to select a range"
+              style={{
+                flexShrink: 0, padding: '6px 12px', borderRadius: 8,
+                border: `1.5px solid ${inRange ? 'var(--climb)' : 'var(--line)'}`,
+                background: inRange ? 'var(--climb)1f' : 'var(--bg-card)',
+                color: inRange ? 'var(--climb)' : 'var(--ink-dim)',
+                cursor: 'pointer', fontSize: 11, fontFamily: 'var(--mono)', whiteSpace: 'nowrap',
+              }}
+            >Seg {s.id}</button>
+          );
+        })}
+      </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <button onClick={() => go(-1)} disabled={rangeStart === 1} style={{
@@ -279,7 +216,7 @@ function SegmentsView() {
 
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-faint)' }}>
-            {isSingle ? `SEGMENT ${rangeStart} OF ${total}` : `SEGMENTS ${rangeStart}\u2013${rangeEnd} OF ${total}`}
+            {isSingle ? `SEGMENT ${rangeStart} OF ${total}` : rangeSize === total ? `FULL COURSE \u00b7 ${total} SEGMENTS` : `SEGMENTS ${rangeStart}\u2013${rangeEnd} OF ${total}`}
           </div>
           <div style={{ fontFamily: 'var(--display)', fontSize: 20, fontWeight: 600, marginTop: 2 }}>
             {gSeg.from} &rarr; {lastGSeg.to}
@@ -310,6 +247,150 @@ function SegmentsView() {
           border: 'none', textDecoration: 'underline', cursor: rangeSize === total ? 'default' : 'pointer', padding: 0,
           opacity: rangeSize === total ? 0.4 : 1,
         }}>Zoom to full course</button>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button onClick={() => setChartMode('course')} style={{
+          flex: 1, padding: '10px 14px', borderRadius: 10, border: `1.5px solid ${chartMode === 'course' ? 'var(--climb)' : 'var(--line)'}`,
+          background: chartMode === 'course' ? 'var(--climb)15' : 'var(--bg-card)', color: chartMode === 'course' ? 'var(--climb)' : 'var(--ink-dim)',
+          cursor: 'pointer', fontFamily: 'var(--display)', fontWeight: 600, fontSize: 14,
+        }}>Course Profile</button>
+        <button onClick={() => setChartMode('grade')} style={{
+          flex: 1, padding: '10px 14px', borderRadius: 10, border: `1.5px solid ${chartMode === 'grade' ? 'var(--climb)' : 'var(--line)'}`,
+          background: chartMode === 'grade' ? 'var(--climb)15' : 'var(--bg-card)', color: chartMode === 'grade' ? 'var(--climb)' : 'var(--ink-dim)',
+          cursor: 'pointer', fontFamily: 'var(--display)', fontWeight: 600, fontSize: 14,
+        }}>Grade Profile</button>
+      </div>
+
+      {chartMode === 'grade' && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+          {[
+            { id: 'course', label: 'Start \u2192 Finish' },
+            { id: 'climbToDescent', label: 'By grade: climb \u2192 descent' },
+            { id: 'descentToClimb', label: 'By grade: descent \u2192 climb' },
+          ].map(o => (
+            <button key={o.id} onClick={() => setGradeOrder(o.id)} style={{
+              padding: '6px 12px', borderRadius: 8, border: `1px solid ${gradeOrder === o.id ? 'var(--climb)' : 'var(--line)'}`,
+              background: gradeOrder === o.id ? 'var(--climb)15' : 'var(--bg-card)', color: gradeOrder === o.id ? 'var(--climb)' : 'var(--ink-dim)',
+              cursor: 'pointer', fontSize: 11.5,
+            }}>{o.label}</button>
+          ))}
+        </div>
+      )}
+
+      {chartMode === 'course' ? (
+        <div style={{ position: 'relative', height: chartH + 24, marginBottom: 12, background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 12 }}>
+          <svg viewBox={`0 0 100 ${chartH}`} preserveAspectRatio="none" style={{ width: '100%', height: chartH, display: 'block' }}>
+            <polyline
+              points={rangeData.map((d, i) => {
+                const x = (i / (rangeData.length - 1)) * 100;
+                const y = chartH - ((d.elev - minElev) / range) * (chartH - 10) - 5;
+                return `${x},${y}`;
+              }).join(' ')}
+              fill="none" stroke={gSeg.color} strokeWidth="1.6" vectorEffect="non-scaling-stroke"
+              strokeLinejoin="round" strokeLinecap="round"
+            />
+            <polygon
+              points={
+                `0,${chartH} ` +
+                rangeData.map((d, i) => {
+                  const x = (i / (rangeData.length - 1)) * 100;
+                  const y = chartH - ((d.elev - minElev) / range) * (chartH - 10) - 5;
+                  return `${x},${y}`;
+                }).join(' ') +
+                ` 100,${chartH}`
+              }
+              fill={gSeg.color} opacity="0.12"
+            />
+          </svg>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--ink-faint)', fontFamily: 'var(--mono)', marginTop: 4 }}>
+            <span>{minElev.toLocaleString()}ft</span>
+            <span>{maxElev.toLocaleString()}ft</span>
+          </div>
+        </div>
+      ) : (
+        <div style={{ position: 'relative', height: gradeChartH + 48, marginBottom: 12, background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: '12px' }}>
+          {[-20, -10, 0, 10, 20].map(v => {
+            const y = zeroY - (v / maxAbsGrade) * (gradeChartH * 0.45);
+            return (
+              <div key={v} style={{ position: 'absolute', left: 12, top: y + 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: 8, color: 'var(--ink-faint)', width: 24, textAlign: 'right' }}>{v}%</span>
+                <div style={{ position: 'absolute', left: 28, right: -8, borderTop: v === 0 ? '1px solid var(--ink-faint)' : '0.5px solid var(--line)' }} />
+              </div>
+            );
+          })}
+          <div style={{ position: 'absolute', left: 44, right: 12, top: 12, bottom: 44, display: 'flex', alignItems: 'center', gap: 1, overflowX: chartData.length > 80 ? 'auto' : 'visible' }}>
+            {chartData.map((d, i) => {
+              const isPos = d.grade >= 0;
+              const barH = Math.abs(d.grade) / maxAbsGrade * (gradeChartH * 0.45);
+              const color = gradeColor(d.grade);
+              const isHov = hovered === i;
+              return (
+                <div key={i} style={{ flex: chartData.length > 80 ? '0 0 4px' : 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', position: 'relative' }}
+                  onMouseEnter={() => setHovered(i)}
+                  onMouseLeave={() => setHovered(null)}
+                  onTouchStart={() => setHovered(i === hovered ? null : i)}
+                >
+                  {isHov && (
+                    <div style={{
+                      position: 'absolute', top: isPos ? zeroY - barH - 70 : zeroY + barH + 4,
+                      background: 'var(--bg-raised)', border: `1px solid ${color}`,
+                      borderRadius: 8, padding: '8px 10px', fontSize: 10, color: 'var(--ink)',
+                      whiteSpace: 'nowrap', zIndex: 20, pointerEvents: 'none',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                    }}>
+                      <div style={{ fontWeight: 700 }}>Mile {d.mile}</div>
+                      <div style={{ color }}>{d.grade > 0 ? '+' : ''}{d.grade}% grade</div>
+                      <div style={{ color: 'var(--ink-dim)' }}>{d.elev.toLocaleString()} ft</div>
+                      <div style={{ color, fontSize: 9, marginTop: 2 }}>{gradeLabel(d.grade)}</div>
+                    </div>
+                  )}
+                  {isPos && (
+                    <div style={{ position: 'absolute', bottom: '50%', width: '100%', height: barH, background: color, opacity: isHov ? 1 : 0.8, borderRadius: '1px 1px 0 0', transition: 'opacity 0.1s' }} />
+                  )}
+                  {!isPos && (
+                    <div style={{ position: 'absolute', top: '50%', width: '100%', height: barH, background: color, opacity: isHov ? 1 : 0.8, borderRadius: '0 0 1px 1px', transition: 'opacity 0.1s' }} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginBottom: 16, textAlign: 'center' }}>
+        {chartMode === 'course'
+          ? 'Elevation profile for the selected range'
+          : gradeOrder === 'course' ? 'Mile order, start \u2192 finish' : gradeOrder === 'climbToDescent' ? 'Sorted steepest climb \u2192 steepest descent' : 'Sorted steepest descent \u2192 steepest climb'}
+      </div>
+
+      {chartMode === 'grade' && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginBottom: 20 }}>
+          {gradeLegend.map(l => (
+            <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--ink-dim)' }}>
+              <span style={{ width: 11, height: 11, borderRadius: 3, background: l.c, display: 'inline-block' }} />
+              {l.label}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 28 }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 16 }}>
+          <div style={{ fontSize: 11, color: 'var(--ink-faint)', fontFamily: 'var(--mono)', textTransform: 'uppercase' }}>Climbing (&gt;0%)</div>
+          <div style={{ fontFamily: 'var(--display)', fontSize: 22, fontWeight: 700, color: 'var(--climb)', marginTop: 4 }}>{climbingMiles} mi</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 2 }}>{Math.round(climbingMiles / coverageMi * 100)}% of range</div>
+        </div>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 16 }}>
+          <div style={{ fontSize: 11, color: 'var(--ink-faint)', fontFamily: 'var(--mono)', textTransform: 'uppercase' }}>Descending (&lt;0%)</div>
+          <div style={{ fontFamily: 'var(--display)', fontSize: 22, fontWeight: 700, color: 'var(--descent)', marginTop: 4 }}>{descendingMiles} mi</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 2 }}>{Math.round(descendingMiles / coverageMi * 100)}% of range</div>
+        </div>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 16 }}>
+          <div style={{ fontSize: 11, color: 'var(--ink-faint)', fontFamily: 'var(--mono)', textTransform: 'uppercase' }}>Flat (0%)</div>
+          <div style={{ fontFamily: 'var(--display)', fontSize: 22, fontWeight: 700, color: '#3CB897', marginTop: 4 }}>{flatMiles} mi</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 2 }}>{Math.round(flatMiles / coverageMi * 100)}% of range</div>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -379,36 +460,6 @@ function SegmentsView() {
           </div>
         </div>
       )}
-
-      <div style={{ position: 'relative', height: chartH + 24, marginBottom: 20, background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 12 }}>
-        <svg viewBox={`0 0 100 ${chartH}`} preserveAspectRatio="none" style={{ width: '100%', height: chartH, display: 'block' }}>
-          <polyline
-            points={rangeData.map((d, i) => {
-              const x = (i / (rangeData.length - 1)) * 100;
-              const y = chartH - ((d.elev - minElev) / range) * (chartH - 10) - 5;
-              return `${x},${y}`;
-            }).join(' ')}
-            fill="none" stroke={gSeg.color} strokeWidth="1.6" vectorEffect="non-scaling-stroke"
-            strokeLinejoin="round" strokeLinecap="round"
-          />
-          <polygon
-            points={
-              `0,${chartH} ` +
-              rangeData.map((d, i) => {
-                const x = (i / (rangeData.length - 1)) * 100;
-                const y = chartH - ((d.elev - minElev) / range) * (chartH - 10) - 5;
-                return `${x},${y}`;
-              }).join(' ') +
-              ` 100,${chartH}`
-            }
-            fill={gSeg.color} opacity="0.12"
-          />
-        </svg>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--ink-faint)', fontFamily: 'var(--mono)', marginTop: 4 }}>
-          <span>{minElev.toLocaleString()}ft</span>
-          <span>{maxElev.toLocaleString()}ft</span>
-        </div>
-      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginBottom: 28 }}>
         {isSingle ? (
@@ -513,87 +564,18 @@ function SegmentsView() {
         padding: '12px 16px', marginBottom: showDetail ? 16 : 28, cursor: 'pointer', color: 'var(--ink)',
       }}>
         <span style={{ fontSize: 13, fontWeight: 600 }}>
-          {showDetail ? 'Hide' : 'Show'} full 0.1-mile grade breakdown
+          {showDetail ? 'Hide' : 'Show'} mile-by-mile data table
         </span>
         <span style={{ color: 'var(--ink-faint)', fontSize: 13 }}>{showDetail ? '\u2212' : '+'}</span>
       </button>
 
       {showDetail && (
         <div style={{ marginBottom: 28 }}>
-          <div style={{ position: "relative", height: gradeChartH + 48, marginBottom: 12, background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:12, padding:'12px' }}>
-            {[-20, -10, 0, 10, 20].map(v => {
-              const y = zeroY - (v / maxAbsGrade) * (gradeChartH * 0.45);
-              return (
-                <div key={v} style={{ position: "absolute", left: 12, top: y+12, display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ fontSize: 8, color: "var(--ink-faint)", width: 24, textAlign: "right" }}>{v}%</span>
-                  <div style={{ position: "absolute", left: 28, right: -8, borderTop: v === 0 ? "1px solid var(--ink-faint)" : "0.5px solid var(--line)" }} />
-                </div>
-              );
-            })}
-            <div style={{ position: "absolute", left: 44, right: 12, top: 12, bottom: 44, display: "flex", alignItems: "center", gap: 1 }}>
-              {rangeData.map((d, i) => {
-                const isPos = d.grade >= 0;
-                const barH = Math.abs(d.grade) / maxAbsGrade * (gradeChartH * 0.45);
-                const color = gradeColor(d.grade);
-                const isHov = hovered === i;
-                return (
-                  <div key={i} style={{ flex: 1, height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", cursor: "pointer", position: "relative" }}
-                    onMouseEnter={() => setHovered(i)}
-                    onMouseLeave={() => setHovered(null)}
-                    onTouchStart={() => setHovered(i === hovered ? null : i)}
-                  >
-                    {isHov && (
-                      <div style={{
-                        position: "absolute", top: isPos ? zeroY - barH - 70 : zeroY + barH + 4,
-                        background: "var(--bg-raised)", border: `1px solid ${color}`,
-                        borderRadius: 8, padding: "8px 10px", fontSize: 10, color: "var(--ink)",
-                        whiteSpace: "nowrap", zIndex: 20, pointerEvents: "none",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
-                      }}>
-                        <div style={{ fontWeight: 700 }}>Mile {d.mile}</div>
-                        <div style={{ color }}>{d.grade > 0 ? "+" : ""}{d.grade}% grade</div>
-                        <div style={{ color: "var(--ink-dim)" }}>{d.elev.toLocaleString()} ft</div>
-                        <div style={{ color, fontSize: 9, marginTop: 2 }}>{gradeLabel(d.grade)}</div>
-                      </div>
-                    )}
-                    {isPos && (
-                      <div style={{ position: "absolute", bottom: "50%", width: "100%", height: barH, background: color, opacity: isHov ? 1 : 0.8, borderRadius: "1px 1px 0 0", transition: "opacity 0.1s" }} />
-                    )}
-                    {!isPos && (
-                      <div style={{ position: "absolute", top: "50%", width: "100%", height: barH, background: color, opacity: isHov ? 1 : 0.8, borderRadius: "0 0 1px 1px", transition: "opacity 0.1s" }} />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{ position: "absolute", left: 44, right: 12, bottom: 12, display: "flex", gap: 1 }}>
-              {rangeData.map((d, i) => (
-                <div key={i} style={{ flex: 1, fontSize: 8, color: "var(--ink-faint)", textAlign: "center" }}>
-                  {Number.isInteger(d.mile) ? d.mile : ""}
-                </div>
-              ))}
-            </div>
-          </div>
-
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px,1fr))", gap: 8, marginBottom: 20 }}>
             {[
               { label: "High point", value: `${Math.max(...rangeData.map(d=>d.elev)).toLocaleString()} ft`, color: "var(--ink)" },
               { label: "Low point", value: `${Math.min(...rangeData.map(d=>d.elev)).toLocaleString()} ft`, color: "var(--ink-faint)" },
             ].map(s => <StatBox key={s.label} label={s.label} value={s.value} color={s.color} />)}
-          </div>
-
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 }}>
-            {[
-              { label: "\u226520% climb", c: "#7B1010" }, { label: "15\u201320%", c: "#A32D2D" },
-              { label: "8\u201315%", c: "#E8943A" }, { label: "0\u20138%", c: "#3CB897" },
-              { label: "0\u20138% \u2193", c: "#7DD3FC" }, { label: "8\u201315% \u2193", c: "#4A9FE8" },
-              { label: "15\u201320% \u2193", c: "#1460A8" }, { label: "\u226520% \u2193", c: "#0C3B6E" },
-            ].map(l => (
-              <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <div style={{ width: 10, height: 10, borderRadius: 2, background: l.c }} />
-                <span style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>{l.label}</span>
-              </div>
-            ))}
           </div>
 
           <div style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden" }}>

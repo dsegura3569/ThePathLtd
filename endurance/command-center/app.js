@@ -53,7 +53,7 @@ const SECTIONS = [
   { id: 'overview', label: 'Overview', eyebrow: '00' },
   { id: 'packlist', label: 'Pack List', eyebrow: '01' },
   { id: 'raceplan', label: 'Race Day Plan', eyebrow: '02' },
-  { id: 'segments', label: 'Segments', eyebrow: '03' },
+  { id: 'segments', label: 'Trail Explorer', eyebrow: '03' },
   { id: 'treadmill', label: 'Treadmill Legs', eyebrow: '04' },
   { id: 'vertcalc', label: 'Vert Calculator', eyebrow: '05' },
   { id: 'history', label: 'Race History', eyebrow: '06' },
