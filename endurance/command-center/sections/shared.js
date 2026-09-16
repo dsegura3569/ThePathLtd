@@ -3,7 +3,10 @@ function SectionHeader({ eyebrow, title, sub }) {
     <div style={{marginBottom:24}}>
       <div style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--climb)', letterSpacing:'0.08em', marginBottom:8}}>{eyebrow}</div>
       <h2 style={{fontFamily:'var(--display)', fontWeight:700, fontSize:'clamp(28px,5vw,38px)', letterSpacing:'-0.01em', margin:'0 0 8px'}}>{title}</h2>
-      {sub && <p style={{fontFamily:'var(--body)', fontSize:13.5, color:'var(--ink-dim)', margin:0, lineHeight:1.6}} dangerouslySetInnerHTML={{__html: sub}} />}
+      {sub && (typeof sub === 'string'
+        ? <p style={{fontFamily:'var(--body)', fontSize:13.5, color:'var(--ink-dim)', margin:0, lineHeight:1.6}} dangerouslySetInnerHTML={{__html: sub}} />
+        : <p style={{fontFamily:'var(--body)', fontSize:13.5, color:'var(--ink-dim)', margin:0, lineHeight:1.6}}>{sub}</p>
+      )}
     </div>
   );
 }

@@ -1049,7 +1049,7 @@ function RaceInfoImportWidget({ onRaceDataChanged }) {
   );
 }
 
-function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataChanged }) {
+function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, externalRaceSettingsOpen, onRaceSettingsToggle, onRaceDataChanged }) {
   const { state: blobState, setState: setBlobState } = React.useContext(window.BlobStateContext);
   // Race starts 6:00am Saturday Aug 22, 2026, Mountain Time (MDT, UTC-6 in August)
   const activeRace = window.RACES[window.getCurrentRaceId()];
@@ -1197,6 +1197,12 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
   // visible", so it stays a separate toggle, just no longer a gear icon
   // (that framing belonged to the old per-section-gear pattern).
   const [showRaceSettingsPanel, setShowRaceSettingsPanel] = React.useState(false);
+  React.useEffect(() => {
+    if (externalRaceSettingsOpen !== undefined) setShowRaceSettingsPanel(externalRaceSettingsOpen);
+  }, [externalRaceSettingsOpen]);
+  React.useEffect(() => {
+    if (onRaceSettingsToggle) onRaceSettingsToggle(showRaceSettingsPanel);
+  }, [showRaceSettingsPanel]);
   const [showAddForm, setShowAddForm] = React.useState(false);
   const [editingCardId, setEditingCardId] = React.useState(null);
   const [newCardTitle, setNewCardTitle] = React.useState('');

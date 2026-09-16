@@ -44,7 +44,7 @@ function AmenityBadge({ label, active }) {
   );
 }
 
-function SegmentsView() {
+function SegmentsView({ goToRaceSettings }) {
   const { targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, vestCount, bladderCapacity, beltCapacity,
     vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, gelRateShift } = React.useContext(window.TargetHoursContext);
   const { state: blobState, setState: setBlobState } = React.useContext(window.BlobStateContext);
@@ -261,7 +261,11 @@ function SegmentsView() {
 
   return (
     <div style={{ paddingBottom: 60 }}>
-      <SectionHeader eyebrow="03" title="Trail Explorer" sub={`Full course by default, or pick any segment (or range of segments) below \u00b7 official aid station miles + ultraPacer elevation \u00b7 ${targetHours}hr target (adjust on Race Day Plan)`} />
+      <SectionHeader eyebrow="03" title="Trail Explorer" sub={
+        <>Full course by default, or pick any segment (or range of segments) below &middot; official aid station miles + ultraPacer elevation &middot; {targetHours}hr target (
+          <span onClick={goToRaceSettings} style={{ color: 'var(--climb)', textDecoration: 'underline', cursor: 'pointer' }}>adjust in Race Settings</span>
+        )</>
+      } />
 
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8, marginBottom: 16 }}>
         {segments.map(s => {

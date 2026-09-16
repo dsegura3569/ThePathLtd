@@ -534,6 +534,7 @@ function App() {
   const [active, setActive] = useState('overview');
   const [open, setOpen] = useState(false);
   const [openCardPanel, setOpenCardPanel] = useState(false);
+  const [openRaceSettingsPanel, setOpenRaceSettingsPanel] = useState(false);
   const [raceId, setRaceId] = useState(() => window.getCurrentRaceId());
   useEffect(() => {
     try {
@@ -655,7 +656,7 @@ function App() {
         <Nav active={active} setActive={setActive} open={open} setOpen={setOpen} onGear={handleGear} raceId={raceId} onSelectRace={handleSelectRace} />
         <main style={{maxWidth:1180, margin:'0 auto', padding:'32px 20px 0'}}>
           {ActiveComponent
-            ? <ActiveComponent key={raceId + ':' + raceDataVersion} goTo={setActive} externalCardPanelOpen={active==='overview' ? openCardPanel : undefined} onCardPanelToggle={active==='overview' ? setOpenCardPanel : undefined} onRaceDataChanged={() => setRaceDataVersion(v => v + 1)} />
+            ? <ActiveComponent key={raceId + ':' + raceDataVersion} goTo={setActive} goToRaceSettings={() => { setActive('overview'); setOpenRaceSettingsPanel(true); }} externalCardPanelOpen={active==='overview' ? openCardPanel : undefined} onCardPanelToggle={active==='overview' ? setOpenCardPanel : undefined} externalRaceSettingsOpen={active==='overview' ? openRaceSettingsPanel : undefined} onRaceSettingsToggle={active==='overview' ? setOpenRaceSettingsPanel : undefined} onRaceDataChanged={() => setRaceDataVersion(v => v + 1)} />
             : <div style={{padding:'80px 0', textAlign:'center', color:'var(--ink-faint)'}}>Section not found.</div>}
         </main>
         <Footer raceId={raceId} />

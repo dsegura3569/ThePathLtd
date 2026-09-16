@@ -157,7 +157,7 @@ function PackCard({ point, tempRange }) {
   );
 }
 
-function PackListView() {
+function PackListView({ goToRaceSettings }) {
   const { targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, vestCount, bladderCapacity, beltCapacity,
     vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, extraGear,
     gelRateShift, setGelRateShift, customFuelItems, setCustomFuelItems } = React.useContext(window.TargetHoursContext);
@@ -318,13 +318,17 @@ function PackListView() {
 
   return (
     <div style={{ paddingBottom: 60 }}>
-      <SectionHeader eyebrow="01" title="Pack List" sub={`Everything to portion and label before Saturday &middot; ${targetHours}hr target (adjust on Race Day Plan)`} />
+      <SectionHeader eyebrow="01" title="Pack List" sub={
+        <>Everything to portion and label before Saturday &middot; {targetHours}hr target (
+          <span onClick={goToRaceSettings} style={{ color: 'var(--climb)', textDecoration: 'underline', cursor: 'pointer' }}>adjust in Race Settings</span>
+        )</>
+      } />
 
       <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
         Totals &mdash; whole race
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8, marginBottom: 24 }}>
-        <StatBox label="Gels" value={
+        <StatBox label="Gels" color="var(--climb)" value={
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button onClick={() => setGelRateShift(v => Math.round(v - 1))} style={{
               width: 20, height: 20, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--bg-card)', color: 'var(--ink)', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: 0,
@@ -341,20 +345,20 @@ function PackListView() {
             {gelRateShift !== 0 && <div>{gelRateShift > 0 ? `+${gelRateShift}` : gelRateShift}/hr shift &middot; <span onClick={() => setGelRateShift(0)} style={{ textDecoration: 'underline', cursor: 'pointer' }}>reset</span></div>}
           </React.Fragment>
         } />
-        <StatBox label="Tailwind" value={`${grandTailwind}g`} sub={
+        <StatBox label="Tailwind" color="#3CB897" value={`${grandTailwind}g`} sub={
           <React.Fragment>
             <div>{tailwindCarbs}g carbs from tailwind</div>
             {grandGels > 0 && grandTailwind > 0 && <div>{totalCarbs}g combined w/ gels</div>}
           </React.Fragment>
         } />
-        <StatBox label="Salt caps" value={grandSaltOrig} sub={
+        <StatBox label="Salt caps" color="#C9A15A" value={grandSaltOrig} sub={
           <React.Fragment>
             <div>{grandSaltOrig * CAP_NA}mg sodium (215mg/cap)</div>
             {grandSaltOrig > 0 && grandTailwind > 0 && <div>{saltCapsPlusTailwindSodium}mg combined w/ tailwind</div>}
             {grandSaltOrig > 0 && grandSaltCaf > 0 && <div>{totalSodium}mg combined w/ +caf</div>}
           </React.Fragment>
         } />
-        <StatBox label="Salt +caf" value={grandSaltCaf} sub={
+        <StatBox label="Salt +caf" color="var(--db)" value={grandSaltCaf} sub={
           <React.Fragment>
             <div>{grandSaltCaf * CAP_NA_CAFFEINE}mg sodium (190mg/cap)</div>
             {grandSaltOrig > 0 && grandSaltCaf > 0 && <div>{totalSodium}mg combined w/ caps</div>}
@@ -362,7 +366,7 @@ function PackListView() {
           </React.Fragment>
         } />
         <StatBox label="Water" value={`${(totalWaterMl/1000).toFixed(1)}L`} color="#4A9FE8" />
-        <StatBox label="Calories" value={combinedCalories} sub={customFuelItems.length ? `${totalCalories} from plan + ${Math.round(customCarbTotal*4)} custom` : undefined} />
+        <StatBox label="Calories" color="#E8677A" value={combinedCalories} sub={customFuelItems.length ? `${totalCalories} from plan + ${Math.round(customCarbTotal*4)} custom` : undefined} />
       </div>
 
       <div style={{ background: 'var(--bg-raised)', borderRadius: 10, padding: '14px 16px', marginBottom: 24 }}>
