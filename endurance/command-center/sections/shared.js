@@ -334,11 +334,12 @@ function vesselPlan(seg, capacities) {
   const plain = seg.mixPlainMl ?? seg.plainMl;
   const vessels = [];
 
-  // One named slot per flask actually carried (A, B, C...) rather than a
-  // hardcoded pair -- how many of these exist is now the vest count set in
-  // Gear, not an assumption baked into this function.
+  // One named slot per flask actually carried -- "Left"/"Right" for the
+  // common two-flask vest (matches how they're actually worn), falling
+  // back to "Vest flask 3"/"4"/etc for anything beyond two, where left/
+  // right stops meaning anything physically.
   const vestSlots = Array.from({ length: VEST_COUNT }, (_, i) => ({
-    name: `Vest flask ${String.fromCharCode(65 + i)}`,
+    name: VEST_COUNT === 2 ? (i === 0 ? 'Left flask' : 'Right flask') : VEST_COUNT === 1 ? 'Vest flask' : `Vest flask ${i + 1}`,
     capacity: VEST,
   }));
   const totalVestCapacity = VEST * VEST_COUNT;
@@ -420,12 +421,12 @@ function popsicleBagsForVessels(vessels, maxG = 80) {
   vessels.filter(v => v.tailwindG > 0).forEach(v => {
     const g = v.tailwindG;
     if (g <= maxG) {
-      bags.push({ vessel: v.name, grams: Math.round(g) });
+      bags.push({ vessel: v.name, capacity: v.capacity, grams: Math.round(g) });
     } else {
       const bagCount = Math.ceil(g / maxG);
       const per = g / bagCount;
       for (let i = 0; i < bagCount; i++) {
-        bags.push({ vessel: v.name, grams: Math.round(per) });
+        bags.push({ vessel: v.name, capacity: v.capacity, grams: Math.round(per) });
       }
     }
   });

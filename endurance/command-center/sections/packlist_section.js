@@ -9,17 +9,24 @@ function buildPackPoints(segments) {
   const lastId = segments[segments.length - 1].id;
   const dropBagSegs = segments.filter(s => s.dropBagNum).sort((a, b) => a.dropBagNum - b.dropBagNum);
 
-  if (dropBagSegs.length === 0) {
-    return [{ key: 'vest', label: 'Vest / pack (no drop bags for this race)', segRange: [firstId, lastId] }];
+  function rangeLabel(rangeStart, rangeEnd) {
+    const fromSeg = segments.find(s => s.id === rangeStart);
+    const toSeg = segments.find(s => s.id === rangeEnd);
+    const fromName = rangeStart === firstId ? 'Start Line' : fromSeg.from;
+    return `${fromName} to ${toSeg.to.split(' (')[0]}`;
   }
 
-  const points = [{ key: 'vest', label: 'Vest (pack before start)', segRange: [firstId, dropBagSegs[0].id] }];
+  if (dropBagSegs.length === 0) {
+    return [{ key: 'vest', label: rangeLabel(firstId, lastId), segRange: [firstId, lastId] }];
+  }
+
+  const points = [{ key: 'vest', label: rangeLabel(firstId, dropBagSegs[0].id), segRange: [firstId, dropBagSegs[0].id] }];
   dropBagSegs.forEach((dbSeg, i) => {
     const rangeStart = dbSeg.id + 1;
     const rangeEnd = i + 1 < dropBagSegs.length ? dropBagSegs[i + 1].id : lastId;
     points.push({
       key: `db${dbSeg.dropBagNum}`,
-      label: `Drop Bag #${dbSeg.dropBagNum} \u2014 Mile ${dbSeg.miE} (${dbSeg.to.split(' (')[0]})`,
+      label: `Drop Bag #${dbSeg.dropBagNum} (Mile ${dbSeg.miE}) \u2014 ${rangeLabel(rangeStart, rangeEnd)}`,
       segRange: [rangeStart, rangeEnd],
     });
   });
@@ -37,7 +44,7 @@ function buildPackingData(segments, vesselConfig) {
     segs.forEach(s => {
       const vessels = vesselPlan(s, capacitiesForSegment(s.id, vesselConfig));
       const bags = popsicleBagsForVessels(vessels);
-      bags.forEach(b => tailwindBags.push({ seg: s.id, grams: b.grams, vessel: b.vessel }));
+      bags.forEach(b => tailwindBags.push({ seg: s.id, grams: b.grams, vessel: b.vessel, capacity: b.capacity }));
     });
     const tailwindTotal = segs.reduce((sum, s) => sum + s.tailwind, 0);
 
@@ -72,7 +79,11 @@ function PackCard({ point, tempRange }) {
         <div>
           <div style={{ fontFamily: 'var(--display)', fontSize: 18, fontWeight: 600, marginBottom: 2 }}>{point.label}</div>
           <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 16 }}>
-            Covers segments {point.segRange[0]}–{point.segRange[1]} &middot; {point.segs.map(s => s.time).join(' + ')}
+            Segments {point.segRange[0]}&ndash;{point.segRange[1]} &middot; {(() => {
+              const totalHours = point.segs.reduce((a, s) => a + s.hours, 0);
+              const h = Math.floor(totalHours), m = Math.round((totalHours - h) * 60);
+              return `${h}h${String(m).padStart(2, '0')}m`;
+            })()} &middot; {point.segs.reduce((a, s) => a + s.distReal, 0).toFixed(1)}mi
           </div>
         </div>
         {tempRange && (
@@ -124,7 +135,7 @@ function PackCard({ point, tempRange }) {
                 )}
                 {segTailwind.map((b, i) => (
                   <div key={i} style={{ fontSize: 13, color: 'var(--ink-dim)' }}>
-                    <strong style={{ color: 'var(--climb)' }}>{b.grams}g</strong> tailwind &rarr; {b.vessel}
+                    <strong style={{ color: 'var(--climb)' }}>{b.grams}g</strong> tailwind &rarr; {b.vessel}{b.capacity ? ` (${b.capacity}ml)` : ''}
                   </div>
                 ))}
                 {segSaltOriginal && (
@@ -270,6 +281,32 @@ function PackListView() {
     return null;
   }
 
+  // Suggested caffeine window when none is currently planned -- skip the
+  // first third of the race (naturally alert early on, don't need it yet)
+  // and stop with enough buffer before the expected finish that it's not
+  // still in your system disrupting sleep that night (roughly caffeine's
+  // own 5-6hr half-life, not a precise number -- this varies by person, so
+  // framed as a suggestion, not a prescription).
+  let caffeineWindow = null;
+  if (grandSaltCaf === 0 && race.startDate) {
+    const m = race.startDate.match(/T(\d{2}):(\d{2})/);
+    if (m) {
+      const startDecHour = parseInt(m[1], 10) + parseInt(m[2], 10) / 60;
+      const windowStartHour = targetHours / 3;
+      const windowEndHour = targetHours - 5;
+      if (windowEndHour > windowStartHour) {
+        function fmtClock(decHourOffset) {
+          const total = (startDecHour + decHourOffset) % 24;
+          const h = Math.floor(total), min = Math.round((total - h) * 60);
+          const period = h < 12 ? 'am' : 'pm';
+          let h12 = h % 12; if (h12 === 0) h12 = 12;
+          return `${h12}:${String(min).padStart(2, '0')}${period}`;
+        }
+        caffeineWindow = `${fmtClock(windowStartHour)}\u2013${fmtClock(windowEndHour)}`;
+      }
+    }
+  }
+
   const vesselRows = [
     { key: 'vest', label: `Vest flask${vestCount > 1 ? 's' : ''}${vestCount > 1 ? ` (x${vestCount})` : ''}`, enabled: vestEnabled, capacity: vestCapacity, range: vesselRanges.vest },
     { key: 'bladder', label: 'Bladder', enabled: bladderEnabled, capacity: bladderCapacity, range: vesselRanges.bladder },
@@ -318,6 +355,7 @@ function PackListView() {
           <React.Fragment>
             <div>{grandSaltCaf * CAP_NA_CAFFEINE}mg sodium (190mg/cap)</div>
             {grandSaltOrig > 0 && grandSaltCaf > 0 && <div>{totalSodium}mg combined w/ caps</div>}
+            {caffeineWindow && <div style={{ color: 'var(--climb)' }}>*optional, take between {caffeineWindow}</div>}
           </React.Fragment>
         } />
         <StatBox label="Water" value={`${(totalWaterMl/1000).toFixed(1)}L`} sub="whole race" color="#4A9FE8" />
