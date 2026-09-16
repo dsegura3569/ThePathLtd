@@ -47,6 +47,7 @@ function AmenityBadge({ label, active }) {
 function SegmentsView() {
   const { targetHours, targetCarb, targetSodium, targetWaterHr, vestCapacity, vestCount, bladderCapacity, beltCapacity,
     vestEnabled, bladderEnabled, beltEnabled, handheldCapacity, handheldEnabled, vesselRanges, gelRateShift } = React.useContext(window.TargetHoursContext);
+  const { state: blobState, setState: setBlobState } = React.useContext(window.BlobStateContext);
   const segments = React.useMemo(() => computeDerivedSegments(targetHours, targetCarb, targetSodium, targetWaterHr, gelRateShift), [targetHours, targetCarb, targetSodium, targetWaterHr, gelRateShift]);
   const [range_, setRange_] = React.useState(() => ({ start: 1, size: segments.length })); // whole course by default
   const rangeStart = range_.start, rangeSize = range_.size;
@@ -151,6 +152,36 @@ function SegmentsView() {
   // since that's where you're departing from, not arriving at)
   const rangeAidStations = rangeGradeSegs.map(s => ({ name: s.to, seg: rangeSegs.find(p => p.to === s.to) })).filter(a => a.seg);
 
+  // Metrics grid, customizable via the gear icon below it -- values are
+  // computed here for whatever is currently selected (single segment or a
+  // range) so the widgets themselves stay dumb; only which ones show and
+  // in what order is user-configurable, not what each one means.
+  const metricDefs = [
+    { key: 'distance', label: 'Distance', value: isSingle ? `${pSeg.dist}mi` : `${rangeAgg.distReal}mi`, sub: isSingle ? `${pSeg.distReal}mi measured` : 'measured' },
+    { key: 'time', label: 'Time', value: isSingle ? pSeg.time : rangeHoursFmt },
+    { key: 'avgPace', label: 'Avg Pace', value: isSingle ? `${pSeg.avgPace}/mi` : `${rangeAvgPaceFmt}/mi` },
+    { key: 'gain', label: 'Gain', value: isSingle ? `+${pSeg.segGain.toLocaleString()}ft` : `+${rangeAgg.gain.toLocaleString()}ft`, color: 'var(--climb)' },
+    { key: 'loss', label: 'Loss', value: isSingle ? `-${pSeg.segLoss.toLocaleString()}ft` : `-${rangeAgg.loss.toLocaleString()}ft`, color: 'var(--descent)' },
+    { key: 'maxClimb', label: 'Max Climb', value: isSingle ? `${pSeg.maxClimb}%` : `${rangeAgg.maxClimb}%`, sub: isSingle ? undefined : 'steepest segment in range' },
+    { key: 'maxDescent', label: 'Max Descent', value: isSingle ? `${pSeg.maxDescent}%` : `${rangeAgg.maxDescent}%`, sub: isSingle ? undefined : 'steepest segment in range' },
+    {
+      key: 'net', label: 'Net',
+      value: isSingle ? pSeg.netFt : `${rangeAgg.gain - rangeAgg.loss >= 0 ? '+' : ''}${(rangeAgg.gain - rangeAgg.loss).toLocaleString()}ft`,
+      color: isSingle ? (pSeg.netDir === 'climb' ? 'var(--climb)' : 'var(--descent)') : (rangeAgg.gain >= rangeAgg.loss ? 'var(--climb)' : 'var(--descent)'),
+    },
+  ];
+  const metricKeys = metricDefs.map(m => m.key);
+  const [showMetricsPanel, setShowMetricsPanel] = React.useState(false);
+  const [metricsOrder, setMetricsOrder] = window.useBlobField(
+    blobState, setBlobState, 'trailExplorerMetricsOrder', metricKeys,
+    saved => (Array.isArray(saved) && saved.every(k => metricKeys.includes(k)) && metricKeys.every(k => saved.includes(k))) ? saved : undefined
+  );
+  const [metricsHidden, setMetricsHidden] = window.useBlobField(
+    blobState, setBlobState, 'trailExplorerMetricsHidden', [],
+    saved => Array.isArray(saved) ? saved.filter(k => metricKeys.includes(k)) : undefined
+  );
+  const orderedMetrics = metricsOrder.map(k => metricDefs.find(m => m.key === k)).filter(Boolean).filter(m => !metricsHidden.includes(m.key));
+
   // Detailed grade chart's own scale -- independent of the elevation
   // profile chart above, since grade (%) and elevation (ft) are different
   // units/ranges entirely.
@@ -182,6 +213,51 @@ function SegmentsView() {
     { label: "0\u20138% down", c: "#7DD3FC" }, { label: "8\u201315% down", c: "#4A9FE8" },
     { label: "15\u201320% down", c: "#1460A8" }, { label: "\u226520% down", c: "#0C3B6E" },
   ];
+
+  // Aid station markers on the chart -- every station boundary visible
+  // within the current range (the range's own start, plus every segment's
+  // arrival point up to the range's end), each carrying its own amenities
+  // so hovering can show name/mile/amenities without needing the separate
+  // list section this replaces. Drop-bag stations get a distinct color so
+  // "how many segments from here to the next drop bag" is visible at a
+  // glance, which is the actual point of marking these at all.
+  const [markerHovered, setMarkerHovered] = React.useState(null); // {type:'aid'|'high'|'low', ...}
+  const aidStationMarkers = React.useMemo(() => {
+    const markers = [];
+    const seenMiles = new Set();
+    if (gradeSegments[0].miS >= gSeg.miS && gradeSegments[0].miS <= lastGSeg.miE) {
+      markers.push({ mile: gradeSegments[0].miS, name: gradeSegments[0].from, amenities: {}, pacer: false, hasDropBag: false });
+      seenMiles.add(gradeSegments[0].miS);
+    }
+    gradeSegments.forEach((s, idx) => {
+      if (s.miE >= gSeg.miS && s.miE <= lastGSeg.miE && !seenMiles.has(s.miE)) {
+        const correspondingSeg = segments[idx];
+        markers.push({
+          mile: s.miE, name: s.to,
+          amenities: (correspondingSeg && correspondingSeg.amenities) || {},
+          pacer: !!(correspondingSeg && correspondingSeg.pacer),
+          hasDropBag: !!(correspondingSeg && correspondingSeg.amenities && correspondingSeg.amenities.dropBag),
+        });
+        seenMiles.add(s.miE);
+      }
+    });
+    return markers.sort((a, b) => a.mile - b.mile);
+  }, [gSeg, lastGSeg]);
+  const highPoint = rangeData.reduce((max, d) => d.elev > max.elev ? d : max, rangeData[0]);
+  const lowPoint = rangeData.reduce((min, d) => d.elev < min.elev ? d : min, rangeData[0]);
+
+  // Maps an absolute course mile to the same 0-100% x position each chart
+  // already uses for its own points, by finding the closest sample in
+  // whichever dataset is actually on screen -- rangeData for Course
+  // Profile, chartData for Grade Profile (identical to rangeData in course
+  // order, but reordered when sorted by grade, which is why markers only
+  // render in course order there -- a mile-based position is meaningless
+  // once points are reordered by steepness instead of location).
+  function mileToPercent(mile, data) {
+    let closestIdx = 0, closestDiff = Infinity;
+    data.forEach((d, i) => { const diff = Math.abs(d.mile - mile); if (diff < closestDiff) { closestDiff = diff; closestIdx = i; } });
+    return (closestIdx / Math.max(1, data.length - 1)) * 100;
+  }
 
   return (
     <div style={{ paddingBottom: 60 }}>
@@ -302,7 +378,59 @@ function SegmentsView() {
               }
               fill={gSeg.color} opacity="0.12"
             />
+            {aidStationMarkers.map((m, i) => {
+              const x = mileToPercent(m.mile, rangeData);
+              return (
+                <line key={'aid'+i} x1={x} x2={x} y1={5} y2={chartH - 5}
+                  stroke={m.hasDropBag ? 'var(--db)' : 'var(--ink-faint)'} strokeWidth={m.hasDropBag ? 1.4 : 0.8}
+                  strokeDasharray={m.hasDropBag ? undefined : '2,2'} vectorEffect="non-scaling-stroke"
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={() => setMarkerHovered({ type: 'aid', ...m })}
+                  onMouseLeave={() => setMarkerHovered(null)}
+                />
+              );
+            })}
+            {[{ ...highPoint, kind: 'high' }, { ...lowPoint, kind: 'low' }].map((p, i) => {
+              const x = mileToPercent(p.mile, rangeData);
+              const y = chartH - ((p.elev - minElev) / range) * (chartH - 10) - 5;
+              return (
+                <circle key={'pt'+i} cx={x} cy={y} r={2.2}
+                  fill={p.kind === 'high' ? 'var(--climb)' : 'var(--descent)'} stroke="var(--bg-card)" strokeWidth={0.8}
+                  vectorEffect="non-scaling-stroke" style={{ cursor: 'pointer' }}
+                  onMouseEnter={() => setMarkerHovered({ type: p.kind, mile: p.mile, elev: p.elev })}
+                  onMouseLeave={() => setMarkerHovered(null)}
+                />
+              );
+            })}
           </svg>
+          {markerHovered && (
+            <div style={{
+              position: 'absolute', left: `${mileToPercent(markerHovered.mile, rangeData)}%`, top: 8, transform: 'translateX(-50%)',
+              background: 'var(--bg-raised)', border: `1px solid ${markerHovered.type === 'aid' ? (markerHovered.hasDropBag ? 'var(--db)' : 'var(--ink-faint)') : markerHovered.type === 'high' ? 'var(--climb)' : 'var(--descent)'}`,
+              borderRadius: 8, padding: '8px 10px', fontSize: 10.5, color: 'var(--ink)',
+              whiteSpace: 'nowrap', zIndex: 20, pointerEvents: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            }}>
+              {markerHovered.type === 'aid' ? (
+                <>
+                  <div style={{ fontWeight: 700, color: markerHovered.hasDropBag ? 'var(--db)' : 'var(--ink)' }}>{markerHovered.name}</div>
+                  <div style={{ color: 'var(--ink-faint)' }}>Mile {markerHovered.mile}</div>
+                  <div style={{ display: 'flex', gap: 5, marginTop: 4, flexWrap: 'wrap', maxWidth: 180 }}>
+                    {markerHovered.amenities.water && <AmenityBadge label="Water" />}
+                    {markerHovered.amenities.food && <AmenityBadge label="Food" />}
+                    {markerHovered.hasDropBag && <AmenityBadge label="Drop Bag" active />}
+                    {markerHovered.amenities.crew && <AmenityBadge label="Crew" />}
+                    {markerHovered.pacer && <AmenityBadge label="Pacer" />}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontWeight: 700, color: markerHovered.type === 'high' ? 'var(--climb)' : 'var(--descent)' }}>{markerHovered.type === 'high' ? 'High point' : 'Low point'}</div>
+                  <div>{markerHovered.elev.toLocaleString()} ft</div>
+                  <div style={{ color: 'var(--ink-faint)' }}>Mile {markerHovered.mile}</div>
+                </>
+              )}
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--ink-faint)', fontFamily: 'var(--mono)', marginTop: 4 }}>
             <span>{minElev.toLocaleString()}ft</span>
             <span>{maxElev.toLocaleString()}ft</span>
@@ -355,6 +483,66 @@ function SegmentsView() {
               );
             })}
           </div>
+          {gradeOrder === 'course' && (
+            <div style={{ position: 'absolute', left: 44, right: 12, top: 12, bottom: 44, pointerEvents: 'none' }}>
+              {aidStationMarkers.map((m, i) => {
+                const x = mileToPercent(m.mile, chartData);
+                return (
+                  <div key={'aid' + i}
+                    onMouseEnter={() => setMarkerHovered({ type: 'aid', ...m })}
+                    onMouseLeave={() => setMarkerHovered(null)}
+                    style={{
+                      position: 'absolute', left: `${x}%`, top: 0, bottom: 0, width: 1,
+                      borderLeft: `${m.hasDropBag ? 1.4 : 0.8}px ${m.hasDropBag ? 'solid' : 'dashed'} ${m.hasDropBag ? 'var(--db)' : 'var(--ink-faint)'}`,
+                      pointerEvents: 'auto', cursor: 'pointer',
+                    }}
+                  />
+                );
+              })}
+              {[{ ...highPoint, kind: 'high' }, { ...lowPoint, kind: 'low' }].map((p, i) => {
+                const x = mileToPercent(p.mile, chartData);
+                return (
+                  <div key={'pt' + i}
+                    onMouseEnter={() => setMarkerHovered({ type: p.kind, mile: p.mile, elev: p.elev })}
+                    onMouseLeave={() => setMarkerHovered(null)}
+                    style={{
+                      position: 'absolute', left: `${x}%`, top: '50%', width: 8, height: 8, marginLeft: -4, marginTop: -4,
+                      borderRadius: '50%', background: p.kind === 'high' ? 'var(--climb)' : 'var(--descent)',
+                      border: '1px solid var(--bg-card)', pointerEvents: 'auto', cursor: 'pointer',
+                    }}
+                  />
+                );
+              })}
+              {markerHovered && (
+                <div style={{
+                  position: 'absolute', left: `${mileToPercent(markerHovered.mile, chartData)}%`, top: -8, transform: 'translate(-50%, -100%)',
+                  background: 'var(--bg-raised)', border: `1px solid ${markerHovered.type === 'aid' ? (markerHovered.hasDropBag ? 'var(--db)' : 'var(--ink-faint)') : markerHovered.type === 'high' ? 'var(--climb)' : 'var(--descent)'}`,
+                  borderRadius: 8, padding: '8px 10px', fontSize: 10.5, color: 'var(--ink)',
+                  whiteSpace: 'nowrap', zIndex: 20, boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                }}>
+                  {markerHovered.type === 'aid' ? (
+                    <>
+                      <div style={{ fontWeight: 700, color: markerHovered.hasDropBag ? 'var(--db)' : 'var(--ink)' }}>{markerHovered.name}</div>
+                      <div style={{ color: 'var(--ink-faint)' }}>Mile {markerHovered.mile}</div>
+                      <div style={{ display: 'flex', gap: 5, marginTop: 4, flexWrap: 'wrap', maxWidth: 180 }}>
+                        {markerHovered.amenities.water && <AmenityBadge label="Water" />}
+                        {markerHovered.amenities.food && <AmenityBadge label="Food" />}
+                        {markerHovered.hasDropBag && <AmenityBadge label="Drop Bag" active />}
+                        {markerHovered.amenities.crew && <AmenityBadge label="Crew" />}
+                        {markerHovered.pacer && <AmenityBadge label="Pacer" />}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontWeight: 700, color: markerHovered.type === 'high' ? 'var(--climb)' : 'var(--descent)' }}>{markerHovered.type === 'high' ? 'High point' : 'Low point'}</div>
+                      <div>{markerHovered.elev.toLocaleString()} ft</div>
+                      <div style={{ color: 'var(--ink-faint)' }}>Mile {markerHovered.mile}</div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -445,46 +633,47 @@ function SegmentsView() {
           {pSeg.amenities.note && <span style={{ fontSize: 11, color: 'var(--ink-faint)', alignSelf: 'center', fontFamily: 'var(--mono)' }}>{pSeg.amenities.note}</span>}
         </div>
       ) : (
-        <div style={{ marginBottom: 20 }}>
-          <SmallLabel>Aid stations in range</SmallLabel>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-            {rangeAidStations.map((a, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 13, minWidth: 140 }}>{a.name}</span>
-                {a.seg.amenities.water && <AmenityBadge label="Water" />}
-                {a.seg.amenities.food && <AmenityBadge label="Food" />}
-                {a.seg.amenities.dropBag && <AmenityBadge label="Drop Bag" active />}
-                {a.seg.amenities.crew && <AmenityBadge label="Crew" />}
-              </div>
-            ))}
-          </div>
+        <div style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginBottom: 20 }}>
+          {rangeAidStations.length} aid station{rangeAidStations.length === 1 ? '' : 's'} in this range \u2014 marked on the chart below (<span style={{ color: 'var(--db)' }}>purple</span> = drop bag); hover a marker for name, mile, and amenities.
+        </div>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <SmallLabel>Metrics</SmallLabel>
+        <button onClick={() => setShowMetricsPanel(v => !v)} aria-label="Customize metrics" title="Reorder or hide metrics" style={{
+          marginLeft: 'auto', background: 'none', border: '1px solid var(--line)', borderRadius: 6, width: 26, height: 26,
+          color: showMetricsPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor: 'pointer', fontSize: 13,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>&#9881;&#65039;</button>
+      </div>
+
+      {showMetricsPanel && (
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 10, padding: 12, marginBottom: 16, maxWidth: 460 }}>
+          <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 8 }}>Drag to reorder, or toggle to show/hide.</div>
+          <window.DragReorderList
+            order={metricsOrder}
+            setOrder={setMetricsOrder}
+            renderLabel={key => metricDefs.find(x => x.key === key).label}
+            extraControls={key => {
+              const vis = !metricsHidden.includes(key);
+              return (
+                <button onClick={() => setMetricsHidden(prev => vis ? [...prev, key] : prev.filter(k => k !== key))} aria-label={vis ? 'Hide metric' : 'Show metric'} style={{
+                  width: 26, height: 26, borderRadius: 6, border: '1px solid var(--line)',
+                  background: vis ? 'var(--climb)' : 'var(--bg-raised)',
+                  color: vis ? '#12151A' : 'var(--ink-faint)', cursor: 'pointer', fontSize: 16, lineHeight: 1,
+                }}>{vis ? '\u2212' : '+'}</button>
+              );
+            }}
+          />
+          <button onClick={() => { setMetricsOrder(metricKeys); setMetricsHidden([]); }} style={{
+            marginTop: 10, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--ink-faint)', background: 'none',
+            border: 'none', textDecoration: 'underline', cursor: 'pointer', padding: 0,
+          }}>Reset to default</button>
         </div>
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginBottom: 28 }}>
-        {isSingle ? (
-          <>
-            <StatBox label="Distance" value={`${pSeg.dist}mi`} sub={`${pSeg.distReal}mi measured`} />
-            <StatBox label="Time" value={pSeg.time} />
-            <StatBox label="Avg Pace" value={`${pSeg.avgPace}/mi`} />
-            <StatBox label="Gain" value={`+${pSeg.segGain.toLocaleString()}ft`} color="var(--climb)" />
-            <StatBox label="Loss" value={`-${pSeg.segLoss.toLocaleString()}ft`} color="var(--descent)" />
-            <StatBox label="Max Climb" value={`${pSeg.maxClimb}%`} />
-            <StatBox label="Max Descent" value={`${pSeg.maxDescent}%`} />
-            <StatBox label="Net" value={pSeg.netFt} color={pSeg.netDir === 'climb' ? 'var(--climb)' : 'var(--descent)'} />
-          </>
-        ) : (
-          <>
-            <StatBox label="Distance" value={`${rangeAgg.distReal}mi`} sub="measured" />
-            <StatBox label="Time" value={rangeHoursFmt} />
-            <StatBox label="Avg Pace" value={`${rangeAvgPaceFmt}/mi`} />
-            <StatBox label="Gain" value={`+${rangeAgg.gain.toLocaleString()}ft`} color="var(--climb)" />
-            <StatBox label="Loss" value={`-${rangeAgg.loss.toLocaleString()}ft`} color="var(--descent)" />
-            <StatBox label="Max Climb" value={`${rangeAgg.maxClimb}%`} sub="steepest segment in range" />
-            <StatBox label="Max Descent" value={`${rangeAgg.maxDescent}%`} sub="steepest segment in range" />
-            <StatBox label="Net" value={`${rangeAgg.gain - rangeAgg.loss >= 0 ? '+' : ''}${(rangeAgg.gain - rangeAgg.loss).toLocaleString()}ft`} color={rangeAgg.gain >= rangeAgg.loss ? 'var(--climb)' : 'var(--descent)'} />
-          </>
-        )}
+        {orderedMetrics.map(m => <StatBox key={m.key} label={m.label} value={m.value} sub={m.sub} color={m.color} />)}
       </div>
 
       <div style={{ marginBottom: 28 }}>
