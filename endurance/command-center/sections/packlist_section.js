@@ -79,7 +79,7 @@ function PackCard({ point, tempRange }) {
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div style={{ fontFamily: 'var(--display)', fontSize: 20, fontWeight: 600 }}>
               {tempRange.low === tempRange.high ? `${tempRange.low}\u00b0F` : (
-                <><span style={{ color: '#4A9FE8' }}>{tempRange.low}\u00b0</span><span style={{ color: 'var(--ink-faint)', fontSize: 14 }}>&ndash;</span><span style={{ color: 'var(--climb)' }}>{tempRange.high}\u00b0F</span></>
+                <><span style={{ color: '#4A9FE8' }}>{tempRange.low}{'\u00b0'}</span><span style={{ color: 'var(--ink-faint)', fontSize: 14 }}>&ndash;</span><span style={{ color: 'var(--climb)' }}>{tempRange.high}{'\u00b0'}F</span></>
               )}
             </div>
             <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--ink-faint)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Forecast, this leg</div>

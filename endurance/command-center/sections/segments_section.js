@@ -634,7 +634,7 @@ function SegmentsView() {
         </div>
       ) : (
         <div style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginBottom: 20 }}>
-          {rangeAidStations.length} aid station{rangeAidStations.length === 1 ? '' : 's'} in this range \u2014 marked on the chart below (<span style={{ color: 'var(--db)' }}>purple</span> = drop bag); hover a marker for name, mile, and amenities.
+          {rangeAidStations.length} aid station{rangeAidStations.length === 1 ? '' : 's'} in this range {'\u2014'} marked on the chart below (<span style={{ color: 'var(--db)' }}>purple</span> = drop bag); hover a marker for name, mile, and amenities.
         </div>
       )}
 
