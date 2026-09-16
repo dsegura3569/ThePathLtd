@@ -187,9 +187,11 @@ function PackListView() {
   const grandSaltOrig = packing.reduce((s, p) => s + p.saltOriginalTotal, 0);
   const grandSaltCaf = packing.reduce((s, p) => s + p.saltCaffeineTotal, 0);
 
-  const GEL_CARB = 22, SCOOP_G = 27, CARB_PER_SCOOP = 25, CAP_NA = 215, CAP_NA_CAFFEINE = 190;
+  const GEL_CARB = 22, SCOOP_G = 27, CARB_PER_SCOOP = 25, NA_PER_SCOOP = 310, CAP_NA = 215, CAP_NA_CAFFEINE = 190;
   const gelCarbs = grandGels * GEL_CARB;
   const tailwindCarbs = Math.round(grandTailwind * (CARB_PER_SCOOP / SCOOP_G));
+  const tailwindSodium = Math.round(grandTailwind * (NA_PER_SCOOP / SCOOP_G));
+  const saltCapsPlusTailwindSodium = grandSaltOrig * CAP_NA + tailwindSodium;
   const totalCarbs = gelCarbs + tailwindCarbs;
   const totalSodium = grandSaltOrig * CAP_NA + grandSaltCaf * CAP_NA_CAFFEINE;
   const totalCalories = Math.round(totalCarbs * 4); // 4 kcal/g carb, matches both SIS GO and Tailwind label ratios
@@ -348,6 +350,7 @@ function PackListView() {
         <StatBox label="Salt caps" value={grandSaltOrig} sub={
           <React.Fragment>
             <div>{grandSaltOrig * CAP_NA}mg sodium (215mg/cap)</div>
+            {grandSaltOrig > 0 && grandTailwind > 0 && <div>{saltCapsPlusTailwindSodium}mg combined w/ tailwind</div>}
             {grandSaltOrig > 0 && grandSaltCaf > 0 && <div>{totalSodium}mg combined w/ +caf</div>}
           </React.Fragment>
         } />
@@ -358,8 +361,8 @@ function PackListView() {
             {caffeineWindow && <div style={{ color: 'var(--climb)' }}>*optional, take between {caffeineWindow}</div>}
           </React.Fragment>
         } />
-        <StatBox label="Water" value={`${(totalWaterMl/1000).toFixed(1)}L`} sub="whole race" color="#4A9FE8" />
-        <StatBox label="Calories" value={combinedCalories} sub={customFuelItems.length ? `${totalCalories} from plan + ${Math.round(customCarbTotal*4)} custom` : 'whole race'} />
+        <StatBox label="Water" value={`${(totalWaterMl/1000).toFixed(1)}L`} color="#4A9FE8" />
+        <StatBox label="Calories" value={combinedCalories} sub={customFuelItems.length ? `${totalCalories} from plan + ${Math.round(customCarbTotal*4)} custom` : undefined} />
       </div>
 
       <div style={{ background: 'var(--bg-raised)', borderRadius: 10, padding: '14px 16px', marginBottom: 24 }}>
