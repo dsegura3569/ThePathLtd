@@ -331,7 +331,6 @@ function CourseProfileChart() {
   // common case) so Gain sits directly above Loss and Max directly above
   // Min, rather than the row-major order that split those pairs diagonally.
   const courseProfileStatKeys = ['gain', 'max', 'maxClimb', 'loss', 'min', 'maxDescent'];
-  const [showCourseProfileStatPanel, setShowCourseProfileStatPanel] = React.useState(false);
   const [courseProfileStatOrder, setCourseProfileStatOrder] = window.useBlobField(
     blobState, setBlobState, 'courseProfileStatOrder', courseProfileStatKeys,
     saved => (Array.isArray(saved) && saved.every(k => courseProfileStatKeys.includes(k)) &&
@@ -341,10 +340,6 @@ function CourseProfileChart() {
     blobState, setBlobState, 'courseProfileStatHidden', [],
     saved => Array.isArray(saved) ? saved.filter(k => courseProfileStatKeys.includes(k)) : undefined
   );
-  function toggleCourseProfileStat(key) {
-    setCourseProfileStatHidden(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
-  }
-  function resetCourseProfileStats() { setCourseProfileStatOrder(courseProfileStatKeys); setCourseProfileStatHidden([]); }
 
   // aid station markers: start (green), 9 aid stations (orange), finish (red) --
   // positioned at each segment boundary using the real official mile markers
@@ -468,36 +463,7 @@ function CourseProfileChart() {
             background:'none', border:'none', color:'var(--ink-faint)', cursor:'pointer', fontSize:11, fontFamily:'var(--mono)',
           }}>&#10005; whole course</button>
         )}
-        <button onClick={() => setShowCourseProfileStatPanel(v => !v)} aria-label="Customize stats" title="Reorder or hide stats" style={{
-          background:'none', border:'1px solid var(--line)', borderRadius:6, width:26, height:26,
-          color: showCourseProfileStatPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer',
-          display:'flex', alignItems:'center', justifyContent:'center', fontSize:13,
-        }}>⚙️</button>
       </div>
-
-      {showCourseProfileStatPanel && (
-        <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:12, maxWidth:460}}>
-          <window.DragReorderList
-            order={courseProfileStatOrder}
-            setOrder={setCourseProfileStatOrder}
-            renderLabel={key => ({ gain: 'Gain', loss: 'Loss', max: 'Max elevation', min: 'Min elevation', maxClimb: 'Max Climb', maxDescent: 'Max Descent' }[key])}
-            extraControls={key => {
-              const vis = !courseProfileStatHidden.includes(key);
-              return (
-                <button onClick={() => toggleCourseProfileStat(key)} aria-label={vis ? 'Hide stat' : 'Show stat'} style={{
-                  width:26, height:26, borderRadius:6, border:'1px solid var(--line)',
-                  background: vis ? 'var(--climb)' : 'var(--bg-raised)',
-                  color: vis ? '#12151A' : 'var(--ink-faint)', cursor:'pointer', fontSize:16, lineHeight:1,
-                }}>{vis ? '\u2212' : '+'}</button>
-              );
-            }}
-          />
-          <button onClick={resetCourseProfileStats} style={{
-            marginTop:10, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
-            border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
-          }}>Reset to default order</button>
-        </div>
-      )}
 
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))', gap:1, background:'var(--line)'}}>
         {courseProfileStatOrder.filter(key => !courseProfileStatHidden.includes(key)).map(key => {
@@ -1131,7 +1097,6 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
   const allStats = [...staticStats, ...weatherStats];
   const defaultOrder = allStats.map(s => s.key);
 
-  const [showStatPanel, setShowStatPanel] = React.useState(false);
   const [statOrder, setStatOrder] = window.useBlobField(
     blobState, setBlobState, 'statOrder', defaultOrder,
     saved => (Array.isArray(saved) && saved.every(k => defaultOrder.includes(k)) &&
@@ -1177,6 +1142,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
     { id: 'conditions', label: 'Conditions' },
     { id: 'raceDayForecast', label: 'Race Day Forecast' },
     { id: 'courseProfile', label: 'Course Profile' },
+    { id: 'raceSettings', label: 'Race Settings' },
     { id: 'raceInsights', label: 'Race Insights' },
   ];
   const pageSectionDefaultOrder = PAGE_SECTIONS.map(s => s.id);
@@ -1193,16 +1159,40 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
     setPageSectionHidden(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }
 
+  // Same blob key CourseProfileChart itself reads/writes -- duplicated here
+  // (not lifted/prop-drilled) so the one unified settings flyout below can
+  // manage it too, since both components already share the same blobState/
+  // setBlobState via context.
+  const courseProfileStatKeys = ['gain', 'max', 'maxClimb', 'loss', 'min', 'maxDescent'];
+  const [courseProfileStatOrder, setCourseProfileStatOrder] = window.useBlobField(
+    blobState, setBlobState, 'courseProfileStatOrder', courseProfileStatKeys,
+    saved => (Array.isArray(saved) && saved.every(k => courseProfileStatKeys.includes(k)) &&
+      courseProfileStatKeys.every(k => saved.includes(k))) ? saved : undefined
+  );
+  const [courseProfileStatHidden, setCourseProfileStatHidden] = window.useBlobField(
+    blobState, setBlobState, 'courseProfileStatHidden', [],
+    saved => Array.isArray(saved) ? saved.filter(k => courseProfileStatKeys.includes(k)) : undefined
+  );
+  const courseProfileStatLabels = { gain: 'Gain', loss: 'Loss', max: 'Max elevation', min: 'Min elevation', maxClimb: 'Max Climb', maxDescent: 'Max Descent' };
+
+  // One flyout (not an inline panel that pushes down the rest of the page)
+  // covers page layout plus every stat-reorder gear that used to be
+  // scattered across separate sections -- Course & Conditions stats and
+  // Course Profile stats both used to have their own gear icon; Race
+  // Settings used to have its own gear too, but that's now just another
+  // entry in the page-layout list below (draggable/hideable like any other
+  // section) rather than a separate toggle.
   const [showPageLayoutPanel, setShowPageLayoutPanel] = React.useState(false);
   React.useEffect(() => {
     if (externalCardPanelOpen !== undefined) setShowPageLayoutPanel(externalCardPanelOpen);
   }, [externalCardPanelOpen]);
 
-  // Pace & Nutrition Targets and Race Config (Drop Bag Locations, Race
-  // Date/Time/Cutoff, Import Race Info) -- both tucked behind one shared
-  // gear toggle instead of taking up permanent space on Overview, since
-  // both are occasional setup/adjustment rather than something checked on
-  // every visit.
+  // Race Settings' own content (Pace & Nutrition Targets, Drop Bag
+  // Locations, Race Date/Time/Cutoff, Import Race Info) still expands/
+  // collapses independently of whether the section itself is shown in the
+  // page layout -- this is "is the content open", not "is this section
+  // visible", so it stays a separate toggle, just no longer a gear icon
+  // (that framing belonged to the old per-section-gear pattern).
   const [showRaceSettingsPanel, setShowRaceSettingsPanel] = React.useState(false);
   const [showAddForm, setShowAddForm] = React.useState(false);
   const [editingCardId, setEditingCardId] = React.useState(null);
@@ -1291,7 +1281,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
   return (
     <div>
       <div style={{display:'flex', justifyContent:'flex-end', marginBottom:4}}>
-        <button onClick={() => setShowPageLayoutPanel(v => !v)} aria-label="Reorder or hide sections" title="Reorder or hide page sections" style={{
+        <button onClick={() => setShowPageLayoutPanel(v => !v)} aria-label="Overview settings" title="Reorder sections, customize stats" style={{
           background:'none', border:'1px solid var(--line)', borderRadius:6, width:28, height:28,
           color: showPageLayoutPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer',
           display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
@@ -1299,33 +1289,87 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
       </div>
 
       {showPageLayoutPanel && (
-        <div style={{background:'var(--bg-card)', border:'1px solid var(--climb)', borderRadius:10, padding:12, marginBottom:20, maxWidth:460}}>
-          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
-            <div style={{fontSize:12, color:'var(--ink-faint)'}}>Drag to reorder, or toggle to show/hide.</div>
-            <button onClick={() => setShowPageLayoutPanel(false)} style={{
-              background:'none', border:'none', color:'var(--ink-faint)', cursor:'pointer', fontSize:16, lineHeight:1,
-            }}>&#10005;</button>
+        <>
+          <div onClick={() => setShowPageLayoutPanel(false)} style={{
+            position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:999,
+          }} />
+          <div style={{
+            position:'fixed', top:0, right:0, bottom:0, width:'min(420px, 92vw)', zIndex:1000,
+            background:'var(--bg-card)', borderLeft:'1px solid var(--line)', boxShadow:'-8px 0 28px rgba(0,0,0,0.45)',
+            overflowY:'auto', padding:16,
+          }}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16}}>
+              <div style={{fontFamily:'var(--display)', fontWeight:600, fontSize:16}}>Overview Settings</div>
+              <button onClick={() => setShowPageLayoutPanel(false)} aria-label="Close" style={{
+                background:'none', border:'none', color:'var(--ink-faint)', cursor:'pointer', fontSize:18, lineHeight:1,
+              }}>&#10005;</button>
+            </div>
+
+            <div style={{fontSize:11, fontFamily:'var(--mono)', color:'var(--climb)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8}}>Page Layout</div>
+            <div style={{fontSize:12, color:'var(--ink-faint)', marginBottom:8}}>Drag to reorder sections, or toggle to show/hide.</div>
+            <window.DragReorderList
+              order={pageSectionOrder}
+              setOrder={setPageSectionOrder}
+              renderLabel={id => PAGE_SECTIONS.find(x => x.id === id).label}
+              extraControls={id => {
+                const vis = !pageSectionHidden.includes(id);
+                return (
+                  <button onClick={() => togglePageSection(id)} aria-label={vis ? 'Hide section' : 'Show section'} style={{
+                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)',
+                    background: vis ? 'var(--climb)' : 'var(--bg-raised)',
+                    color: vis ? '#12151A' : 'var(--ink-faint)', cursor:'pointer', fontSize:16, lineHeight:1,
+                  }}>{vis ? '\u2212' : '+'}</button>
+                );
+              }}
+            />
+            <button onClick={() => { setPageSectionOrder(pageSectionDefaultOrder); setPageSectionHidden([]); }} style={{
+              marginTop:8, marginBottom:24, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
+              border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
+            }}>Reset to default order</button>
+
+            <div style={{fontSize:11, fontFamily:'var(--mono)', color:'var(--climb)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8, borderTop:'1px solid var(--line)', paddingTop:20}}>Course &amp; Conditions Stats</div>
+            <window.DragReorderList
+              order={statOrder}
+              setOrder={setStatOrder}
+              renderLabel={key => allStats.find(x => x.key === key).label}
+              extraControls={key => {
+                const vis = isVisible(key);
+                return (
+                  <button onClick={() => toggleVisible(key)} aria-label={vis ? 'Hide stat' : 'Show stat'} style={{
+                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)',
+                    background: vis ? 'var(--climb)' : 'var(--bg-raised)',
+                    color: vis ? '#12151A' : 'var(--ink-faint)', cursor:'pointer', fontSize:16, lineHeight:1,
+                  }}>{vis ? '\u2212' : '+'}</button>
+                );
+              }}
+            />
+            <button onClick={resetStats} style={{
+              marginTop:8, marginBottom:24, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
+              border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
+            }}>Reset to default order</button>
+
+            <div style={{fontSize:11, fontFamily:'var(--mono)', color:'var(--climb)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8, borderTop:'1px solid var(--line)', paddingTop:20}}>Course Profile Stats</div>
+            <window.DragReorderList
+              order={courseProfileStatOrder}
+              setOrder={setCourseProfileStatOrder}
+              renderLabel={key => courseProfileStatLabels[key]}
+              extraControls={key => {
+                const vis = !courseProfileStatHidden.includes(key);
+                return (
+                  <button onClick={() => setCourseProfileStatHidden(prev => vis ? [...prev, key] : prev.filter(k => k !== key))} aria-label={vis ? 'Hide stat' : 'Show stat'} style={{
+                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)',
+                    background: vis ? 'var(--climb)' : 'var(--bg-raised)',
+                    color: vis ? '#12151A' : 'var(--ink-faint)', cursor:'pointer', fontSize:16, lineHeight:1,
+                  }}>{vis ? '\u2212' : '+'}</button>
+                );
+              }}
+            />
+            <button onClick={() => { setCourseProfileStatOrder(courseProfileStatKeys); setCourseProfileStatHidden([]); }} style={{
+              marginTop:8, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
+              border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
+            }}>Reset to default order</button>
           </div>
-          <window.DragReorderList
-            order={pageSectionOrder}
-            setOrder={setPageSectionOrder}
-            renderLabel={id => PAGE_SECTIONS.find(x => x.id === id).label}
-            extraControls={id => {
-              const vis = !pageSectionHidden.includes(id);
-              return (
-                <button onClick={() => togglePageSection(id)} aria-label={vis ? 'Hide section' : 'Show section'} style={{
-                  width:26, height:26, borderRadius:6, border:'1px solid var(--line)',
-                  background: vis ? 'var(--climb)' : 'var(--bg-raised)',
-                  color: vis ? '#12151A' : 'var(--ink-faint)', cursor:'pointer', fontSize:16, lineHeight:1,
-                }}>{vis ? '\u2212' : '+'}</button>
-              );
-            }}
-          />
-          <button onClick={() => { setPageSectionOrder(pageSectionDefaultOrder); setPageSectionHidden([]); }} style={{
-            marginTop:10, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
-            border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
-          }}>Reset to default order</button>
-        </div>
+        </>
       )}
 
       <div style={{display:'flex', flexDirection:'column'}}>
@@ -1389,40 +1433,9 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
 
       <div style={{order: pageSectionOrder.indexOf('conditions'), display: pageSectionHidden.includes('conditions') ? 'none' : undefined}}>
       <section style={{padding:'40px 0', borderBottom:'1px solid var(--line)'}}>
-        <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
-          <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase', flex:1}}>
-            Course &amp; Conditions
-          </div>
-          <button onClick={() => setShowStatPanel(v => !v)} aria-label="Configure stats" title="Configure stats" style={{
-            background:'none', border:'1px solid var(--line)', borderRadius:6, width:28, height:28,
-            color: showStatPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer',
-            display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
-          }}>⚙️</button>
+        <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:12}}>
+          Course &amp; Conditions
         </div>
-
-        {showStatPanel && (
-          <div style={{background:'var(--bg-card)', border:'1px solid var(--line)', borderRadius:10, padding:12, marginBottom:16, maxWidth:460}}>
-            <window.DragReorderList
-              order={statOrder}
-              setOrder={setStatOrder}
-              renderLabel={key => allStats.find(x => x.key === key).label}
-              extraControls={key => {
-                const vis = isVisible(key);
-                return (
-                  <button onClick={() => toggleVisible(key)} aria-label={vis ? 'Hide stat' : 'Show stat'} style={{
-                    width:26, height:26, borderRadius:6, border:'1px solid var(--line)',
-                    background: vis ? 'var(--climb)' : 'var(--bg-raised)',
-                    color: vis ? '#12151A' : 'var(--ink-faint)', cursor:'pointer', fontSize:16, lineHeight:1,
-                  }}>{vis ? '\u2212' : '+'}</button>
-                );
-              }}
-            />
-            <button onClick={resetStats} style={{
-              marginTop:10, fontSize:11, fontFamily:'var(--mono)', color:'var(--ink-faint)', background:'none',
-              border:'none', textDecoration:'underline', cursor:'pointer', padding:0,
-            }}>Reset to default order</button>
-          </div>
-        )}
 
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:1, background:'var(--line)', marginBottom: orderedStats.some(s => s.isWeather) ? 1 : 0}}>
           {orderedStats.filter(s => !s.isWeather).map(s => <StatTile key={s.key} s={s} goTo={goTo} />)}
@@ -1441,15 +1454,15 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
       <CourseProfileChart />
       </div>
 
+      <div style={{order: pageSectionOrder.indexOf('raceSettings'), display: pageSectionHidden.includes('raceSettings') ? 'none' : undefined}}>
       <section style={{padding:'16px 0', borderBottom: showRaceSettingsPanel ? 'none' : '1px solid var(--line)', display:'flex', alignItems:'center', gap:8}}>
         <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase', flex:1}}>
           Race Settings
         </div>
-        <button onClick={() => setShowRaceSettingsPanel(v => !v)} aria-label="Pace, nutrition, and race config" title="Pace & nutrition targets, drop bag locations, race date/time/cutoff, import race info" style={{
-          background:'none', border:'1px solid var(--line)', borderRadius:6, width:28, height:28,
-          color: showRaceSettingsPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer',
-          display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
-        }}>⚙️</button>
+        <button onClick={() => setShowRaceSettingsPanel(v => !v)} aria-label={showRaceSettingsPanel ? 'Collapse race settings' : 'Expand race settings'} title="Pace & nutrition targets, drop bag locations, race date/time/cutoff, import race info" style={{
+          background:'none', border:'1px solid var(--line)', borderRadius:6, padding:'4px 10px',
+          color: showRaceSettingsPanel ? 'var(--climb)' : 'var(--ink-faint)', cursor:'pointer', fontSize:12,
+        }}>{showRaceSettingsPanel ? '\u2212 Hide' : '+ Edit'}</button>
       </section>
 
       {showRaceSettingsPanel && (
@@ -1459,6 +1472,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, onRaceDataCh
           <RaceInfoImportWidget onRaceDataChanged={onRaceDataChanged} />
         </div>
       )}
+      </div>
 
       <div style={{order: pageSectionOrder.indexOf('raceInsights'), display: pageSectionHidden.includes('raceInsights') ? 'none' : undefined}}>
       <section ref={cardSectionRef} style={{padding:'48px 0 20px'}}>
