@@ -83,15 +83,19 @@ function SegmentsView({ goToRaceSettings }) {
   }
 
   // Segment chips: click one to select just that segment (and anchor it for
-  // a future shift-click); shift-click a second one to select everything
-  // between the anchor and that click, in either direction -- same
-  // interaction file browsers and spreadsheets use for range selection.
+  // a future range selection); shift-click a second one (desktop) OR turn
+  // on "Select range" and tap a second one (any device, since shift-click
+  // has no touch equivalent) to select everything between the anchor and
+  // that click, in either direction -- same interaction file browsers and
+  // spreadsheets use for range selection.
   const [lastClickedChip, setLastClickedChip] = React.useState(1);
+  const [rangeMode, setRangeMode] = React.useState(false);
   function selectChip(segId, shiftKey) {
-    if (shiftKey) {
+    if (shiftKey || rangeMode) {
       const from = Math.min(lastClickedChip, segId);
       const to = Math.max(lastClickedChip, segId);
       setRange_({ start: from, size: to - from + 1 });
+      setRangeMode(false);
     } else {
       setRange_({ start: segId, size: 1 });
       setLastClickedChip(segId);
@@ -275,6 +279,19 @@ function SegmentsView({ goToRaceSettings }) {
     return (closestIdx / Math.max(1, data.length - 1)) * 100;
   }
 
+  // Lets the whole chart area be clickable, not just the small marker dots
+  // themselves -- finds the nearest aid station marker to wherever the
+  // click landed and selects that segment, same as clicking the marker
+  // directly would.
+  function handleChartClick(e) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickPercent = ((e.clientX - rect.left) / rect.width) * 100;
+    const clickMile = gSeg.miS + (clickPercent / 100) * (lastGSeg.miE - gSeg.miS);
+    let nearest = aidStationMarkers[0], nearestDiff = Infinity;
+    aidStationMarkers.forEach(m => { const diff = Math.abs(m.mile - clickMile); if (diff < nearestDiff) { nearestDiff = diff; nearest = m; } });
+    if (nearest) selectChip(nearest.segId, e.shiftKey);
+  }
+
   return (
     <div style={{ paddingBottom: 60, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
@@ -359,8 +376,8 @@ function SegmentsView({ goToRaceSettings }) {
         </div>
       </div>
 
-      <div style={{ textAlign: 'center', marginBottom: 16 }}>
-        <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>Click a marker below to select a segment, shift-click another to select a range.</span>
+      <div style={{ textAlign: 'center', marginBottom: 10 }}>
+        <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>Tap anywhere on the chart to select a segment.</span>
         {rangeSize !== total && (
           <>
             {' \u00b7 '}
@@ -369,6 +386,16 @@ function SegmentsView({ goToRaceSettings }) {
             </span>
           </>
         )}
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+        <button onClick={() => setRangeMode(v => !v)} style={{
+          padding: '6px 14px', borderRadius: 20, border: `1.5px solid ${rangeMode ? 'var(--climb)' : 'var(--line)'}`,
+          background: rangeMode ? 'var(--climb)' : 'var(--bg-card)', color: rangeMode ? '#12151A' : 'var(--ink-dim)',
+          fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+        }}>
+          {rangeMode ? 'Tap the other end of your range\u2026' : '+ Select a range'}
+        </button>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -401,7 +428,7 @@ function SegmentsView({ goToRaceSettings }) {
       )}
 
       {chartMode === 'course' ? (
-        <div style={{ position: 'relative', height: chartH + 24, marginBottom: 12, background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 12 }}>
+        <div onClick={handleChartClick} style={{ position: 'relative', height: chartH + 24, marginBottom: 12, background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 12, cursor: 'pointer' }}>
           <svg viewBox={`0 0 100 ${chartH}`} preserveAspectRatio="none" style={{ width: '100%', height: chartH, display: 'block' }}>
             <polyline
               points={rangeData.map((d, i) => {
@@ -424,34 +451,41 @@ function SegmentsView({ goToRaceSettings }) {
               }
               fill={gSeg.color} opacity="0.12"
             />
-            {aidStationMarkers.map((m, i) => {
-              const closest = rangeData.reduce((best, d) => Math.abs(d.mile - m.mile) < Math.abs(best.mile - m.mile) ? d : best, rangeData[0]);
-              const x = mileToPercent(m.mile, rangeData);
-              const y = chartH - ((closest.elev - minElev) / range) * (chartH - 10) - 5;
-              const color = m.hasDropBag ? 'var(--db)' : 'var(--climb)';
-              return (
-                <circle key={'aid'+i} cx={x} cy={y} r={m.hasDropBag ? 3.4 : 2.6}
-                  fill={color} stroke="var(--bg-card)" strokeWidth={0.8}
-                  vectorEffect="non-scaling-stroke" style={{ cursor: 'pointer' }}
-                  onClick={(e) => selectChip(m.segId, e.shiftKey)}
-                  onMouseEnter={() => setMarkerHovered({ type: 'aid', ...m })}
-                  onMouseLeave={() => setMarkerHovered(null)}
-                />
-              );
-            })}
-            {[{ ...highPoint, kind: 'high' }, { ...lowPoint, kind: 'low' }].map((p, i) => {
-              const x = mileToPercent(p.mile, rangeData);
-              const y = chartH - ((p.elev - minElev) / range) * (chartH - 10) - 5;
-              return (
-                <circle key={'pt'+i} cx={x} cy={y} r={2.2}
-                  fill={p.kind === 'high' ? '#E8484A' : '#4A9FE8'} stroke="var(--bg-card)" strokeWidth={0.8}
-                  vectorEffect="non-scaling-stroke" style={{ cursor: 'pointer' }}
-                  onMouseEnter={() => setMarkerHovered({ type: p.kind, mile: p.mile, elev: p.elev })}
-                  onMouseLeave={() => setMarkerHovered(null)}
-                />
-              );
-            })}
           </svg>
+          {aidStationMarkers.map((m, i) => {
+            const closest = rangeData.reduce((best, d) => Math.abs(d.mile - m.mile) < Math.abs(best.mile - m.mile) ? d : best, rangeData[0]);
+            const x = mileToPercent(m.mile, rangeData);
+            const y = chartH - ((closest.elev - minElev) / range) * (chartH - 10) - 5;
+            const color = m.hasDropBag ? 'var(--db)' : 'var(--climb)';
+            const size = m.hasDropBag ? 12 : 10;
+            return (
+              <div key={'aid'+i}
+                onClick={(e) => { e.stopPropagation(); selectChip(m.segId, e.shiftKey); }}
+                onMouseEnter={() => setMarkerHovered({ type: 'aid', ...m })}
+                onMouseLeave={() => setMarkerHovered(null)}
+                style={{
+                  position: 'absolute', left: `${x}%`, top: y, width: size, height: size, marginLeft: -size/2, marginTop: -size/2,
+                  borderRadius: '50%', background: color, border: '1.5px solid var(--bg-card)', cursor: 'pointer', zIndex: 5,
+                }}
+              />
+            );
+          })}
+          {[{ ...highPoint, kind: 'high' }, { ...lowPoint, kind: 'low' }].map((p, i) => {
+            const x = mileToPercent(p.mile, rangeData);
+            const y = chartH - ((p.elev - minElev) / range) * (chartH - 10) - 5;
+            return (
+              <div key={'pt'+i}
+                onClick={(e) => e.stopPropagation()}
+                onMouseEnter={() => setMarkerHovered({ type: p.kind, mile: p.mile, elev: p.elev })}
+                onMouseLeave={() => setMarkerHovered(null)}
+                style={{
+                  position: 'absolute', left: `${x}%`, top: y, width: 8, height: 8, marginLeft: -4, marginTop: -4,
+                  borderRadius: '50%', background: p.kind === 'high' ? '#E8484A' : '#4A9FE8',
+                  border: '1.5px solid var(--bg-card)', cursor: 'pointer', zIndex: 4,
+                }}
+              />
+            );
+          })}
           {markerHovered && (
             <div style={{
               position: 'absolute', left: `${mileToPercent(markerHovered.mile, rangeData)}%`, top: 8, transform: 'translateX(-50%)',
@@ -486,7 +520,7 @@ function SegmentsView({ goToRaceSettings }) {
           </div>
         </div>
       ) : (
-        <div style={{ position: 'relative', height: gradeChartH + 48, marginBottom: 12, background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: '12px' }}>
+        <div onClick={handleChartClick} style={{ position: 'relative', height: gradeChartH + 48, marginBottom: 12, background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: '12px', cursor: 'pointer' }}>
           {[-20, -10, 0, 10, 20].map(v => {
             const y = zeroY - (v / maxAbsGrade) * (gradeChartH * 0.45);
             return (
@@ -536,15 +570,16 @@ function SegmentsView({ goToRaceSettings }) {
             <div style={{ position: 'absolute', left: 44, right: 12, top: 12, bottom: 44, pointerEvents: 'none' }}>
               {aidStationMarkers.map((m, i) => {
                 const x = mileToPercent(m.mile, chartData);
+                const size = m.hasDropBag ? 12 : 10;
                 return (
                   <div key={'aid' + i}
-                    onClick={(e) => selectChip(m.segId, e.shiftKey)}
+                    onClick={(e) => { e.stopPropagation(); selectChip(m.segId, e.shiftKey); }}
                     onMouseEnter={() => setMarkerHovered({ type: 'aid', ...m })}
                     onMouseLeave={() => setMarkerHovered(null)}
                     style={{
-                      position: 'absolute', left: `${x}%`, top: 0, bottom: 0, width: 1,
-                      borderLeft: `${m.hasDropBag ? 2 : 1.4}px solid ${m.hasDropBag ? 'var(--db)' : 'var(--climb)'}`,
-                      pointerEvents: 'auto', cursor: 'pointer',
+                      position: 'absolute', left: `${x}%`, top: 10, width: size, height: size, marginLeft: -size/2, marginTop: -size/2,
+                      borderRadius: '50%', background: m.hasDropBag ? 'var(--db)' : 'var(--climb)',
+                      border: '1.5px solid var(--bg-card)', pointerEvents: 'auto', cursor: 'pointer', zIndex: 5,
                     }}
                   />
                 );
@@ -553,12 +588,13 @@ function SegmentsView({ goToRaceSettings }) {
                 const x = mileToPercent(p.mile, chartData);
                 return (
                   <div key={'pt' + i}
+                    onClick={(e) => e.stopPropagation()}
                     onMouseEnter={() => setMarkerHovered({ type: p.kind, mile: p.mile, elev: p.elev })}
                     onMouseLeave={() => setMarkerHovered(null)}
                     style={{
-                      position: 'absolute', left: `${x}%`, top: '50%', width: 8, height: 8, marginLeft: -4, marginTop: -4,
+                      position: 'absolute', left: `${x}%`, top: 30, width: 8, height: 8, marginLeft: -4, marginTop: -4,
                       borderRadius: '50%', background: p.kind === 'high' ? '#E8484A' : '#4A9FE8',
-                      border: '1px solid var(--bg-card)', pointerEvents: 'auto', cursor: 'pointer',
+                      border: '1.5px solid var(--bg-card)', pointerEvents: 'auto', cursor: 'pointer', zIndex: 4,
                     }}
                   />
                 );
