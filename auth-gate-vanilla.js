@@ -1,5 +1,5 @@
 // Shared Netlify Identity login/signup gate for thepath.ltd's plain
-// HTML/vanilla-JS tools (endurance landing page, self-massage guide). For
+// HTML/vanilla-JS tools (endurance landing page, soft-tissue recovery guide). For
 // the React-based tools, see auth-gate.js instead.
 //
 // Usage, right before </body>, after the real page content:

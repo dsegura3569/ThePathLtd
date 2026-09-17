@@ -1,6 +1,6 @@
 // Shared Netlify Identity login/signup gate for thepath.ltd's React-based
 // tools (endurance command center, breathwork assistant). Not used by the
-// self-massage guide (body/), which has no JS framework -- see
+// soft-tissue recovery guide (body/), which has no JS framework -- see
 // auth-gate-vanilla.js for that one.
 //
 // Usage, at the bottom of a tool's app.js, replacing the old direct
