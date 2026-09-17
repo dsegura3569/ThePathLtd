@@ -67,7 +67,6 @@ function SegmentsView({ goToRaceSettings }) {
   const minElev = Math.min(...elevs);
   const maxElev = Math.max(...elevs);
   const range = maxElev - minElev || 1;
-  const chartH = 180;
 
   const hasDropBag = rangeSegs.some(s => /drop bag|\(db\d\)/i.test(s.to)) || rangeGradeSegs.some(s => /drop bag|\(db\d\)/i.test(s.to));
 
@@ -427,35 +426,54 @@ function SegmentsView({ goToRaceSettings }) {
         </div>
       )}
 
-      {chartMode === 'course' ? (
-        <div onClick={handleChartClick} style={{ position: 'relative', height: chartH + 24, marginBottom: 12, background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 12, cursor: 'pointer' }}>
-          <svg viewBox={`0 0 100 ${chartH}`} preserveAspectRatio="none" style={{ width: '100%', height: chartH, display: 'block' }}>
+      {chartMode === 'course' ? (() => {
+        const cw = 1000, ch = 280, padL = 54, padR = 14, padT = 14, padB = 30;
+        const plotW = cw - padL - padR, plotH = ch - padT - padB;
+        const minMile = rangeData[0].mile, maxMile = rangeData[rangeData.length - 1].mile;
+        const mileSpan = maxMile - minMile || 1;
+        function cxFor(mile) { return padL + ((mile - minMile) / mileSpan) * plotW; }
+        function cyFor(elev) { return padT + plotH - ((elev - minElev) / range) * plotH; }
+        function pctX(mile) { return (cxFor(mile) / cw) * 100; }
+        function pctY(elev) { return (cyFor(elev) / ch) * 100; }
+        const yTicks = [0, 0.25, 0.5, 0.75, 1].map(t => Math.round(minElev + t * range));
+        const xTickCount = mileSpan > 20 ? 8 : mileSpan > 5 ? 5 : 4;
+        const xTicks = Array.from({ length: xTickCount + 1 }, (_, i) => Math.round((minMile + (mileSpan / xTickCount) * i) * 10) / 10);
+
+        function handleCourseChartClick(e) {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const clickFracX = (e.clientX - rect.left) / rect.width; // 0-1 across the whole container
+          const clickSvgX = clickFracX * cw;
+          const clickMile = minMile + Math.max(0, Math.min(1, (clickSvgX - padL) / plotW)) * mileSpan;
+          let nearest = aidStationMarkers[0], nearestDiff = Infinity;
+          aidStationMarkers.forEach(m => { const diff = Math.abs(m.mile - clickMile); if (diff < nearestDiff) { nearestDiff = diff; nearest = m; } });
+          if (nearest) selectChip(nearest.segId, e.shiftKey);
+        }
+
+        return (
+          <div onClick={handleCourseChartClick} style={{ position: 'relative', width: '100%', aspectRatio: `${cw}/${ch}`, marginBottom: 12, background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 12, cursor: 'pointer', boxSizing: 'border-box' }}>
+          <svg viewBox={`0 0 ${cw} ${ch}`} style={{ width: '100%', height: '100%', display: 'block' }}>
+            {yTicks.map((v, i) => (
+              <g key={i}>
+                <line x1={padL} x2={cw - padR} y1={cyFor(v)} y2={cyFor(v)} stroke="var(--line)" strokeWidth="1" />
+                <text x={padL - 8} y={cyFor(v) + 4} textAnchor="end" fontSize="11" fill="var(--ink-faint)" fontFamily="var(--mono)">{v.toLocaleString()}ft</text>
+              </g>
+            ))}
+            {xTicks.map((v, i) => (
+              <text key={i} x={cxFor(v)} y={ch - 10} textAnchor="middle" fontSize="11" fill="var(--ink-faint)" fontFamily="var(--mono)">{v}mi</text>
+            ))}
             <polyline
-              points={rangeData.map((d, i) => {
-                const x = (i / (rangeData.length - 1)) * 100;
-                const y = chartH - ((d.elev - minElev) / range) * (chartH - 10) - 5;
-                return `${x},${y}`;
-              }).join(' ')}
-              fill="none" stroke={gSeg.color} strokeWidth="1.6" vectorEffect="non-scaling-stroke"
+              points={rangeData.map(d => `${cxFor(d.mile)},${cyFor(d.elev)}`).join(' ')}
+              fill="none" stroke={gSeg.color} strokeWidth="2" vectorEffect="non-scaling-stroke"
               strokeLinejoin="round" strokeLinecap="round"
             />
             <polygon
-              points={
-                `0,${chartH} ` +
-                rangeData.map((d, i) => {
-                  const x = (i / (rangeData.length - 1)) * 100;
-                  const y = chartH - ((d.elev - minElev) / range) * (chartH - 10) - 5;
-                  return `${x},${y}`;
-                }).join(' ') +
-                ` 100,${chartH}`
-              }
-              fill={gSeg.color} opacity="0.12"
+              points={`${cxFor(minMile)},${padT + plotH} ` + rangeData.map(d => `${cxFor(d.mile)},${cyFor(d.elev)}`).join(' ') + ` ${cxFor(maxMile)},${padT + plotH}`}
+              fill={gSeg.color} opacity="0.14"
             />
           </svg>
           {aidStationMarkers.map((m, i) => {
             const closest = rangeData.reduce((best, d) => Math.abs(d.mile - m.mile) < Math.abs(best.mile - m.mile) ? d : best, rangeData[0]);
-            const x = mileToPercent(m.mile, rangeData);
-            const y = chartH - ((closest.elev - minElev) / range) * (chartH - 10) - 5;
+            const x = pctX(m.mile), y = pctY(closest.elev);
             const color = m.hasDropBag ? 'var(--db)' : 'var(--climb)';
             const size = m.hasDropBag ? 12 : 10;
             return (
@@ -464,22 +482,21 @@ function SegmentsView({ goToRaceSettings }) {
                 onMouseEnter={() => setMarkerHovered({ type: 'aid', ...m })}
                 onMouseLeave={() => setMarkerHovered(null)}
                 style={{
-                  position: 'absolute', left: `${x}%`, top: y, width: size, height: size, marginLeft: -size/2, marginTop: -size/2,
+                  position: 'absolute', left: `${x}%`, top: `${y}%`, width: size, height: size, marginLeft: -size/2, marginTop: -size/2,
                   borderRadius: '50%', background: color, border: '1.5px solid var(--bg-card)', cursor: 'pointer', zIndex: 5,
                 }}
               />
             );
           })}
           {[{ ...highPoint, kind: 'high' }, { ...lowPoint, kind: 'low' }].map((p, i) => {
-            const x = mileToPercent(p.mile, rangeData);
-            const y = chartH - ((p.elev - minElev) / range) * (chartH - 10) - 5;
+            const x = pctX(p.mile), y = pctY(p.elev);
             return (
               <div key={'pt'+i}
                 onClick={(e) => e.stopPropagation()}
                 onMouseEnter={() => setMarkerHovered({ type: p.kind, mile: p.mile, elev: p.elev })}
                 onMouseLeave={() => setMarkerHovered(null)}
                 style={{
-                  position: 'absolute', left: `${x}%`, top: y, width: 8, height: 8, marginLeft: -4, marginTop: -4,
+                  position: 'absolute', left: `${x}%`, top: `${y}%`, width: 8, height: 8, marginLeft: -4, marginTop: -4,
                   borderRadius: '50%', background: p.kind === 'high' ? '#E8484A' : '#4A9FE8',
                   border: '1.5px solid var(--bg-card)', cursor: 'pointer', zIndex: 4,
                 }}
@@ -488,7 +505,7 @@ function SegmentsView({ goToRaceSettings }) {
           })}
           {markerHovered && (
             <div style={{
-              position: 'absolute', left: `${mileToPercent(markerHovered.mile, rangeData)}%`, top: 8, transform: 'translateX(-50%)',
+              position: 'absolute', left: `${pctX(markerHovered.mile)}%`, top: 8, transform: 'translateX(-50%)',
               background: 'var(--bg-raised)', border: `1px solid ${markerHovered.type === 'aid' ? (markerHovered.hasDropBag ? 'var(--db)' : 'var(--climb)') : markerHovered.type === 'high' ? '#E8484A' : '#4A9FE8'}`,
               borderRadius: 8, padding: '8px 10px', fontSize: 10.5, color: 'var(--ink)',
               whiteSpace: 'nowrap', zIndex: 20, pointerEvents: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
@@ -514,12 +531,9 @@ function SegmentsView({ goToRaceSettings }) {
               )}
             </div>
           )}
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--ink-faint)', fontFamily: 'var(--mono)', marginTop: 4 }}>
-            <span>{minElev.toLocaleString()}ft</span>
-            <span>{maxElev.toLocaleString()}ft</span>
           </div>
-        </div>
-      ) : (
+        );
+      })() : (
         <div onClick={handleChartClick} style={{ position: 'relative', height: gradeChartH + 48, marginBottom: 12, background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: '12px', cursor: 'pointer' }}>
           {[-20, -10, 0, 10, 20].map(v => {
             const y = zeroY - (v / maxAbsGrade) * (gradeChartH * 0.45);
