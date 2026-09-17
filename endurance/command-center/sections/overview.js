@@ -15,6 +15,70 @@ function useCountdown(targetIso) {
   return { days, hours, minutes, seconds };
 }
 
+// Maps days-until-race to a training/nutrition/hydration phase with concrete
+// guidance -- general, mainstream taper/carb-loading/hydration-loading
+// practice, not a personalized or medical prescription. Ordered furthest-out
+// to closest so the first matching threshold wins.
+function getRacePrepPhase(daysUntil) {
+  const phases = [
+    {
+      minDays: 21, name: 'Base Training', tagline: 'Taper guidance kicks in around 3 weeks out.',
+      items: [
+        'Keep building volume and terrain-specific training (climbing, descending, technical footing) that matches the course.',
+        'Start dialing in your race-day fueling and hydration in training now -- never try something new on race day.',
+        'Begin a shortlist of race-day gear so nothing is a last-minute decision later.',
+      ],
+    },
+    {
+      minDays: 14, name: 'Taper Begins', tagline: '2-3 weeks out',
+      items: [
+        'Cut weekly volume by roughly 20-30%, keeping some intensity or race-pace effort so your legs stay sharp.',
+        'Prioritize sleep over this stretch -- it\u2019s where the training adaptation actually locks in.',
+        'Finalize your race-day nutrition and hydration plan (Pack List) and test it on your remaining long efforts.',
+        'Lock in gear choices -- nothing brand new from here on.',
+      ],
+    },
+    {
+      minDays: 7, name: 'Deep Taper', tagline: '1-2 weeks out',
+      items: [
+        'Volume drops further (50%+ below peak); short strides or a few minutes at race pace keep things sharp without adding fatigue.',
+        'Confirm drop bag contents and logistics (Pack List).',
+        'Review your pacing plan and course profile (Race Day Plan, Trail Explorer) so race morning holds no surprises.',
+        'No need to start carb- or hydration-loading yet -- that ramps up in the final 48 hours.',
+      ],
+    },
+    {
+      minDays: 3, name: 'Dial It In', tagline: '3-6 days out',
+      items: [
+        'Training is minimal now -- short shakeouts only, nothing that leaves you sore.',
+        'Start shifting toward a higher-carb ratio at meals -- more carbs relative to fat and protein, not necessarily more total food yet.',
+        'Begin easing up fluid and sodium intake -- full hydration loading typically ramps up in the final 24-48 hours.',
+        'Lay out gear, charge devices, and save or print your race plan.',
+      ],
+    },
+    {
+      minDays: 1, name: 'Load & Rest', tagline: 'Final 1-2 days',
+      items: [
+        'Carb-load in earnest with familiar, simple, carb-forward meals -- skip anything new, high-fiber, or high-fat right before the race.',
+        'Increase fluids with electrolytes -- aim for pale, not clear, urine (overhydration carries its own risk).',
+        'No hard training -- an easy walk or very short shakeout at most.',
+        'Pack drop bags, lay out race-morning clothes, and confirm start-line logistics.',
+        'Keep to an early, calm bedtime -- some pre-race sleep disruption is normal and doesn\u2019t undo the taper.',
+      ],
+    },
+    {
+      minDays: 0, name: 'Race Day', tagline: 'Today',
+      items: [
+        'Eat a familiar, carb-forward breakfast 2-3 hours before the start.',
+        'Keep sipping fluids with electrolytes right up to the start.',
+        'Light dynamic movement to warm up -- not a hard effort.',
+        'Trust the training, run your own plan, and adjust to conditions as they come.',
+      ],
+    },
+  ];
+  return phases.find(p => daysUntil >= p.minDays) || phases[phases.length - 1];
+}
+
 // WMO weather codes used by Open-Meteo's `weather_code` field.
 const WMO_CODES = {
   0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast',
@@ -1170,6 +1234,7 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, externalRace
   const PAGE_SECTIONS = [
     { id: 'header', label: 'Race Header' },
     { id: 'countdown', label: 'Countdown' },
+    { id: 'racePrep', label: 'Race Prep' },
     { id: 'conditions', label: 'Conditions' },
     { id: 'raceDayForecast', label: 'Race Day Forecast' },
     { id: 'courseProfile', label: 'Course Profile' },
@@ -1491,6 +1556,31 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, externalRace
         </section>
       )}
       </div>
+
+      {countdown && (() => {
+        const phase = getRacePrepPhase(countdown.days);
+        return (
+          <div style={{order: pageSectionOrder.indexOf('racePrep'), display: pageSectionHidden.includes('racePrep') ? 'none' : undefined}}>
+          <section style={{padding:'28px 0', borderBottom:'1px solid var(--line)'}}>
+            <div style={{display:'flex', alignItems:'baseline', gap:10, marginBottom:14, flexWrap:'wrap'}}>
+              <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--ink-faint)', letterSpacing:'0.08em', textTransform:'uppercase'}}>
+                Race Prep
+              </div>
+              <div style={{fontFamily:'var(--display)', fontWeight:600, fontSize:16, color:'var(--climb)'}}>{phase.name}</div>
+              <div style={{fontSize:12, color:'var(--ink-faint)'}}>{phase.tagline}</div>
+            </div>
+            <ul style={{margin:0, padding:'0 0 0 20px', display:'flex', flexDirection:'column', gap:8}}>
+              {phase.items.map((item, i) => (
+                <li key={i} style={{fontSize:13.5, color:'var(--ink-dim)', lineHeight:1.55}}>{item}</li>
+              ))}
+            </ul>
+            <div style={{fontSize:11, color:'var(--ink-faint)', marginTop:14, lineHeight:1.5}}>
+              General guidance, not a personalized plan -- adjust to how your own training and body are responding.
+            </div>
+          </section>
+          </div>
+        );
+      })()}
 
       <div style={{order: pageSectionOrder.indexOf('conditions'), display: pageSectionHidden.includes('conditions') ? 'none' : undefined}}>
       <section style={{padding:'40px 0', borderBottom:'1px solid var(--line)'}}>

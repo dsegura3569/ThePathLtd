@@ -150,6 +150,25 @@
     margin-top:3rem; padding-top:1.5rem; border-top:1px solid var(--line);
     font-size:0.85rem; color:var(--ink-soft);
   }
+
+  .focus-card{
+    display:none; background:var(--sand-pale); border:1px solid var(--body-color);
+    border-radius:12px; padding:1.5rem 1.75rem; margin:0 0 2rem;
+  }
+  .focus-card.is-visible{ display:block; }
+  .focus-card .focus-eyebrow{
+    font-family:var(--font-mono); font-size:0.72rem; letter-spacing:0.08em;
+    text-transform:uppercase; color:var(--body-color); margin-bottom:0.5rem;
+  }
+  .focus-card h3{ margin:0 0 0.5rem; }
+  .focus-card p{ margin:0 0 1rem; }
+  .focus-card p:last-of-type{ margin-bottom:0; }
+  .focus-links{ display:flex; gap:0.6rem; flex-wrap:wrap; }
+  .focus-links a{
+    display:inline-block; font-size:0.85rem; font-weight:600; color:var(--sand-pale);
+    background:var(--body-color); padding:0.45rem 0.9rem; border-radius:8px; text-decoration:none;
+  }
+  .focus-links a:hover{ opacity:0.9; }
 </style>
 </head>
 <body>
@@ -162,6 +181,13 @@
     <div class="intro">
       <p>A region-by-region guide to working on your own tension between sessions — by hand, foam roller, lacrosse ball, stretching, or band. Start with the areas to approach carefully below — they're worth knowing before anything else, since they cover the whole body rather than one region at a time.</p>
     </div>
+  </div>
+
+  <div class="focus-card" id="focus-card">
+    <div class="focus-eyebrow" id="focus-eyebrow">Today's Focus</div>
+    <h3 id="focus-heading"></h3>
+    <p id="focus-body"></p>
+    <div class="focus-links" id="focus-links"></div>
   </div>
 
   <details class="caution-card" id="endangerment-sites">
@@ -437,6 +463,7 @@
   <p class="disclaimer">This guide is for general wellness self-care and isn't a substitute for professional bodywork, physical therapy, or medical advice. If you're pregnant, recovering from an injury or surgery, or have a condition like a blood clot, osteoporosis, or a vascular issue, check with a doctor before self-massage, foam rolling, or banded work — and always stop if something feels sharp, numb, or wrong rather than just tender or a normal stretch sensation.</p>
 </div>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="/blob-client.js"></script>
 <script src="/auth-gate-vanilla.js"></script>
 <script>
   window.initVanillaAuthGate({
@@ -469,6 +496,91 @@
   }
   window.netlifyIdentity.on('init', (user) => { if (user) setTimeout(expandLinkedRegion, 0); });
   window.netlifyIdentity.on('login', () => setTimeout(expandLinkedRegion, 0));
+
+  // Today's Focus: recommends which region(s) to prioritize and how deep to
+  // go, based on the nearest upcoming race's days-out and course character
+  // (climb-heavy, descent-heavy, both, or flat/rolling). Deliberately stays
+  // hidden (not just empty) for anyone with no upcoming race on file, rather
+  // than showing a generic recommendation with no race context behind it.
+  (function initFocusCard() {
+    const card = document.getElementById('focus-card');
+    const eyebrowEl = document.getElementById('focus-eyebrow');
+    const headingEl = document.getElementById('focus-heading');
+    const bodyEl = document.getElementById('focus-body');
+    const linksEl = document.getElementById('focus-links');
+
+    const REGION_NAMES = {
+      hands: 'Hands, Wrist & Forearm', shoulder: 'Shoulder', neck: 'Neck & Upper Back',
+      chest: 'Collarbone & Chest', abdomen: 'Abdomen', 'upper-legs': 'Upper Legs',
+      'lower-legs': 'Lower Legs, Ankles & Feet',
+    };
+
+    // TMR's course stats live in the endurance app's own hardcoded registry,
+    // not in blob state (only GPX-imported custom races store gain/loss in
+    // blob) -- so it's hardcoded here too, same as the homepage already
+    // hardcodes TMR's name/date for its own race widget.
+    const KNOWN_RACES = {
+      tmr: { name: 'Telluride Mountain Run \u2014 65 Mile', startDate: '2026-08-22T06:00:00-06:00', totalGain: 25385, totalLoss: 25385, totalDistance: 63.5 },
+    };
+
+    function getNearestUpcomingRace(blobState) {
+      const races = [KNOWN_RACES.tmr];
+      (blobState.customRaces || []).forEach(r => {
+        if (r.startDate) races.push({ name: r.name, startDate: r.startDate, totalGain: r.totalGain, totalLoss: r.totalLoss, totalDistance: r.totalDistance });
+      });
+      const now = Date.now();
+      const upcoming = races.filter(r => new Date(r.startDate).getTime() > now)
+        .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+      return upcoming[0] || null;
+    }
+
+    // Course character -> which regions matter most. Falls back to legs
+    // generally when gain/loss data isn't available for some reason, rather
+    // than guessing at specific muscles without real course data behind it.
+    function regionsForCourse(race) {
+      if (!race.totalGain || !race.totalDistance) return ['upper-legs', 'lower-legs'];
+      const gainPerMi = race.totalGain / race.totalDistance;
+      const lossPerMi = (race.totalLoss || race.totalGain) / race.totalDistance;
+      if (gainPerMi < 100 && lossPerMi < 100) return ['lower-legs']; // flat/rolling: repetitive impact on calves/feet
+      if (lossPerMi > gainPerMi * 1.3) return ['upper-legs', 'lower-legs']; // descent-heavy: quads (eccentric) + knees/ankles
+      return ['upper-legs']; // climb-heavy or balanced mountain course: quads/glutes/hip flexors/calves
+    }
+
+    function intensityGuidance(daysUntil) {
+      if (daysUntil <= 0) return 'Race day -- light mobility only. Save the real work for recovery once you\u2019re done.';
+      if (daysUntil <= 3) return 'This close to race day, keep it light -- gentle stretching and hands-only work. Save foam roller and lacrosse ball for after you finish; deep tissue work this close in can leave you sorer on race morning, not less sore.';
+      if (daysUntil <= 7) return 'Still fine for real work, but start easing off deep pressure over the next few days as the race gets closer.';
+      return 'A good window for deeper work -- foam rolling and lacrosse ball trigger points both fit well here.';
+    }
+
+    async function render() {
+      let blobState;
+      try { blobState = await window.BlobClient.load('endurance'); } catch (e) { return; }
+      if (!blobState) return;
+      const race = getNearestUpcomingRace(blobState);
+      if (!race) return;
+
+      const daysUntil = Math.floor((new Date(race.startDate).getTime() - Date.now()) / 86400000);
+      const regionIds = regionsForCourse(race);
+      const regionNames = regionIds.map(id => REGION_NAMES[id]);
+
+      eyebrowEl.textContent = `Today's Focus \u00b7 ${daysUntil <= 0 ? 'Race day' : daysUntil + ' day' + (daysUntil === 1 ? '' : 's') + ' out'}`;
+      headingEl.textContent = regionNames.join(' & ');
+      bodyEl.textContent = intensityGuidance(daysUntil);
+      linksEl.innerHTML = '';
+      regionIds.forEach(id => {
+        const a = document.createElement('a');
+        a.href = '#region-' + id;
+        a.textContent = REGION_NAMES[id] + ' \u2192';
+        a.addEventListener('click', () => { setTimeout(expandLinkedRegion, 0); });
+        linksEl.appendChild(a);
+      });
+      card.classList.add('is-visible');
+    }
+
+    window.netlifyIdentity.on('init', (user) => { if (user) render(); });
+    window.netlifyIdentity.on('login', () => render());
+  })();
 </script>
 </body>
 </html>
