@@ -319,7 +319,9 @@ function StatTile({ s, goTo }) {
 function CourseProfileChart() {
   const { state: blobState, setState: setBlobState } = React.useContext(window.BlobStateContext);
   const [hovered, setHovered] = React.useState(null);
-  const [focusedSegment, setFocusedSegment] = React.useState(null);
+  const [focusedRange, setFocusedRange] = React.useState(null); // {startSegId, endSegId} or null for whole course
+  const [lastClickedSeg, setLastClickedSeg] = React.useState(null);
+  const [rangeMode, setRangeMode] = React.useState(false);
   const samples = React.useMemo(() => buildFullCourseSamples(), []);
   const stats = React.useMemo(() => computeElevationStats(samples), [samples]);
 
@@ -341,17 +343,23 @@ function CourseProfileChart() {
     saved => Array.isArray(saved) ? saved.filter(k => courseProfileStatKeys.includes(k)) : undefined
   );
 
-  // aid station markers: start (green), 9 aid stations (orange), finish (red) --
-  // positioned at each segment boundary using the real official mile markers
+  // aid station markers: every segment boundary (start through finish),
+  // colored orange for a regular aid station or purple for one with a drop
+  // bag -- same convention as Trail Explorer's chart, rather than this
+  // chart's previous start/aid/finish-specific coloring.
   const markers = React.useMemo(() => {
     const points = [];
     gradeSegments.forEach((seg, i) => {
       if (i === 0) {
         const first = samples.find(s => s.mile >= seg.miS) || samples[0];
-        points.push({ mile: seg.miS, elev: first.elev, label: seg.from, type: 'start' });
+        points.push({ mile: seg.miS, elev: first.elev, label: seg.from, type: 'start', segId: baseSegments[i].id, hasDropBag: false });
       }
       const last = [...samples].reverse().find(s => s.mile <= seg.miE) || samples[samples.length - 1];
-      points.push({ mile: seg.miE, elev: last.elev, label: seg.to.replace(/\s*\(Drop Bag #\d+\)/i, ''), type: i === gradeSegments.length - 1 ? 'finish' : 'aid' });
+      points.push({
+        mile: seg.miE, elev: last.elev, label: seg.to.replace(/\s*\(Drop Bag #\d+\)/i, ''),
+        type: i === gradeSegments.length - 1 ? 'finish' : 'aid',
+        segId: baseSegments[i].id, hasDropBag: !!dropBagNum(baseSegments[i]),
+      });
     });
     return points;
   }, [samples]);
@@ -365,16 +373,25 @@ function CourseProfileChart() {
   function yFor(elev) { return padT + plotH - ((elev - stats.min) / elevRange) * plotH; }
   function mileForX(svgX) { return Math.max(0, Math.min(maxMile, ((svgX - padL) / plotW) * maxMile)); }
 
-  function selectMile(mile) {
-    const seg = findSegmentForMile(mile);
-    setFocusedSegment(seg); // null (e.g. clicking exactly at Finish) clears back to whole-course
+  function selectSegId(segId, shiftKey) {
+    if (segId == null) { setFocusedRange(null); return; } // e.g. clicking exactly at Finish clears back to whole-course
+    if ((shiftKey || rangeMode) && lastClickedSeg != null) {
+      const from = Math.min(lastClickedSeg, segId);
+      const to = Math.max(lastClickedSeg, segId);
+      setFocusedRange({ startSegId: from, endSegId: to });
+      setRangeMode(false);
+    } else {
+      setFocusedRange({ startSegId: segId, endSegId: segId });
+      setLastClickedSeg(segId);
+    }
   }
 
   function handlePlotClick(e) {
     const svg = e.currentTarget.ownerSVGElement || e.currentTarget;
     const rect = svg.getBoundingClientRect();
     const clickX = ((e.clientX - rect.left) / rect.width) * w;
-    selectMile(mileForX(clickX));
+    const seg = findSegmentForMile(mileForX(clickX));
+    selectSegId(seg ? seg.id : null, e.shiftKey);
   }
 
   const linePts = samples.map(s => `${xFor(s.mile)},${yFor(s.elev)}`).join(' ');
@@ -384,9 +401,18 @@ function CourseProfileChart() {
   const xTickCount = 10;
   const xTicks = Array.from({ length: xTickCount + 1 }, (_, i) => Math.round((maxMile / xTickCount) * i * 10) / 10);
 
-  const segStats = focusedSegment ? computeSegmentElevationStats(focusedSegment, samples) : null;
+  const focusedSegRange = focusedRange ? baseSegments.filter(s => s.id >= focusedRange.startSegId && s.id <= focusedRange.endSegId) : null;
+  const rangeSegObj = focusedSegRange && focusedSegRange.length ? {
+    miS: focusedSegRange[0].miS, miE: focusedSegRange[focusedSegRange.length - 1].miE,
+    segGain: focusedSegRange.reduce((a, s) => a + s.segGain, 0), segLoss: focusedSegRange.reduce((a, s) => a + s.segLoss, 0),
+  } : null;
+  const segStats = rangeSegObj ? computeSegmentElevationStats(rangeSegObj, samples) : null;
   const displayStats = segStats || stats;
-  const scopeLabel = focusedSegment ? `${focusedSegment.from} \u2192 ${focusedSegment.to.replace(/\s*\(Drop Bag #\d+\)/i, '')}` : 'Whole course';
+  const scopeLabel = focusedSegRange && focusedSegRange.length
+    ? (focusedSegRange.length === 1
+      ? `${focusedSegRange[0].from} \u2192 ${focusedSegRange[0].to.replace(/\s*\(Drop Bag #\d+\)/i, '')}`
+      : `${focusedSegRange[0].from} \u2192 ${focusedSegRange[focusedSegRange.length - 1].to.replace(/\s*\(Drop Bag #\d+\)/i, '')} (${focusedSegRange.length} segments)`)
+    : 'Whole course';
 
   return (
     <section style={{padding:'32px 0', borderBottom:'1px solid var(--line)'}}>
@@ -405,9 +431,9 @@ function CourseProfileChart() {
             <text key={i} x={xFor(v)} y={h-14} textAnchor="middle" fontSize="10" fill="var(--ink-faint)" fontFamily="var(--mono)">{v}mi</text>
           ))}
 
-          {/* highlight the focused segment's mile range on the plot */}
-          {focusedSegment && (
-            <rect x={xFor(focusedSegment.miS)} y={padT} width={xFor(focusedSegment.miE) - xFor(focusedSegment.miS)} height={plotH}
+          {/* highlight the focused range's mile span on the plot */}
+          {rangeSegObj && (
+            <rect x={xFor(rangeSegObj.miS)} y={padT} width={xFor(rangeSegObj.miE) - xFor(rangeSegObj.miS)} height={plotH}
               fill="var(--climb)" opacity="0.08" />
           )}
 
@@ -421,8 +447,8 @@ function CourseProfileChart() {
             <g key={i}
               onMouseEnter={() => setHovered(i)}
               onMouseLeave={() => setHovered(null)}
-              onClick={(e) => { e.stopPropagation(); selectMile(m.mile); }}
-              style={{cursor: m.type === 'finish' ? 'default' : 'pointer'}}
+              onClick={(e) => { e.stopPropagation(); selectSegId(m.segId, e.shiftKey); }}
+              style={{cursor: 'pointer'}}
             >
               {/* invisible larger hit-target -- the visible marker (r=6-10) is far
                   too small to reliably tap on a phone once the 1000-unit viewBox
@@ -430,7 +456,7 @@ function CourseProfileChart() {
               <circle cx={xFor(m.mile)} cy={yFor(m.elev)} r={22} fill="transparent" />
               <circle cx={xFor(m.mile)} cy={yFor(m.elev)}
                 r={hovered===i ? 8 : 6}
-                fill={m.type==='start' ? '#3CB897' : m.type==='finish' ? '#C0392B' : 'var(--climb)'}
+                fill={m.hasDropBag ? 'var(--db)' : 'var(--climb)'}
                 stroke="var(--bg-card)" strokeWidth={2} />
             </g>
           ))}
@@ -446,20 +472,25 @@ function CourseProfileChart() {
               <span style={{color:'var(--ink-faint)'}}>Mile {m.mile}</span>
               <span style={{color:'var(--climb)'}}>{m.elev.toLocaleString()} ft</span>
               <span style={{
-                color: m.type==='start' ? '#3CB897' : m.type==='finish' ? '#C0392B' : 'var(--ink-faint)',
+                color: m.hasDropBag ? 'var(--db)' : 'var(--ink-faint)',
                 fontFamily:'var(--mono)', fontSize:11, textTransform:'uppercase',
-              }}>{m.type}</span>
+              }}>{m.hasDropBag ? 'drop bag' : m.type}</span>
             </div>
           </div>
         );
       })()}
 
-      <div style={{display:'flex', alignItems:'center', gap:8, marginTop:14, marginBottom:4}}>
-        <div style={{fontFamily:'var(--display)', fontWeight:600, fontSize:14, color: focusedSegment ? 'var(--climb)' : 'var(--ink-faint)', flex:1}}>
+      <div style={{display:'flex', alignItems:'center', gap:8, marginTop:14, marginBottom:4, flexWrap:'wrap'}}>
+        <div style={{fontFamily:'var(--display)', fontWeight:600, fontSize:14, color: focusedRange ? 'var(--climb)' : 'var(--ink-faint)', flex:1}}>
           {scopeLabel}
         </div>
-        {focusedSegment && (
-          <button onClick={() => setFocusedSegment(null)} style={{
+        <button onClick={() => setRangeMode(v => !v)} style={{
+          padding:'4px 10px', borderRadius:16, border:`1.5px solid ${rangeMode ? 'var(--climb)' : 'var(--line)'}`,
+          background: rangeMode ? 'var(--climb)' : 'none', color: rangeMode ? '#12151A' : 'var(--ink-faint)',
+          fontSize:11, fontWeight:600, cursor:'pointer',
+        }}>{rangeMode ? 'Tap the other end\u2026' : '+ Select a range'}</button>
+        {focusedRange && (
+          <button onClick={() => setFocusedRange(null)} style={{
             background:'none', border:'none', color:'var(--ink-faint)', cursor:'pointer', fontSize:11, fontFamily:'var(--mono)',
           }}>&#10005; whole course</button>
         )}
