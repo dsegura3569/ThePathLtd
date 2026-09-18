@@ -18,32 +18,42 @@
 // the current race id, forcing a full remount on switch.
 // ---------------------------------------------------------------------------
 
-const RACES = {
-  tmr: {
-    id: 'tmr',
-    name: 'Telluride Mountain Run',
-    shortName: 'TMR',
-    distance: 63.5,
-    vertGain: 25385,
-    startDate: '2026-08-22T06:00:00-06:00',
-    startLabel: 'Sat, Aug 22, 2026 \u00b7 6:00 AM start',
-    cutoffHours: 32,
-    resultsUrl: 'https://www.runtelluride.com/results',
-    startLat: 37.93508,
-    startLon: -107.80772,
-    baseSegments: TMR_BASE_SEGMENTS,
-    gradeSegments: TMR_GRADE_SEGMENTS,
-  },
+const RACES = {};
+
+// TMR's full data, kept as a standalone seed rather than a default entry in
+// RACES -- previously every visitor got this race for free, regardless of
+// login state, since it was baked into the deployed JS bundle. Now it's
+// nothing more than data sitting in memory until someone explicitly imports
+// it (see the "Import TMR" option in AddRaceModal), at which point it's
+// saved into THEIR OWN account exactly like any GPX upload would be --
+// same shape, same saveCustomRace() path, same everything from that point
+// on. Nobody else's account is touched by this constant merely existing in
+// the source.
+const TMR_SEED_RACE = {
+  id: 'tmr',
+  name: 'Telluride Mountain Run',
+  shortName: 'TMR',
+  distance: 63.5,
+  vertGain: 25385,
+  vertLoss: 25385,
+  startDate: '2026-08-22T06:00:00-06:00',
+  startLabel: 'Sat, Aug 22, 2026 \u00b7 6:00 AM start',
+  cutoffHours: 32,
+  resultsUrl: 'https://www.runtelluride.com/results',
+  startLat: 37.93508,
+  startLon: -107.80772,
+  baseSegments: TMR_BASE_SEGMENTS,
+  gradeSegments: TMR_GRADE_SEGMENTS,
 };
 
-// currentRaceId starts on the always-safe default and is only ever
+// currentRaceId starts on a safe null-ish placeholder and is only ever
 // actually resolved (custom races restored, ?race=/last-selected honored)
 // once initRacesFromBlobState runs -- see the comment there for why this
 // can't happen at module-load time anymore now that the data it needs
 // comes from an async blob fetch instead of synchronous localStorage.
-let currentRaceId = 'tmr';
-let baseSegments = RACES[currentRaceId].baseSegments;
-let gradeSegments = RACES[currentRaceId].gradeSegments;
+let currentRaceId = null;
+let baseSegments = [];
+let gradeSegments = [];
 let racesInitialized = false;
 
 // Called from App's render body (not a useEffect -- effects run after the
@@ -60,7 +70,8 @@ function initRacesFromBlobState(blobState) {
 
   (state.customRaces || []).forEach(r => { RACES[r.id] = r; });
 
-  let resolvedId = 'tmr';
+  const availableIds = Object.keys(RACES);
+  let resolvedId = availableIds.length ? availableIds[0] : null;
   try {
     // A ?race=<id> link (e.g. from the endurance landing page's race list)
     // always wins over whatever was last selected -- someone clicking a
@@ -72,8 +83,8 @@ function initRacesFromBlobState(blobState) {
   } catch (e) {}
 
   currentRaceId = resolvedId;
-  baseSegments = RACES[currentRaceId].baseSegments;
-  gradeSegments = RACES[currentRaceId].gradeSegments;
+  baseSegments = resolvedId ? RACES[resolvedId].baseSegments : [];
+  gradeSegments = resolvedId ? RACES[resolvedId].gradeSegments : [];
 }
 
 // Persists a patch into the shared endurance blob state. Routes through
@@ -106,23 +117,36 @@ function registerRace(raceConfig) {
   RACES[raceConfig.id] = raceConfig;
 }
 
-// Custom (GPX-uploaded) races need to persist across page loads, unlike TMR
-// which is baked into the deployed files. Stored as plain JSON -- baseSegments/
+// Every race a user has -- GPX-uploaded or imported (TMR included) --
+// persists the same way: plain JSON in their own blob state. baseSegments/
 // gradeSegments are already plain data (no functions), so this round-trips
 // cleanly through the blob.
 function saveCustomRace(raceConfig) {
   registerRace(raceConfig);
   saveToBlobState({
-    customRaces: [...Object.values(RACES).filter(r => r.id !== 'tmr' && r.id !== raceConfig.id), raceConfig],
+    customRaces: [...Object.values(RACES).filter(r => r.id !== raceConfig.id), raceConfig],
   });
 }
 
 function deleteCustomRace(id) {
-  if (id === 'tmr') return false; // never delete the built-in race
+  if (!RACES[id]) return false;
   delete RACES[id];
-  saveToBlobState({ customRaces: Object.values(RACES).filter(r => r.id !== 'tmr') });
-  if (currentRaceId === id) selectRace('tmr');
+  saveToBlobState({ customRaces: Object.values(RACES) });
+  if (currentRaceId === id) {
+    const remaining = Object.keys(RACES);
+    selectRace(remaining.length ? remaining[0] : null);
+    if (!remaining.length) { currentRaceId = null; baseSegments = []; gradeSegments = []; }
+  }
   return true;
+}
+
+// One-time import: pulls TMR's known data into the CURRENTLY logged-in
+// user's own account, through the exact same save path as a fresh GPX
+// upload -- nothing TMR-specific happens after this point. Safe to call
+// more than once; it just overwrites the same id rather than duplicating.
+function importTmrRace() {
+  saveCustomRace({ ...TMR_SEED_RACE });
+  return TMR_SEED_RACE.id;
 }
 
 window.RACES = RACES;
@@ -131,5 +155,6 @@ window.listRaces = listRaces;
 window.registerRace = registerRace;
 window.saveCustomRace = saveCustomRace;
 window.deleteCustomRace = deleteCustomRace;
+window.importTmrRace = importTmrRace;
 window.getCurrentRaceId = () => currentRaceId;
 window.initRacesFromBlobState = initRacesFromBlobState;

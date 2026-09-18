@@ -177,9 +177,7 @@
     }
 
     function getUpcomingRaces() {
-      const races = [
-        { name: 'Telluride Mountain Run \u2014 65 Mile', startDate: '2026-08-22T06:00:00-06:00', href: '/endurance/command-center/?race=tmr' },
-      ];
+      const races = [];
       const custom = (raceBlobState && raceBlobState.customRaces) || [];
       custom.forEach(r => {
         if (r.startDate) {
@@ -292,14 +290,13 @@
 
     // Same course-character mapping as body/index.html's own focus card --
     // duplicated rather than shared, since these are separate static pages
-    // with no module system between them.
-    const KNOWN_RACES = {
-      tmr: { name: 'Telluride Mountain Run \u2014 65 Mile', startDate: '2026-08-22T06:00:00-06:00', totalGain: 25385, totalLoss: 25385, totalDistance: 63.5 },
-    };
+    // with no module system between them. vertLoss may be missing on a race
+    // saved before it started being persisted -- falls back to assuming
+    // gain \u2248 loss rather than treating the course as flat.
     function regionsForCourse(race) {
-      if (!race.totalGain || !race.totalDistance) return ['upper-legs', 'lower-legs'];
-      const gainPerMi = race.totalGain / race.totalDistance;
-      const lossPerMi = (race.totalLoss || race.totalGain) / race.totalDistance;
+      if (!race.vertGain || !race.distance) return ['upper-legs', 'lower-legs'];
+      const gainPerMi = race.vertGain / race.distance;
+      const lossPerMi = (race.vertLoss || race.vertGain) / race.distance;
       if (gainPerMi < 100 && lossPerMi < 100) return ['lower-legs'];
       if (lossPerMi > gainPerMi * 1.3) return ['upper-legs', 'lower-legs'];
       return ['upper-legs'];
@@ -309,9 +306,9 @@
       let blobState;
       try { blobState = await window.BlobClient.load('endurance'); } catch (e) { renderDayRotation(); return; }
       if (!blobState) { renderDayRotation(); return; }
-      const races = [KNOWN_RACES.tmr];
+      const races = [];
       (blobState.customRaces || []).forEach(r => {
-        if (r.startDate) races.push({ name: r.name, startDate: r.startDate, totalGain: r.totalGain, totalLoss: r.totalLoss, totalDistance: r.totalDistance });
+        if (r.startDate) races.push({ name: r.name, startDate: r.startDate, vertGain: r.vertGain, vertLoss: r.vertLoss, distance: r.distance });
       });
       const now = Date.now();
       const upcoming = races.filter(r => new Date(r.startDate).getTime() > now)

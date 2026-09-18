@@ -105,7 +105,7 @@ function AddRaceModal({ onClose, onRaceSelected }) {
     const id = 'custom-' + Date.now();
     const raceConfig = {
       id, name: raceName.trim(), shortName: raceName.trim().slice(0, 20),
-      distance: parsed.totalDistance, vertGain: parsed.totalGain,
+      distance: parsed.totalDistance, vertGain: parsed.totalGain, vertLoss: parsed.totalLoss,
       startDate: manualDate ? `${manualDate}T${manualTime}:00` : null,
       startLabel: 'Date not set \u2014 add on Overview',
       cutoffHours: Number(cutoffHours) || 24,
@@ -136,7 +136,7 @@ function AddRaceModal({ onClose, onRaceSelected }) {
       s.amenities = { ...s.amenities, dropBag: dropRows[i].dropBag, crew: dropRows[i].crew };
       s.pacer = dropRows[i].pacer;
     });
-    if (window.getCurrentRaceId() !== 'tmr') window.saveCustomRace(race);
+    window.saveCustomRace(race);
     setStep('target');
   }
 
@@ -177,6 +177,17 @@ function AddRaceModal({ onClose, onRaceSelected }) {
               width:'100%', padding:'14px', borderRadius:10, border:'1px dashed var(--line)',
               background:'var(--bg-raised)', color:'var(--climb)', fontSize:14, fontWeight:600, cursor:'pointer',
             }}>Choose GPX file&hellip;</button>
+            {!window.RACES.tmr && (
+              <button onClick={() => {
+                const id = window.importTmrRace();
+                window.selectRace(id);
+                onRaceSelected(id);
+                onClose();
+              }} style={{
+                width:'100%', marginTop:10, padding:'12px', borderRadius:10, border:'1px solid var(--line)',
+                background:'none', color:'var(--ink-dim)', fontSize:13, cursor:'pointer',
+              }}>Import Telluride Mountain Run (your previous race)</button>
+            )}
           </div>
         )}
 
@@ -652,15 +663,19 @@ function App() {
       vesselRanges, setVesselRanges, extraGear, setExtraGear,
       gelRateShift, setGelRateShift, customFuelItems, setCustomFuelItems,
     }}>
-      <div>
-        <Nav active={active} setActive={setActive} open={open} setOpen={setOpen} onGear={handleGear} raceId={raceId} onSelectRace={handleSelectRace} />
-        <main style={{maxWidth:1180, margin:'0 auto', padding:'32px 20px 0'}}>
-          {ActiveComponent
-            ? <ActiveComponent key={raceId + ':' + raceDataVersion} goTo={setActive} goToRaceSettings={() => { setActive('overview'); setOpenRaceSettingsPanel(true); }} externalCardPanelOpen={active==='overview' ? openCardPanel : undefined} onCardPanelToggle={active==='overview' ? setOpenCardPanel : undefined} externalRaceSettingsOpen={active==='overview' ? openRaceSettingsPanel : undefined} onRaceSettingsToggle={active==='overview' ? setOpenRaceSettingsPanel : undefined} onRaceDataChanged={() => setRaceDataVersion(v => v + 1)} />
-            : <div style={{padding:'80px 0', textAlign:'center', color:'var(--ink-faint)'}}>Section not found.</div>}
-        </main>
-        <Footer raceId={raceId} />
-      </div>
+      {raceId === null ? (
+        <AddRaceModal onClose={() => {}} onRaceSelected={(id) => handleSelectRace(id)} />
+      ) : (
+        <div>
+          <Nav active={active} setActive={setActive} open={open} setOpen={setOpen} onGear={handleGear} raceId={raceId} onSelectRace={handleSelectRace} />
+          <main style={{maxWidth:1180, margin:'0 auto', padding:'32px 20px 0'}}>
+            {ActiveComponent
+              ? <ActiveComponent key={raceId + ':' + raceDataVersion} goTo={setActive} goToRaceSettings={() => { setActive('overview'); setOpenRaceSettingsPanel(true); }} externalCardPanelOpen={active==='overview' ? openCardPanel : undefined} onCardPanelToggle={active==='overview' ? setOpenCardPanel : undefined} externalRaceSettingsOpen={active==='overview' ? openRaceSettingsPanel : undefined} onRaceSettingsToggle={active==='overview' ? setOpenRaceSettingsPanel : undefined} onRaceDataChanged={() => setRaceDataVersion(v => v + 1)} />
+              : <div style={{padding:'80px 0', textAlign:'center', color:'var(--ink-faint)'}}>Section not found.</div>}
+          </main>
+          <Footer raceId={raceId} />
+        </div>
+      )}
     </TargetHoursContext.Provider>
   );
 }
