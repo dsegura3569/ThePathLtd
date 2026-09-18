@@ -8,6 +8,7 @@ const COLUMN_DEFS = [
   { key:'cutoff', label:'Cutoff', cellStyle:() => cellStyle('crimson', 600), render: s => s.cutoffClock },
   // Weather -- grouped with time since it's a function of when you're there
   { key:'temp', label:'Temp (\u00b0F)', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.tempF != null ? `${s.tempF}\u00b0F` : '\u2014' },
+  { key:'precip', label:'Precip', cellStyle: s => cellStyle(s.precipPct != null && s.precipPct >= 40 ? '#4A9FE8' : 'var(--ink-dim)'), render: s => s.precipPct != null ? `${s.precipPct}%` : '\u2014' },
   // Distance / pace
   { key:'dist', label:'Dist', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => `${s.distReal.toFixed(1)}mi` },
   { key:'pace', label:'AVG Pace', cellStyle:() => cellStyle('var(--ink-dim)'), render: s => s.avgPace },
@@ -94,6 +95,7 @@ function RaceDayPlanView() {
     [segments]
   );
   const forecast = window.useRaceDayForecast(segmentElevationsFt);
+  const precipForecast = window.useRoutePrecipitation();
   const raceForTemp = window.RACES[window.getCurrentRaceId()];
   let raceStartDecHour = null;
   if (raceForTemp.startDate) {
@@ -101,9 +103,11 @@ function RaceDayPlanView() {
     if (m) raceStartDecHour = parseInt(m[1], 10) + parseInt(m[2], 10) / 60;
   }
   const canForecast = raceStartDecHour !== null && typeof forecast.tempAtElevationAndHour === 'function';
+  const canForecastPrecip = raceStartDecHour !== null && precipForecast.status === 'ok';
   let cumHoursForTemp = 0;
   segments.forEach(s => {
     s.tempF = canForecast ? Math.round(forecast.tempAtElevationAndHour(s.elevS, raceStartDecHour + cumHoursForTemp)) : null;
+    s.precipPct = canForecastPrecip ? precipForecast.probAtSegmentAndHour(s.id, raceStartDecHour + cumHoursForTemp) : null;
     cumHoursForTemp += s.hours;
   });
   const [active, setActive] = React.useState(1);

@@ -249,8 +249,84 @@ function useRaceDayForecast(extraElevationsFt) {
   return state;
 }
 
+// Precipitation at each segment's actual location, not just the start's
+// single lat/lon -- rain and storms in the mountains vary meaningfully by
+// location in a way temperature (modeled off one lapse-rate adjustment from
+// a single point) doesn't need to account for. Only works for a race whose
+// segments actually carry lat/lon (GPX-imported ones do; a hand-built race
+// like TMR doesn't, since it predates this and was never re-imported from
+// an actual GPX file) -- degrades to 'unavailable' rather than guessing at
+// a single-point precipitation figure and presenting it as route-wide.
+function useRoutePrecipitation() {
+  const [state, setState] = React.useState({ status: 'loading' });
+  React.useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const race = window.RACES[window.getCurrentRaceId()];
+        const segs = race.baseSegments || [];
+        const points = [];
+        if (race.startLat != null && race.startLon != null) {
+          points.push({ lat: race.startLat, lon: race.startLon, mile: 0, label: segs[0] ? segs[0].from : 'Start', segId: null });
+        }
+        segs.forEach(s => {
+          if (s.lat != null && s.lon != null) points.push({ lat: s.lat, lon: s.lon, mile: s.miE, label: s.to, segId: s.id });
+        });
+        if (points.length < 2) { setState({ status: 'unavailable' }); return; }
+        const raceDate = race.startDate.slice(0, 10);
+        const lats = points.map(p => p.lat).join(',');
+        const lons = points.map(p => p.lon).join(',');
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&hourly=precipitation_probability,precipitation&start_date=${raceDate}&end_date=${raceDate}&precipitation_unit=inch&timezone=America%2FDenver`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('bad response');
+        const raw = await res.json();
+        if (cancelled) return;
+        // Multi-location requests return a JSON array, one entry per point
+        // in the same order requested -- same shape confirmed already for
+        // the temperature hook above, holds the same way here.
+        const dataArr = Array.isArray(raw) ? raw : [raw];
+        if (!dataArr[0] || !dataArr[0].hourly) { setState({ status: 'unavailable' }); return; }
+        const results = points.map((p, i) => ({
+          ...p,
+          hourlyProb: dataArr[i] && dataArr[i].hourly ? dataArr[i].hourly.precipitation_probability : null,
+          hourlyAmt: dataArr[i] && dataArr[i].hourly ? dataArr[i].hourly.precipitation : null,
+        }));
+        function pointForSegment(segId) {
+          if (segId == null) return results[0];
+          return results.find(r => r.segId === segId) || null;
+        }
+        // Nearest-hour lookup rather than interpolated -- precipitation
+        // probability isn't a smooth continuous quantity the way
+        // temperature is, so splitting the difference between two hourly
+        // readings would imply more precision than the data actually has.
+        function probAtSegmentAndHour(segId, decHour) {
+          const pt = pointForSegment(segId);
+          if (!pt || !pt.hourlyProb) return null;
+          const h = Math.max(0, Math.min(23, Math.round(decHour)));
+          return pt.hourlyProb[h];
+        }
+        function amountAtSegmentAndHour(segId, decHour) {
+          const pt = pointForSegment(segId);
+          if (!pt || !pt.hourlyAmt) return null;
+          const h = Math.max(0, Math.min(23, Math.round(decHour)));
+          return pt.hourlyAmt[h];
+        }
+        const allProbs = results.flatMap(r => r.hourlyProb || []).filter(v => v != null);
+        const maxProbAnywhere = allProbs.length ? Math.max(...allProbs) : null;
+        setState({ status: 'ok', points: results, probAtSegmentAndHour, amountAtSegmentAndHour, maxProbAnywhere });
+      } catch (e) {
+        if (!cancelled) setState({ status: 'error' });
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+  return state;
+}
+
 function RaceDayForecastWidget() {
   const f = useRaceDayForecast();
+  const precip = useRoutePrecipitation();
   const { targetHours } = React.useContext(window.TargetHoursContext);
   const race = window.RACES[window.getCurrentRaceId()];
 
@@ -304,6 +380,10 @@ function RaceDayForecastWidget() {
         ...(finishDecHour !== null ? [{
           label: 'At finish', value: finishTemp == null ? '\u2014' : `${Math.round(finishTemp)}\u00b0F`,
           sub: `${fmtDecHour(finishDecHour)} \u00b7 ${targetHours}hr target`, color: finishColor,
+        }] : []),
+        ...(precip.status === 'ok' && precip.maxProbAnywhere != null ? [{
+          label: 'Precip Chance', value: `${precip.maxProbAnywhere}%`,
+          sub: 'anywhere on route', color: precip.maxProbAnywhere >= 40 ? '#4A9FE8' : 'var(--ink)',
         }] : []),
       ]
     : null;
@@ -1795,3 +1875,4 @@ function Overview({ goTo, externalCardPanelOpen, onCardPanelToggle, externalRace
 }
 window.Overview = Overview;
 window.useRaceDayForecast = useRaceDayForecast;
+window.useRoutePrecipitation = useRoutePrecipitation;

@@ -80,7 +80,10 @@ function smoothElevation(points, windowSize = 5) {
 }
 
 // Resamples the smoothed track to ~0.1-mile bins, matching the format
-// gradeSegments already uses everywhere else in the app.
+// gradeSegments already uses everywhere else in the app. Also carries lat/lon
+// through via the same linear interpolation as elevation, so later code (aid
+// station precipitation, in particular) has an actual point on the ground
+// for any mile along the course, not just the race's single start coordinate.
 function resampleToBins(points, binSize = 0.1) {
   const totalMiles = points[points.length - 1].mile;
   const bins = [];
@@ -88,11 +91,13 @@ function resampleToBins(points, binSize = 0.1) {
   let lastElev = points[0].elevFt;
   for (let i = 1; i < points.length; i++) {
     while (points[i].mile >= nextTarget && nextTarget <= totalMiles) {
-      // linear-interpolate elevation at the exact bin mile
+      // linear-interpolate elevation (and lat/lon) at the exact bin mile
       const p0 = points[i - 1], p1 = points[i];
       const frac = p1.mile === p0.mile ? 0 : (nextTarget - p0.mile) / (p1.mile - p0.mile);
       const elev = p0.elevFt + (p1.elevFt - p0.elevFt) * frac;
-      bins.push({ mile: Math.round(nextTarget * 100) / 100, elev: Math.round(elev), prevElev: lastElev });
+      const lat = p0.lat + (p1.lat - p0.lat) * frac;
+      const lon = p0.lon + (p1.lon - p0.lon) * frac;
+      bins.push({ mile: Math.round(nextTarget * 100) / 100, elev: Math.round(elev), prevElev: lastElev, lat, lon });
       lastElev = elev;
       nextTarget += binSize;
     }
@@ -102,7 +107,7 @@ function resampleToBins(points, binSize = 0.1) {
     const prevMile = i === 0 ? 0 : bins[i - 1].mile;
     const distFt = (b.mile - prevMile) * 5280;
     const grade = distFt > 0 ? Math.round(((b.elev - b.prevElev) / distFt) * 1000) / 10 : 0;
-    return { mile: b.mile, elev: b.elev, grade };
+    return { mile: b.mile, elev: b.elev, grade, lat: b.lat, lon: b.lon };
   });
 }
 
@@ -146,6 +151,26 @@ function elevAtMileFromBins(bins, mile) {
   return bins[bins.length - 1].elev;
 }
 
+// Same lookup-by-mile as elevAtMileFromBins, for lat/lon instead of
+// elevation -- lets any segment boundary (aid station, start, finish) be
+// resolved to an actual point on the ground, for precipitation forecasting
+// specifically (temperature only ever needed elevation, since it's modeled
+// off a single lapse-rate adjustment; precipitation is far more
+// location-specific than that).
+function latLonAtMileFromBins(bins, mile) {
+  if (!bins.length || bins[0].lat == null) return null;
+  if (mile <= bins[0].mile) return { lat: bins[0].lat, lon: bins[0].lon };
+  for (let i = 1; i < bins.length; i++) {
+    if (bins[i].mile >= mile) {
+      const p0 = bins[i - 1], p1 = bins[i];
+      const frac = p1.mile === p0.mile ? 0 : (mile - p0.mile) / (p1.mile - p0.mile);
+      return { lat: p0.lat + (p1.lat - p0.lat) * frac, lon: p0.lon + (p1.lon - p0.lon) * frac };
+    }
+  }
+  const last = bins[bins.length - 1];
+  return { lat: last.lat, lon: last.lon };
+}
+
 function buildSegment(id, fromName, toName, miS, miE, allBins, allElevAtMile) {
   const segBins = allBins.filter(b => b.mile > miS && b.mile <= miE);
   const elevS = Math.round(allElevAtMile(miS));
@@ -159,6 +184,7 @@ function buildSegment(id, fromName, toName, miS, miE, allBins, allElevAtMile) {
   const grades = segBins.map(b => b.grade);
   const maxClimb = grades.length ? Math.max(...grades, 0) : 0;
   const maxDescent = grades.length ? Math.min(...grades, 0) : 0;
+  const endPoint = latLonAtMileFromBins(allBins, miE);
 
   const base = {
     id, from: fromName, to: toName, miS: Math.round(miS*100)/100, miE: Math.round(miE*100)/100,
@@ -167,6 +193,8 @@ function buildSegment(id, fromName, toName, miS, miE, allBins, allElevAtMile) {
     segGain: gain, segLoss: loss,
     netFt: `${netFt >= 0 ? '+' : ''}${netFt.toLocaleString()}`, netDir,
     elevS, elevE,
+    lat: endPoint ? Math.round(endPoint.lat * 1e5) / 1e5 : null,
+    lon: endPoint ? Math.round(endPoint.lon * 1e5) / 1e5 : null,
     conditions: '', // GPX can't tell us weather/terrain notes -- fill in on Overview
     cutoffClock: null, cutoffHours: null, // GPX can't tell us official cutoffs -- fill in on Overview
     amenities: { water: true, food: false, dropBag: false, crew: false }, // generic placeholder
